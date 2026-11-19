@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
 
-const driver = 'http://127.0.0.1:4444';
+const viaAppium = process.env.IOS_DRIVER === 'appium';
+const driver = viaAppium ? 'http://127.0.0.1:4723' : 'http://127.0.0.1:4444';
 const elementKey = 'element-6066-11e4-a52e-4f735466cecf';
 const gameUrl = new URL(process.env.GAME_URL);
 gameUrl.hash = 'battle';
@@ -19,9 +20,16 @@ async function command(method, path, body) {
   return payload.value;
 }
 
+const platform = viaAppium ? {
+  'appium:automationName': 'XCUITest', 'appium:udid': process.env.SIM_UDID,
+  'appium:initialDeeplinkUrl': gameUrl.href, 'appium:nativeWebTap': true, 'appium:wdaLaunchTimeout': 120_000,
+} : {'safari:useSimulator': true, 'safari:deviceUDID': process.env.SIM_UDID};
 const session = await command('POST', '/session', {capabilities: {alwaysMatch: {
-  browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': process.env.SIM_UDID,
-}}});
+  browserName: 'Safari', platformName: 'iOS', ...platform,
+}}}).catch(error => {
+  console.error(error);
+  process.exit(viaAppium ? 1 : 3);
+});
 console.log('Simulator Safari session', JSON.stringify(session.capabilities));
 const path = '/session/' + session.sessionId;
 const script = (code, ...args) => command('POST', path + '/execute/sync', {script: code, args});
@@ -55,11 +63,11 @@ const audioOnMap = (after) => waitFor('map music', `
 `, after);
 
 async function dismiss() {
-  const phase = await waitFor('combat opens', `const d=document.getElementById('combat-screen'); return d.open && d.dataset.phase;`);
-  if (phase !== 'result') await tap('#combat-advance');
-  assert.equal(await script(`return document.getElementById('combat-screen').dataset.outcome ?? null;`), null);
-  await tap('#combat-advance');
-  await waitFor('map returns', `return !document.getElementById('combat-screen').open;`);
+  await waitFor('map returns', `
+    const dialog=document.getElementById('combat-screen');
+    if (dialog.open && dialog.dataset.outcome) throw new Error('Unexpected early decision');
+    return !dialog.open;
+  `);
 }
 
 async function verify(outcome) {

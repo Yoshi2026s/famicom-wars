@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   safari:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
@@ -27,17 +27,32 @@ jobs:
           xcrun simctl list devices available -j > "$RUNNER_TEMP/devices.json"
           SIM_UDID=$(node -e '
             const list = require(process.argv[1]).devices;
-            const candidate = Object.entries(list).reverse().flatMap(([runtime, devices]) =>
-              runtime.includes("iOS") ? devices.filter(device => device.name === "iPhone 16") : []);
-            if (!candidate.length) throw Error("iPhone 16 simulator unavailable");
+            const candidate = Object.entries(list).sort(([a], [b]) => b.localeCompare(a, "en", {numeric:true}))
+              .flatMap(([runtime, devices]) => runtime.includes("iOS")
+                ? devices.filter(device => device.name === "iPhone 17").map(device => ({...device, runtime})) : []);
+            if (!candidate.length) throw Error("iPhone 17 simulator unavailable");
+            console.error("Using", candidate[0].name, candidate[0].runtime);
             process.stdout.write(candidate[0].udid);
           ' "$RUNNER_TEMP/devices.json")
           export SIM_UDID
-          xcrun simctl boot "$SIM_UDID"
           xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl openurl "$SIM_UDID" "$GAME_URL"
           sudo safaridriver --enable
           safaridriver --port 4444 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
           driver=$!
           trap 'kill "$driver" 2>/dev/null || true; cat "$RUNNER_TEMP/safaridriver.log"' EXIT
           curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4444/status
-          node scripts/verify-ios-safari.mjs
+          result=0
+          node scripts/verify-ios-safari.mjs || result=$?
+          if [[ "$result" != 3 ]]; then exit "$result"; fi
+
+          echo 'Native SafariDriver could not establish a session. Starting Appium on the same simulator.'
+          export APPIUM_HOME="$RUNNER_TEMP/appium-home"
+          npm install --prefix "$RUNNER_TEMP/appium" --no-audit --no-fund appium@3.9.1
+          appium="$RUNNER_TEMP/appium/node_modules/.bin/appium"
+          "$appium" driver install xcuitest@13.1.3
+          "$appium" --address 127.0.0.1 --port 4723 --log-level warn > "$RUNNER_TEMP/appium.log" 2>&1 &
+          appium_pid=$!
+          trap 'kill "$driver" "$appium_pid" 2>/dev/null || true; tail -n 70 "$RUNNER_TEMP/appium.log"' EXIT
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4723/status
+          IOS_DRIVER=appium node scripts/verify-ios-safari.mjs
