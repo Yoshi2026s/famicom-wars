@@ -2,7 +2,7 @@ const music = (() => {
   const player = document.getElementById('bgm-player');
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
-  const tracks = {map: './assets/bgm-map.wav', battle: './assets/bgm-battle.wav'};
+  const tracks = {map: './assets/bgm-map.mp3', battle: './assets/bgm-battle.mp3'};
   const positions = {map: 0, battle: 0};
   let battleSource = tracks.battle;
   let battleRequested = false;

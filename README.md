@@ -44,7 +44,7 @@ node dev-server.mjs
 - `test/` に自動テストを置きます。変更後は `node --test` を実行します。
 
 - 盤面・風景・歩兵のドット絵の編集元は `scripts/draw-assets.mjs` です。`node scripts/draw-assets.mjs` で `public/assets/` のPNGを再生成できます。
-- BGMの曲データとWAV生成は `scripts/compose-bgm.mjs` にあります。`node scripts/compose-bgm.mjs` で2曲を再生成できます。
+- BGMの曲データとMP3生成は `scripts/compose-bgm.mjs` にあります。`pnpm install --frozen-lockfile` で生成用の依存関係を取得し、`node scripts/compose-bgm.mjs` で2曲を再生成できます。
 
 ## GitHub Pages への公開
 

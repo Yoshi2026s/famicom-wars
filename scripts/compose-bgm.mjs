@@ -1,5 +1,6 @@
-// Original loop scores. Run with Node.js to render the mono PCM files.
+// Original loop scores and their published audio files.
 import { writeFileSync } from 'node:fs';
+import { Mp3Encoder } from '@breezystack/lamejs';
 
 const sampleRate = 22050;
 const twoPi = 2 * Math.PI;
@@ -105,13 +106,12 @@ function render({bpm, chords, melody}, battle) {
 
 for (const [name, score, battle] of [['bgm-map', mapScore, false], ['bgm-battle', battleScore, true]]) {
   const samples = render(score, battle);
-  const wav = Buffer.alloc(44 + samples.length * 2);
-  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4);
-  wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16);
-  wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
-  wav.writeUInt32LE(sampleRate, 24); wav.writeUInt32LE(sampleRate * 2, 28);
-  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
-  wav.write('data', 36); wav.writeUInt32LE(samples.length * 2, 40);
-  for (let i = 0; i < samples.length; i++) wav.writeInt16LE(Math.round(Math.tanh(samples[i] * 1.34) * 27300), 44 + i * 2);
-  writeFileSync(new URL(`../public/assets/${name}.wav`, import.meta.url), wav);
+  const pcm = Int16Array.from(samples, (value) => Math.round(Math.tanh(value * 1.34) * 27300));
+  const encoder = new Mp3Encoder(1, sampleRate, 48);
+  const frames = [];
+  for (let i = 0; i < pcm.length; i += 1152) {
+    frames.push(Buffer.from(encoder.encodeBuffer(pcm.subarray(i, i + 1152))));
+  }
+  frames.push(Buffer.from(encoder.flush()));
+  writeFileSync(new URL(`../public/assets/${name}.mp3`, import.meta.url), Buffer.concat(frames));
 }

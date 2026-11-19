@@ -1,0 +1,7 @@
+{
+  "name": "famicom-wars-prototype",
+  "private": true,
+  "devDependencies": {
+    "@breezystack/lamejs": "1.2.7"
+  }
+}

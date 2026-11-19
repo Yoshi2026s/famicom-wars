@@ -9,7 +9,7 @@ const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.png', 'image/png'],
-  ['.wav', 'audio/wav'],
+  ['.mp3', 'audio/mpeg'],
   ['.webp', 'image/webp'],
 ]);
 
@@ -31,7 +31,7 @@ export function createDevServer() {
         'Cache-Control': 'no-store',
         'Content-Length': body.length,
       };
-      if (extname(file) === '.wav') {
+      if (extname(file) === '.mp3') {
         headers['Accept-Ranges'] = 'bytes';
         if (request.headers.range) {
           const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range);
