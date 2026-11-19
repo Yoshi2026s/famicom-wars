@@ -35,26 +35,14 @@ jobs:
             process.stdout.write(candidate[0].udid);
           ' "$RUNNER_TEMP/devices.json")
           export SIM_UDID
-          sudo safaridriver --enable &
-          enable_driver=$!
-          xcrun simctl bootstatus "$SIM_UDID" -b
-          xcrun simctl openurl "$SIM_UDID" "$GAME_URL"
-          wait "$enable_driver"
-          safaridriver --port 4444 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
-          driver=$!
-          trap 'kill "$driver" 2>/dev/null || true; cat "$RUNNER_TEMP/safaridriver.log"' EXIT
-          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4444/status
-          result=0
-          node scripts/verify-ios-safari.mjs || result=$?
-          if [[ "$result" != 3 ]]; then exit "$result"; fi
-
-          echo 'Native SafariDriver could not connect or deliver a tap. Starting Appium on the same simulator.'
           export APPIUM_HOME="$RUNNER_TEMP/appium-home"
-          npm install --prefix "$RUNNER_TEMP/appium" --no-audit --no-fund appium@3.9.1
           appium="$RUNNER_TEMP/appium/node_modules/.bin/appium"
-          "$appium" driver install xcuitest@13.1.3
+          (npm install --prefix "$RUNNER_TEMP/appium" --no-audit --no-fund appium@4.0.0-beta.8 && "$appium" driver install xcuitest@13.1.3) &
+          install_pid=$!
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          wait "$install_pid"
           "$appium" --address 127.0.0.1 --port 4723 --log-level warn > "$RUNNER_TEMP/appium.log" 2>&1 &
           appium_pid=$!
-          trap 'kill "$driver" "$appium_pid" 2>/dev/null || true; tail -n 70 "$RUNNER_TEMP/appium.log"' EXIT
+          trap 'kill "$appium_pid" 2>/dev/null || true; tail -n 70 "$RUNNER_TEMP/appium.log"' EXIT
           curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4723/status
           IOS_DRIVER=appium node scripts/verify-ios-safari.mjs
