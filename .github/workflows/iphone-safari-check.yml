@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   safari:
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
