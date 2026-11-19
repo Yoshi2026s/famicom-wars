@@ -11,14 +11,18 @@ class TrainingMap {
 
   constructor(mode = 'training') {
     this.isBattle = mode === 'battle';
-    this.playerHP = this.isBattle ? 3 : 1;
-    this.enemyHP = this.isBattle ? 2 : 1;
+    this.playerHP = this.maxHP;
+    this.enemyHP = this.maxHP;
     this.enemyAction = null;
     if (this.isBattle) {
       this.x = 1;
       this.y = 3;
       this.enemy = {x: 3, y: 1};
     }
+  }
+
+  get maxHP() {
+    return this.isBattle ? 3 : 1;
   }
 
   get result() {
@@ -52,11 +56,9 @@ class TrainingMap {
 
   choose(x, y) {
     if (this.isEnemyAt(x, y) && this.canAttack) {
-      this.enemyHP -= 1;
-      if (this.enemyHP === 0) this.enemy = null;
       this.attacked = true;
       this.selected = false;
-      return;
+      return this.#exchange('player');
     }
     if (!this.canMove) return;
     if (x === this.x && y === this.y) {
@@ -74,12 +76,31 @@ class TrainingMap {
     this.selected = false;
     this.moved = false;
     this.attacked = false;
+    let strikes;
     if (this.isBattle) {
       this.enemyAction = this.planEnemyTurn();
       this.enemy = {...this.enemyAction.to};
-      if (this.enemyAction.hit) this.playerHP -= 1;
+      if (this.enemyAction.hit) strikes = this.#exchange('enemy');
     }
     if (!this.result) this.turn += 1;
+    return strikes;
+  }
+
+  #exchange(attacker) {
+    const strikes = [this.#strike(attacker)];
+    const defender = attacker === 'player' ? 'enemy' : 'player';
+    if (this.playerHP > 0 && this.enemyHP > 0) strikes.push(this.#strike(defender));
+    return strikes;
+  }
+
+  #strike(attacker) {
+    if (attacker === 'player') {
+      this.enemyHP -= 1;
+      if (this.enemyHP === 0) this.enemy = null;
+    } else {
+      this.playerHP -= 1;
+    }
+    return {attacker, playerHP: this.playerHP, enemyHP: this.enemyHP};
   }
 
   planEnemyTurn() {
