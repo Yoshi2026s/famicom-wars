@@ -35,9 +35,11 @@ jobs:
             process.stdout.write(candidate[0].udid);
           ' "$RUNNER_TEMP/devices.json")
           export SIM_UDID
+          sudo safaridriver --enable &
+          enable_driver=$!
           xcrun simctl bootstatus "$SIM_UDID" -b
           xcrun simctl openurl "$SIM_UDID" "$GAME_URL"
-          sudo safaridriver --enable
+          wait "$enable_driver"
           safaridriver --port 4444 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
           driver=$!
           trap 'kill "$driver" 2>/dev/null || true; cat "$RUNNER_TEMP/safaridriver.log"' EXIT
@@ -46,7 +48,7 @@ jobs:
           node scripts/verify-ios-safari.mjs || result=$?
           if [[ "$result" != 3 ]]; then exit "$result"; fi
 
-          echo 'Native SafariDriver could not establish a session. Starting Appium on the same simulator.'
+          echo 'Native SafariDriver could not connect or deliver a tap. Starting Appium on the same simulator.'
           export APPIUM_HOME="$RUNNER_TEMP/appium-home"
           npm install --prefix "$RUNNER_TEMP/appium" --no-audit --no-fund appium@3.9.1
           appium="$RUNNER_TEMP/appium/node_modules/.bin/appium"

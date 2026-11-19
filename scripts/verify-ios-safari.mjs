@@ -34,10 +34,36 @@ console.log('Simulator Safari session', JSON.stringify(session.capabilities));
 const path = '/session/' + session.sessionId;
 const script = (code, ...args) => command('POST', path + '/execute/sync', {script: code, args});
 const selector = (value) => command('POST', path + '/element', {using: 'css selector', value});
+class InputNotDelivered extends Error {}
 
 async function tap(value) {
   const element = await selector(value);
-  await command('POST', `${path}/element/${element[elementKey]}/click`, {});
+  const input = await script(`
+    const el=arguments[0];
+    el.scrollIntoView({block:'nearest',inline:'nearest'});
+    window.verificationTarget=el;
+    const rect=el.getBoundingClientRect();
+    return {x:Math.round(rect.x+rect.width/2),y:Math.round(rect.y+rect.height/2),events:window.inputVerification.length};
+  `, element);
+  try {
+    if (viaAppium) {
+      await command('POST', `${path}/element/${element[elementKey]}/click`, {});
+    } else {
+      await command('POST', path + '/actions', {actions: [{type:'pointer', id:'finger', parameters:{pointerType:'touch'}, actions:[
+        {type:'pointerMove', duration:0, origin:'viewport', x:input.x, y:input.y},
+        {type:'pointerDown', button:0}, {type:'pause', duration:70}, {type:'pointerUp', button:0},
+      ]}]});
+    }
+  } catch (error) {
+    throw new InputNotDelivered(value + ': ' + error.message);
+  }
+  for (let i = 0; i < 7; i++) {
+    const events = await script('return window.inputVerification.slice(arguments[0]);', input.events);
+    if (events.some(event => event.type === 'click' && event.matches && event.trusted)) return;
+    await delay(100);
+  }
+  const observed = await script('return window.inputVerification.slice(arguments[0]);', input.events);
+  throw new InputNotDelivered(value + ': no DOM click at ' + JSON.stringify({input, observed}));
 }
 
 async function waitFor(label, code, ...args) {
@@ -51,7 +77,8 @@ async function waitFor(label, code, ...args) {
     const a=document.querySelector('#bgm-player'), d=document.querySelector('#combat-screen');
     return {title:document.title, visibility:document.visibilityState, open:d?.open, phase:d?.dataset.phase,
       outcome:d?.dataset.outcome, loaded:a?.currentSrc, time:a?.currentTime, ready:a?.readyState, paused:a?.paused,
-      ended:a?.ended, error:a?.error?.message, events:window.mediaVerification?.slice(-16)};
+      ended:a?.ended, error:a?.error?.message, music:document.querySelector('main [data-bgm]')?.getAttribute('aria-pressed'),
+      events:window.mediaVerification?.slice(-16), input:window.inputVerification?.slice(-14)};
   `);
   throw new Error(label + ': ' + JSON.stringify(state));
 }
@@ -75,6 +102,12 @@ async function verify(outcome) {
   await waitFor('mission loads', `return document.querySelectorAll('#board button').length === 25;`);
   await script(`
     window.mediaVerification = [];
+    window.inputVerification = [];
+    for (const type of ['pointerdown','touchstart','touchend','click']) {
+      document.addEventListener(type,event=>window.inputVerification.push({type, trusted:event.isTrusted,
+        id:event.target.id, text:event.target.closest?.('button')?.textContent.trim(), active:navigator.userActivation?.isActive,
+        matches:window.verificationTarget?.contains(event.target)}),true);
+    }
     const play = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function(...args) {
       const entry = {source:this.src, active:navigator.userActivation?.isActive};
@@ -133,6 +166,10 @@ async function verify(outcome) {
 try {
   await verify('victory');
   await verify('defeat');
+} catch (error) {
+  if (!(error instanceof InputNotDelivered) || viaAppium) throw error;
+  console.error(error);
+  process.exitCode = 3;
 } finally {
   await command('DELETE', path);
 }
