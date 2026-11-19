@@ -4,6 +4,8 @@ const music = (() => {
   const setting = 'famicom-wars-bgm';
   const tracks = {map: './assets/bgm-map.wav', battle: './assets/bgm-battle.wav'};
   const positions = {map: 0, battle: 0};
+  let battleSource = tracks.battle;
+  let battleRequested = false;
   let enabled = false;
   let unavailable = false;
   let interacted = false;
@@ -32,12 +34,24 @@ const music = (() => {
     }
     if (loadedScene !== scene) {
       if (loadedScene) positions[loadedScene] = player.currentTime;
-      player.src = tracks[scene];
+      player.src = scene === 'battle' ? battleSource : tracks.map;
       player.currentTime = positions[scene];
       loadedScene = scene;
       start();
     } else if (player.paused) {
       start();
+    }
+    if (scene === 'map' && !battleRequested && location.protocol !== 'file:') {
+      battleRequested = true;
+      fetch(tracks.battle)
+        .then((response) => {
+          if (!response.ok) throw new Error('Battle music is unavailable');
+          return response.blob();
+        })
+        .then((track) => { battleSource = URL.createObjectURL(track); })
+        .catch(() => {
+          // The player can still request the original URL on entering combat.
+        });
     }
   }
 
