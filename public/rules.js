@@ -95,13 +95,18 @@ class TrainingMap {
   }
 
   #strike(attacker) {
-    if (attacker === 'player') {
-      this.enemyHP -= 1;
+    const playerAttacks = attacker === 'player';
+    const attackingHP = playerAttacks ? this.playerHP : this.enemyHP;
+    const defendingHP = playerAttacks ? this.enemyHP : this.playerHP;
+    const strength = attackingHP >= 8 ? 3 : attackingHP >= 4 ? 2 : 1;
+    const damage = Math.min(strength, defendingHP);
+    if (playerAttacks) {
+      this.enemyHP -= damage;
       if (this.enemyHP === 0) this.enemy = null;
     } else {
-      this.playerHP -= 1;
+      this.playerHP -= damage;
     }
-    return {attacker, playerHP: this.playerHP, enemyHP: this.enemyHP};
+    return {attacker, damage, playerHP: this.playerHP, enemyHP: this.enemyHP};
   }
 
   planEnemyTurn() {
