@@ -74,9 +74,9 @@ const instruments = {
   bass: {attack: .022, wave: (phase) => .9 * Math.sin(phase) + .27 * Math.sin(2 * phase)},
 };
 
-function arrange({bpm, harmony, melody}, battle) {
+function synthesizer(bpm, beats) {
   const beat = 60 / bpm;
-  const length = Math.round(harmony.length * 4 * beat * sampleRate);
+  const length = Math.round(beats * beat * sampleRate);
   const left = new Float32Array(length);
   const right = new Float32Array(length);
   let seed = 9627;
@@ -119,6 +119,11 @@ function arrange({bpm, harmony, melody}, battle) {
       return gain * waveform * Math.min(1, t / .003) * (1 - t / duration) ** 3;
     });
   }
+  return {channels: [left, right], note, percussion};
+}
+
+function arrange({bpm, harmony, melody}, battle) {
+  const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4);
 
   for (const [bar, chord] of harmony.entries()) {
     const [root, ...tones] = chords[chord];
@@ -175,7 +180,22 @@ function arrange({bpm, harmony, melody}, battle) {
       percussion(start + step, 'snare', .041, -.14);
     }
   }
-  return [left, right];
+  return channels;
+}
+
+function arrangeFinale({bpm, beats, melody, harmony, accents, lead}) {
+  const {channels, note, percussion} = synthesizer(bpm, beats);
+  for (const [start, length, pitches] of harmony) {
+    const [root, ...voices] = pitches;
+    note(start, length, root, .100, 'bass');
+    voices.forEach((pitch, index) => note(start, length, pitch, .072, 'strings', (index - 1) * .68));
+  }
+  for (const [start, length, pitch] of melody) {
+    note(start, length, pitch, .20, lead, -.13);
+    note(start + .12, length * .83, pitch - 12, .055, 'piano', .53);
+  }
+  for (const [start, gain] of accents) percussion(start, 'tom', gain);
+  return channels;
 }
 
 function encode(channels) {
@@ -196,4 +216,22 @@ function encode(channels) {
 
 for (const [name, score, battle] of [['bgm-map', mapScore, false], ['bgm-battle', battleScore, true]]) {
   writeFileSync(new URL('../public/assets/' + name + '.mp3', import.meta.url), encode(arrange(score, battle)));
+}
+
+const victory = {
+  bpm: 118, beats: 10.75, lead: 'horn',
+  melody: [[0,.36,67],[.5,.36,72],[1,.43,76],[1.5,1.24,79],[3,.52,76],[3.75,.52,79],[4.5,.76,84],[5.5,.58,83],[6.25,3.25,84]],
+  harmony: [[0,2.78,[48,55,60,64]],[3,1.38,[45,57,60,64]],[4.5,.88,[41,60,65,69]],
+    [5.5,.65,[43,55,62,71]],[6.25,3.65,[48,55,64,72]]],
+  accents: [[0,.18],[1.5,.12],[4.5,.12],[6.25,.18]],
+};
+const defeat = {
+  bpm: 76, beats: 8.25, lead: 'flute',
+  melody: [[0,.85,76],[1,.75,74],[2,.9,72],[3,.62,69],[3.75,.8,68],[4.75,2.68,69]],
+  harmony: [[0,1.84,[45,57,60,64]],[2,.93,[41,53,60,65]],[3,1.58,[40,52,59,68]],
+    [4.75,2.75,[45,52,57,60]]],
+  accents: [[0,.072],[4.75,.045]],
+};
+for (const [name, score] of [['victory', victory], ['defeat', defeat]]) {
+  writeFileSync(new URL('../public/assets/bgm-' + name + '.mp3', import.meta.url), encode(arrangeFinale(score)));
 }
