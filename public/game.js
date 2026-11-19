@@ -14,6 +14,7 @@ function coordinate(x, y) {
 }
 
 function render() {
+  const spent = !game.canMove && !game.canAttack;
   if (!game.enemy) opposingTroop.remove();
   for (const cell of cells) {
     const {x, y, button} = cell;
@@ -26,10 +27,9 @@ function render() {
     button.classList.toggle('target', target);
     button.classList.toggle('selected', occupied && game.selected);
     button.classList.toggle('reachable', reachable);
-    const spent = occupied && game.moved && !game.canAttack;
-    button.classList.toggle('spent', spent);
+    button.classList.toggle('spent', occupied && spent);
     button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方歩兵' : enemy ? '敵歩兵' : '草原',
-      target ? '攻撃可能' : '', reachable ? '移動可能' : '', spent ? '行動済み' : '',
+      target ? '攻撃可能' : '', reachable ? '移動可能' : '', occupied && spent ? '行動済み' : '',
       occupied && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
     if (occupied && troop.parentNode !== button) button.append(troop);
     if (enemy && opposingTroop.parentNode !== button) button.append(opposingTroop);
@@ -39,13 +39,15 @@ function render() {
   document.getElementById('turn').textContent = String(game.turn).padStart(2, '0');
   const state = document.getElementById('state');
   const message = document.getElementById('message');
-  state.classList.toggle('spent', game.moved && !game.canAttack);
+  state.classList.toggle('spent', spent);
   state.classList.toggle('attack-ready', game.canAttack);
   document.getElementById('replay').hidden = game.enemy !== null;
   if (game.canAttack) {
     state.textContent = '攻撃可能';
-    message.textContent = coordinate(game.enemy.x, game.enemy.y) + ' の敵歩兵を選ぶと攻撃できます。';
-  } else if (game.moved) {
+    const target = coordinate(game.enemy.x, game.enemy.y);
+    message.textContent = target + ' の敵歩兵を選ぶと、その場で攻撃できます。'
+      + (game.selected ? ' 移動するには印のある草原を選びます。' : '');
+  } else if (spent) {
     state.textContent = '行動済み';
     message.textContent = game.attacked ? '敵歩兵を撃破しました！' : position + ' に移動しました。ターンを終了できます。';
   } else if (game.selected) {

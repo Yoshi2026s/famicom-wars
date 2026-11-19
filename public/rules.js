@@ -14,13 +14,17 @@ class TrainingMap {
   }
 
   get canAttack() {
-    return this.moved && this.enemy !== null
+    return !this.attacked && this.enemy !== null
       && Math.abs(this.x - this.enemy.x) + Math.abs(this.y - this.enemy.y) === 1;
+  }
+
+  get canMove() {
+    return !this.moved && !this.attacked;
   }
 
   canMoveTo(x, y) {
     const distance = Math.abs(this.x - x) + Math.abs(this.y - y);
-    return this.selected && !this.moved && Number.isInteger(x) && Number.isInteger(y)
+    return this.selected && this.canMove && Number.isInteger(x) && Number.isInteger(y)
       && x >= 0 && y >= 0 && x < TrainingMap.size && y < TrainingMap.size
       && distance > 0 && distance <= TrainingMap.movement
       && !this.isEnemyAt(x, y)
@@ -29,13 +33,13 @@ class TrainingMap {
   }
 
   choose(x, y) {
-    if (this.moved) {
-      if (this.canAttack && this.isEnemyAt(x, y)) {
-        this.enemy = null;
-        this.attacked = true;
-      }
+    if (this.isEnemyAt(x, y) && this.canAttack) {
+      this.enemy = null;
+      this.attacked = true;
+      this.selected = false;
       return;
     }
+    if (!this.canMove) return;
     if (x === this.x && y === this.y) {
       this.selected = !this.selected;
     } else if (this.canMoveTo(x, y)) {

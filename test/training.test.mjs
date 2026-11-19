@@ -51,7 +51,7 @@ test('選択中でも移動せずにターン終了でき、選択が解除さ�
   assert.deepEqual([map.turn, map.x, map.y, map.selected, map.moved], [2, 2, 2, false, false]);
 });
 
-test('移動前や斜め・範囲外から敵を選んでも攻撃は発生しない', () => {
+test('敵と隣接していなければ、移動の前後や斜めから敵を選んでも攻撃は発生しない', () => {
   for (const [x, y] of [[3, 2], [0, 2]]) {
     const map = new TrainingMap();
     assert.deepEqual(map.enemy, {x: 4, y: 1});
@@ -91,22 +91,46 @@ test('上下左右の隣から敵だけを攻撃でき、連打やターン終�
   }
 });
 
-test('攻撃を見送ると権利が切れ、敵のいるマスには入れず通過もできない', () => {
+test('隣接したまま次のターンを迎えても、別のマスを選べば先に移動できる', () => {
   const map = new TrainingMap();
   map.choose(2, 2);
   map.choose(4, 2); // E3, just below the enemy at E2.
   assert.equal(map.canAttack, true);
   map.endTurn();
-  map.choose(4, 1);
-  assert.equal(map.canAttack, false);
+  assert.equal(map.canAttack, true);
   assert.equal(map.isEnemyAt(4, 1), true);
   map.choose(4, 2);
   assert.equal(map.canMoveTo(4, 0), false);
   assert.equal(map.canMoveTo(4, 1), false);
-  map.choose(4, 1);
+  map.choose(4, 0); // The occupied square blocks passage to E1.
   assert.deepEqual([map.x, map.y, map.moved, map.selected], [4, 2, false, true]);
   map.choose(3, 1); // D2 is accessible through D3.
   assert.equal(map.canAttack, true);
   map.choose(4, 1);
   assert.equal(map.enemy, null);
 });
+
+for (const selectInfantry of [true, false]) {
+  test(`3ターン目にD2からE2の敵をその場で攻撃できる（味方${selectInfantry ? '選択中' : '未選択'}）`, () => {
+    const map = new TrainingMap();
+    map.choose(2, 2);
+    map.choose(3, 1);
+    map.endTurn();
+    map.endTurn();
+    if (selectInfantry) map.choose(3, 1);
+    assert.equal(map.canAttack, true);
+    assert.equal(map.canMoveTo(3, 2), selectInfantry);
+    map.choose(4, 1);
+    assert.deepEqual([map.turn, map.x, map.y, map.enemy], [3, 3, 1, null]);
+    assert.deepEqual([map.selected, map.moved, map.attacked], [false, false, true]);
+    map.choose(4, 1);
+    map.choose(3, 1);
+    map.choose(4, 1);
+    assert.equal(map.canAttack, false);
+    assert.deepEqual([map.x, map.y, map.selected], [3, 1, false]);
+    map.endTurn();
+    map.choose(3, 1);
+    map.choose(4, 1);
+    assert.deepEqual([map.x, map.y, map.enemy], [4, 1, null]);
+  });
+}

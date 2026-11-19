@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css">
-    <script defer src="./rules.js"></script>
-    <script defer src="./game.js"></script>
+    <script defer src="./rules.js?v=adjacent-turn"></script>
+    <script defer src="./game.js?v=adjacent-turn"></script>
   </head>
   <body>
     <header class="masthead">
@@ -54,7 +54,7 @@
     </main>
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>
-      <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>敵の上下左右に移動すると、赤い敵歩兵に「攻撃」の印が付きます。その敵を選ぶと1回で撃破できます。</li><li>「ターン終了」で次のターンに進みます。攻撃を見送ることもできます。</li></ol>
+      <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと1回で撃破し、そのターンの行動を終えます。</li><li>「ターン終了」で次のターンに進みます。敵の隣でターンを始めたら、移動せずにその敵を選んで攻撃できます。</li></ol>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
     </dialog>
