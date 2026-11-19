@@ -4,11 +4,16 @@ const combatScreen = (() => {
   const status = document.getElementById('combat-status');
   const stage = document.getElementById('combat-stage');
   const camera = dialog.querySelector('.combat-camera');
+  const backdrop = camera.querySelector('.combat-backdrop img');
   const volley = camera.querySelector('.combat-volley');
   const impactEffects = camera.querySelector('.combat-hit');
   const formations = {player: camera.querySelector('.ally'), enemy: camera.querySelector('.foe')};
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let scene = null;
+
+  backdrop.decode().then(() => backdrop.classList.add('is-ready')).catch(() => {
+    // Keep the painted fallback if the panorama fails to load.
+  });
 
   function showForces({playerHP, enemyHP}, animateLoss = false) {
     for (const [side, hp] of [

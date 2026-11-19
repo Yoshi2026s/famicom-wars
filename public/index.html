@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=highland">
-    <link rel="stylesheet" href="./combat.css?v=volley">
+    <link rel="stylesheet" href="./combat.css?v=volley-2">
     <script defer src="./rules.js?v=terrain"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=volley"></script>
-    <script defer src="./combat.js?v=volley"></script>
+    <script defer src="./combat.js?v=volley-2"></script>
     <script defer src="./game.js?v=graphics-bgm"></script>
   </head>
   <body>
@@ -107,7 +107,9 @@
         </div>
         <div class="combat-field" aria-hidden="true">
           <div class="combat-camera">
-            <div class="combat-backdrop"></div>
+            <div class="combat-backdrop">
+              <img src="./assets/highland-dusk.webp" alt="" decoding="async" fetchpriority="low">
+            </div>
             <div class="combat-atmosphere"></div>
             <div class="formation ally"></div><div class="formation foe"></div>
             <div class="combat-volley"><i></i><i></i><i></i></div>
