@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=infantry-battle">
-    <script defer src="./rules.js?v=infantry-battle"></script>
-    <script defer src="./game.js?v=infantry-battle"></script>
+    <link rel="stylesheet" href="./style.css?v=combat-screen">
+    <link rel="stylesheet" href="./combat.css?v=combat-screen">
+    <script defer src="./rules.js?v=combat-screen"></script>
+    <script defer src="./combat.js?v=combat-screen"></script>
+    <script defer src="./game.js?v=combat-screen"></script>
   </head>
   <body>
     <header class="masthead">
@@ -65,9 +67,27 @@
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>
       <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと1ダメージを与え、そのターンの味方の行動が終わります。</li><li>「ターン終了」で次に進みます。敵の隣でターンを始めたら、その場で攻撃できます。</li></ol>
+      <p>攻撃が始まると戦闘画面に切り替わります。戦闘は自動で進み、残りHPを表示してマップへ戻ります。「演出をスキップ」で結果をすぐに確認できます。</p>
       <p id="mission-rules">歩兵訓練では敵はその場で待機します。攻撃1回で撃破できます。</p>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
+    </dialog>
+    <dialog id="combat-screen" aria-labelledby="combat-title">
+      <div class="combat-frame">
+        <header class="combat-heading"><h2 id="combat-title" tabindex="-1">戦闘</h2><span id="combat-turn"></span></header>
+        <div class="combat-teams">
+          <div class="combat-team ally"><strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span></div>
+          <div class="combat-team foe"><strong>敵歩兵</strong><span class="combat-hp">HP <b id="combat-enemy-hp"></b></span></div>
+        </div>
+        <div class="combat-field" aria-hidden="true">
+          <div class="formation ally"></div><div class="formation foe"></div>
+          <i class="combat-volley"></i><i class="combat-impact"></i>
+        </div>
+        <div class="combat-controls">
+          <p id="combat-status" role="status" aria-atomic="true"></p>
+          <button type="button" id="combat-advance" class="end">演出をスキップ</button>
+        </div>
+      </div>
     </dialog>
   </body>
 </html>

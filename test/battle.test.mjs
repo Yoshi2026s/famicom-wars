@@ -10,6 +10,23 @@ function beginEncounter() {
   return game;
 }
 
+test('戦闘画面を開く前の敵行動の確認は、位置・ターン・HPを進めない', () => {
+  const game = new TrainingMap('battle');
+  const beforeMove = structuredClone(game);
+  assert.equal(game.planEnemyTurn().hit, false);
+  assert.deepEqual(structuredClone(game), beforeMove);
+  game.choose(1, 3);
+  game.choose(2, 2);
+  const beforeAttack = structuredClone(game);
+  const action = game.planEnemyTurn();
+  assert.deepEqual(action, {turn: 1, from: {x: 3, y: 1}, to: {x: 2, y: 1}, hit: true});
+  assert.deepEqual(structuredClone(game), beforeAttack);
+  game.endTurn();
+  assert.deepEqual(game.enemyAction, action);
+  assert.deepEqual([game.turn, game.playerHP], [2, 2]);
+  assert.equal(new TrainingMap().planEnemyTurn(), null);
+});
+
 test('歩兵戦では敵が最大1マス近づき、隣接したターンだけ1ダメージを与える', () => {
   const game = new TrainingMap('battle');
   assert.deepEqual([game.x, game.y, game.playerHP, game.enemyHP], [1, 3, 3, 2]);

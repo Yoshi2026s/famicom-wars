@@ -130,7 +130,12 @@ for (let y = 0; y < TrainingMap.size; y++) {
     button.tabIndex = x === game.x && y === game.y ? 0 : -1;
     button.addEventListener('focus', () => setBoardTabStop(button));
     button.addEventListener('click', () => {
-      if (game === pendingEnemyTurn || game.result) return;
+      if (combatScreen.active || game === pendingEnemyTurn || game.result) return;
+      if (game.canAttack && game.isEnemyAt(x, y)) {
+        const acting = game;
+        presentAttack(acting, 'player', () => acting.choose(x, y));
+        return;
+      }
       game.choose(x, y);
       render();
     });
@@ -149,11 +154,15 @@ for (let y = 0; y < TrainingMap.size; y++) {
 }
 
 document.getElementById('end').addEventListener('click', (event) => {
-  if (game === pendingEnemyTurn || game.result) return;
+  if (combatScreen.active || game === pendingEnemyTurn || game.result) return;
   const ending = game;
   if (!ending.isBattle) {
     if (event.detail > 1) return;
     finishTurn(ending);
+    return;
+  }
+  if (ending.planEnemyTurn().hit) {
+    presentAttack(ending, 'enemy', () => ending.endTurn());
     return;
   }
   pendingEnemyTurn = ending;
@@ -163,6 +172,20 @@ document.getElementById('end').addEventListener('click', (event) => {
     finishTurn(ending);
   }, 450);
 });
+
+function presentAttack(acting, attacker, resolve) {
+  combatScreen.open(acting, attacker, resolve, (restoreFocus) => {
+    if (game !== acting) return;
+    const friendly = cells[acting.y * TrainingMap.size + acting.x].button;
+    setBoardTabStop(friendly);
+    render();
+    if (restoreFocus) {
+      const control = acting.result ? document.getElementById('replay')
+        : attacker === 'player' ? document.getElementById('end') : friendly;
+      control.focus({preventScroll: true});
+    }
+  });
+}
 
 function finishTurn(ending) {
   ending.endTurn();
@@ -183,6 +206,7 @@ document.getElementById('replay').addEventListener('click', () => {
   cells[game.y * TrainingMap.size + game.x].button.focus();
 });
 window.addEventListener('hashchange', () => {
+  combatScreen.close(false);
   showMission();
   document.getElementById('mission-title').focus({preventScroll: true});
   window.scrollTo(0, 0);
