@@ -2,13 +2,60 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ファミコンウォーズ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#18392d">
+    <title>ファミコンウォーズ｜はじまりの草原</title>
+    <link rel="stylesheet" href="./style.css">
+    <script defer src="./rules.js"></script>
+    <script defer src="./game.js"></script>
   </head>
   <body>
+    <header class="masthead">
+      <div class="mast-inner">
+        <div class="brand"><span class="brand-icon" aria-hidden="true">⚑</span>ファミコンウォーズ</div>
+        <button class="help" id="help" type="button"><span aria-hidden="true">?</span> 遊び方</button>
+      </div>
+    </header>
     <main>
-      <h1>ファミコンウォーズ</h1>
-      <p>開発中です。</p>
+      <div class="intro">
+        <div><p class="eyebrow"><i aria-hidden="true"></i> 歩兵訓練</p><h1>はじまりの草原</h1></div>
+        <div class="turn"><span>ターン</span><strong id="turn">01</strong></div>
+      </div>
+      <div class="layout">
+        <section class="map-panel" aria-labelledby="map-title">
+          <div class="map-bar"><h2 id="map-title"><span class="map-icon" aria-hidden="true">▦</span> 作戦マップ</h2><span class="dimensions">5 × 5</span></div>
+          <div class="map-surround">
+            <div class="chart">
+              <div class="letters" aria-hidden="true"><b>A</b><b>B</b><b>C</b><b>D</b><b>E</b></div>
+              <div class="numbers" aria-hidden="true"><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b></div>
+              <div class="board" id="board" role="group" aria-label="5列5行の作戦マップ"></div>
+            </div>
+          </div>
+          <div class="legend"><span><i class="friendly-key"></i>味方歩兵</span><span><i class="range-key"></i>移動できるマス</span></div>
+        </section>
+        <aside class="sidebar" aria-label="部隊と操作">
+          <section class="unit-panel" aria-labelledby="unit-title">
+            <div class="panel-heading"><h2 id="unit-title">部隊情報</h2><span class="state" id="state">行動可能</span></div>
+            <div class="portrait" aria-hidden="true"><img src="./assets/infantry.png" alt=""></div>
+            <div class="unit-details">
+              <h3>歩兵</h3>
+              <dl><div><dt>現在地</dt><dd id="position">C3</dd></div><div><dt>移動力</dt><dd>2<span> マス</span></dd></div></dl>
+            </div>
+          </section>
+          <section class="orders" aria-labelledby="orders-title">
+            <h2 id="orders-title">行動指示</h2>
+            <p id="message" role="status" aria-live="polite" aria-atomic="true">盤面の歩兵を選んでください。</p>
+            <button id="end" class="end" type="button">ターン終了 <span aria-hidden="true">→</span></button>
+          </section>
+        </aside>
+      </div>
+      <noscript>ゲームを遊ぶにはJavaScriptを有効にしてください。</noscript>
     </main>
+    <dialog id="guide" aria-labelledby="guide-title">
+      <h2 id="guide-title">遊び方</h2>
+      <ol><li>盤面の歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。</li><li>「ターン終了」で次のターンに進み、歩兵が再び行動できます。</li></ol>
+      <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
+      <form method="dialog"><button class="end">閉じる</button></form>
+    </dialog>
   </body>
 </html>
