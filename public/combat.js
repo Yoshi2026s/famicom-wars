@@ -38,6 +38,7 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'attack';
     const team = attacker === 'player' ? '味方歩兵' : '敵歩兵';
     status.textContent = team + (scene.nextStrike === 0 ? 'の攻撃！' : 'の反撃！');
+    if (motion.matches) scene.soundTimer = setTimeout(() => combatAudio.play('shot'), 100);
     scene.timer = setTimeout(showImpact, motion.matches ? 250 : 1100);
   }
 
@@ -61,12 +62,15 @@ const combatScreen = (() => {
     cover.hidden = !defense;
     status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.phase = 'impact';
+    combatAudio.play('impact');
     const next = scene.strikes[scene.nextStrike];
     scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, motion.matches ? 460 : 740);
   }
 
   function showResult() {
     clearTimeout(scene.timer);
+    clearTimeout(scene.soundTimer);
+    combatAudio.stop();
     scene.strikes ??= scene.resolve();
     const [attack, counter] = scene.strikes;
     const outcome = counter ?? attack;
@@ -90,6 +94,8 @@ const combatScreen = (() => {
     const completed = scene;
     scene = null;
     clearTimeout(completed.timer);
+    clearTimeout(completed.soundTimer);
+    combatAudio.stop();
     removeRetreatingFighters();
     dialog.close();
     completed.onReturn(restoreFocus);
@@ -108,12 +114,16 @@ const combatScreen = (() => {
     event.preventDefault();
     if (scene) advanceScene();
   });
+  dialog.querySelector('.combat-volley').addEventListener('animationstart', (event) => {
+    if (scene && dialog.dataset.phase === 'attack' && event.animationName === 'tracer') combatAudio.play('shot');
+  });
 
   return {
     get active() { return scene !== null; },
     open(map, attacker, resolve, onReturn) {
       if (scene) return;
-      scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null};
+      combatAudio.unlock();
+      scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, soundTimer: null};
       dialog.classList.toggle('platoon', map.isBattle);
       const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
       for (const [side, team, position] of [['player', 'ally', map], ['enemy', 'foe', enemyPosition]]) {

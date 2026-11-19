@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=terrain">
-    <link rel="stylesheet" href="./combat.css?v=battle-action">
+    <link rel="stylesheet" href="./style.css?v=battle-audio">
+    <link rel="stylesheet" href="./combat.css?v=battle-audio">
     <script defer src="./rules.js?v=terrain"></script>
-    <script defer src="./combat.js?v=battle-action"></script>
+    <script defer src="./combat-audio.js?v=battle-audio"></script>
+    <script defer src="./combat.js?v=battle-audio"></script>
     <script defer src="./game.js?v=terrain"></script>
   </head>
   <body>
@@ -19,10 +20,13 @@
       </div>
     </header>
     <main>
-      <nav class="missions" aria-label="作戦選択">
-        <a id="training-link" href="#training" aria-current="page">歩兵訓練</a>
-        <a id="battle-link" href="#battle">歩兵戦</a>
-      </nav>
+      <div class="mission-toolbar">
+        <nav class="missions" aria-label="作戦選択">
+          <a id="training-link" href="#training" aria-current="page">歩兵訓練</a>
+          <a id="battle-link" href="#battle">歩兵戦</a>
+        </nav>
+        <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="false">効果音 <b>OFF</b></button>
+      </div>
       <div class="intro">
         <h1 id="mission-title" tabindex="-1">はじまりの草原</h1>
         <div class="turn"><span>ターン</span><strong id="turn">01</strong></div>
@@ -70,13 +74,20 @@
       <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと戦闘が始まり、そのターンの味方の行動が終わります。</li><li>「ターン終了」で次に進みます。敵の隣でターンを始めたら、その場で攻撃できます。</li></ol>
       <p>攻撃する側のHPが8〜10なら3、4〜7なら2、1〜3なら1ダメージです。生き残った側は、被弾後のHPで1回だけ反撃します。「演出をスキップ」で結果をすぐに確認できます。</p>
       <p>歩兵戦では、攻撃を受ける側が森にいるとダメージを1、山にいると2減らします。反撃を受けるときも同じで、ダメージは最低1です。歩兵は森や山にも移動できます。</p>
+      <p>「効果音」をオンにすると、戦闘中の射撃音と着弾音が鳴ります。マップと戦闘画面のどちらからでも切り替えられます。</p>
       <p id="mission-rules">歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。</p>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
     </dialog>
     <dialog id="combat-screen" aria-labelledby="combat-title">
       <div class="combat-frame">
-        <header class="combat-heading"><h2 id="combat-title" tabindex="-1">戦闘</h2><span id="combat-turn"></span></header>
+        <header class="combat-heading">
+          <h2 id="combat-title" tabindex="-1">戦闘</h2>
+          <div class="combat-heading-actions">
+            <span id="combat-turn"></span>
+            <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="false">効果音 <b>OFF</b></button>
+          </div>
+        </header>
         <div class="combat-teams">
           <div class="combat-team ally">
             <strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span>
