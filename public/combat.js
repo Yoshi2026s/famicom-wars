@@ -38,7 +38,9 @@ const combatScreen = (() => {
     showForces(hit);
     const target = hit.attacker === 'player' ? '敵歩兵' : '味方歩兵';
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
-    status.textContent = remaining ? target + 'に1ダメージ。残りHP ' + remaining : target + 'が撃破されました。';
+    status.textContent = remaining
+      ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
+      : `${target}を${hit.damage}ダメージで撃破。`;
     dialog.dataset.phase = 'impact';
     const next = scene.strikes[scene.nextStrike];
     scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, 460);
@@ -47,11 +49,15 @@ const combatScreen = (() => {
   function showResult() {
     clearTimeout(scene.timer);
     scene.strikes ??= scene.resolve();
-    const outcome = scene.strikes.at(-1);
+    const [attack, counter] = scene.strikes;
+    const outcome = counter ?? attack;
     showForces(outcome);
-    if (outcome.playerHP === 0) status.textContent = '味方歩兵が撃破されました。';
-    else if (outcome.enemyHP === 0) status.textContent = '敵歩兵を撃破しました。';
-    else status.textContent = '戦闘終了。味方HP ' + outcome.playerHP + '、敵HP ' + outcome.enemyHP + '。';
+    const result = outcome.playerHP === 0 ? '味方歩兵が撃破されました。'
+      : outcome.enemyHP === 0 ? '敵歩兵を撃破しました。' : '戦闘終了。';
+    const damageSummary = counter
+      ? `先攻で${attack.damage}、反撃で${counter.damage}ダメージ。`
+      : `先攻で${attack.damage}ダメージ。`;
+    status.textContent = result + damageSummary;
     dialog.dataset.phase = 'result';
     advance.textContent = 'マップに戻る';
     scene.timer = setTimeout(close, 1800);

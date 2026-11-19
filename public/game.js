@@ -111,7 +111,7 @@ function showMission() {
     else link.removeAttribute('aria-current');
   }
   document.getElementById('mission-rules').textContent = battle
-    ? `歩兵戦では味方・敵ともにHP${game.maxHP}で始まります。敵は毎ターン最大1マス近づき、上下左右に隣接すると攻撃します。1回の攻撃や反撃でHPが1減り、先に相手のHPを0にすると勝利です。`
+    ? `歩兵戦では味方・敵ともにHP${game.maxHP}で始まります。敵は毎ターン最大1マス近づき、上下左右に隣接すると攻撃します。先に相手のHPを0にすると勝利です。`
     : '歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。';
   document.getElementById('battle-health').hidden = !battle;
   document.getElementById('enemy-report').hidden = !battle;
