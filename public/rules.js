@@ -1,3 +1,16 @@
+const terrainTypes = {
+  p: Object.freeze({id: 'plains', name: '草原', defense: 0}),
+  f: Object.freeze({id: 'forest', name: '森', defense: 1}),
+  m: Object.freeze({id: 'mountain', name: '山', defense: 2}),
+};
+const battleTerrain = [
+  'fppmf',
+  'fpmpp',
+  'ppfpf',
+  'mpppm',
+  'pffpp',
+];
+
 class TrainingMap {
   static size = 5;
   static movement = 2;
@@ -34,6 +47,10 @@ class TrainingMap {
 
   isEnemyAt(x, y) {
     return this.enemy !== null && this.enemy.x === x && this.enemy.y === y;
+  }
+
+  terrainAt(x, y) {
+    return terrainTypes[this.isBattle ? battleTerrain[y]?.[x] ?? 'p' : 'p'];
   }
 
   get canAttack() {
@@ -98,15 +115,19 @@ class TrainingMap {
     const playerAttacks = attacker === 'player';
     const attackingHP = playerAttacks ? this.playerHP : this.enemyHP;
     const defendingHP = playerAttacks ? this.enemyHP : this.playerHP;
+    const defender = playerAttacks ? this.enemy : this;
+    const terrain = this.terrainAt(defender.x, defender.y);
     const strength = attackingHP >= 8 ? 3 : attackingHP >= 4 ? 2 : 1;
-    const damage = Math.min(strength, defendingHP);
+    const protectedDamage = Math.max(1, strength - terrain.defense);
+    const damage = Math.min(protectedDamage, defendingHP);
     if (playerAttacks) {
       this.enemyHP -= damage;
       if (this.enemyHP === 0) this.enemy = null;
     } else {
       this.playerHP -= damage;
     }
-    return {attacker, damage, playerHP: this.playerHP, enemyHP: this.enemyHP};
+    return {attacker, damage, terrain: terrain.name, mitigation: strength - protectedDamage,
+      playerHP: this.playerHP, enemyHP: this.enemyHP};
   }
 
   planEnemyTurn() {

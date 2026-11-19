@@ -32,15 +32,21 @@ const combatScreen = (() => {
     scene.timer = setTimeout(showImpact, motion.matches ? 250 : 820);
   }
 
+  function defenseMessage(hit) {
+    return hit.mitigation ? `${hit.terrain}で${hit.mitigation}軽減` : '';
+  }
+
   function showImpact() {
     scene.strikes ??= scene.resolve();
     const hit = scene.strikes[scene.nextStrike++];
     showForces(hit);
     const target = hit.attacker === 'player' ? '敵歩兵' : '味方歩兵';
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
-    status.textContent = remaining
+    const impact = remaining
       ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
       : `${target}を${hit.damage}ダメージで撃破。`;
+    const defense = defenseMessage(hit);
+    status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.phase = 'impact';
     const next = scene.strikes[scene.nextStrike];
     scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, 460);
@@ -54,10 +60,12 @@ const combatScreen = (() => {
     showForces(outcome);
     const result = outcome.playerHP === 0 ? '味方歩兵が撃破されました。'
       : outcome.enemyHP === 0 ? '敵歩兵を撃破しました。' : '戦闘終了。';
-    const damageSummary = counter
-      ? `先攻で${attack.damage}、反撃で${counter.damage}ダメージ。`
-      : `先攻で${attack.damage}ダメージ。`;
-    status.textContent = result + damageSummary;
+    const report = scene.strikes.map((hit, index) => {
+      const action = index === 0 ? '先攻' : '反撃';
+      const defense = defenseMessage(hit);
+      return `${action} ${hit.damage}ダメージ${defense ? `（${defense}）` : ''}`;
+    });
+    status.textContent = result + report.join('、') + '。';
     dialog.dataset.phase = 'result';
     advance.textContent = 'マップに戻る';
     scene.timer = setTimeout(close, 1800);
@@ -93,6 +101,9 @@ const combatScreen = (() => {
       if (scene) return;
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null};
       dialog.classList.toggle('platoon', map.isBattle);
+      const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
+      document.getElementById('combat-player-terrain').textContent = map.terrainAt(map.x, map.y).name;
+      document.getElementById('combat-enemy-terrain').textContent = map.terrainAt(enemyPosition.x, enemyPosition.y).name;
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
       showForces(map);
