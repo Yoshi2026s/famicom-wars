@@ -233,3 +233,33 @@ for (let i=0;i<660;i++) {
   vista.rect(x,y,1+random(4),1,y>85 && y<92 ? 'c9b47b' : ['b9c781','a8bc73','789b60'][random(3)]);
 }
 vista.save('combat-field.png');
+
+const forestTile = new Pixels(40, 40);
+forestTile.rect(0, 0, 40, 40, '799b5b');
+for (let i = 0; i < 92; i++) {
+  forestTile.rect(random(40), random(40), 1 + random(3), 1, i % 2 ? '9daf68' : '64894e');
+}
+for (const [x, y] of [[-1,0],[11,-1],[25,1],[3,9],[17,8],[28,11],[9,20],[21,20],[0,25],[30,25]]) {
+  forestTile.rect(x + 1, y + 12, 11, 2, '557b4c');
+  forestTile.sprite(x, y, fir, {t:'315442', l:'81ad65', m:'537d4c', w:'766340'});
+}
+forestTile.save('terrain-forest.png');
+
+const mountainTile = new Pixels(40, 40);
+mountainTile.rect(0, 0, 40, 40, '9da56f');
+for (let i = 0; i < 85; i++) {
+  mountainTile.rect(random(40), random(40), 1 + random(3), 1, i % 2 ? 'b5bc84' : '818f65');
+}
+const peak = [
+  '..........tt..........', '.........tllt.........', '.........tlst.........',
+  '........tlhlst........', '.......tlhllsdt.......', '.......thhlsddt.......',
+  '......thshlsdsdt......', '.....tlhllssdddt......', '.....tlrllssdsddt.....',
+  '....tllrrlssdssddt....', '....tlrrllssddsddt....', '...tlllrlssdddssddt...',
+  '..tllrllrssdsdddddtt..', '..tllrrrrssddssddddd..', '.tllrlrrsdsdddsddddtt.',
+  'tllrllrsdsdddssddddddt', 'ttrrlrrssdddddddddddtt', '.ttrrrssdddttttttttt..',
+];
+const stoneColors = {t:'566759', l:'c3c6ac', h:'e4e5c8', r:'a5ac9e', s:'929e96', d:'707d7c'};
+for (const [x, y] of [[-1,5],[15,1],[8,17],[23,19]]) {
+  mountainTile.sprite(x, y, peak, stoneColors);
+}
+mountainTile.save('terrain-mountain.png');

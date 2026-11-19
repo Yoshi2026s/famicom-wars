@@ -22,7 +22,11 @@ function render() {
   if (!game.enemy) opposingTroop.remove();
   if (lost) troop.remove();
   for (const cell of cells) {
-    const {x, y, button} = cell;
+    const {x, y, button, terrainLabel} = cell;
+    const terrain = game.terrainAt(x, y);
+    button.dataset.terrain = terrain.id;
+    terrainLabel.textContent = terrain.name;
+    terrainLabel.hidden = terrain.defense === 0;
     const occupied = !lost && game.x === x && game.y === y;
     const enemy = game.isEnemyAt(x, y);
     const target = !waiting && enemy && game.canAttack;
@@ -33,7 +37,8 @@ function render() {
     button.classList.toggle('selected', !waiting && occupied && game.selected);
     button.classList.toggle('reachable', reachable);
     button.classList.toggle('spent', occupied && spent);
-    button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方歩兵' : enemy ? '敵歩兵' : '草原',
+    button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方歩兵' : enemy ? '敵歩兵' : '',
+      terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       target ? '攻撃可能' : '', reachable ? '移動可能' : '', occupied && spent ? '行動済み' : '',
       !waiting && occupied && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
     if (occupied && troop.parentNode !== button) button.append(troop);
@@ -41,6 +46,7 @@ function render() {
   }
   const position = coordinate(game.x, game.y);
   document.getElementById('position').textContent = lost ? '—' : position;
+  document.getElementById('unit-terrain').textContent = lost ? '—' : game.terrainAt(game.x, game.y).name;
   document.getElementById('turn').textContent = String(game.turn).padStart(2, '0');
   const state = document.getElementById('state');
   const message = document.getElementById('message');
@@ -65,7 +71,7 @@ function render() {
     state.textContent = '攻撃可能';
     const target = coordinate(game.enemy.x, game.enemy.y);
     message.textContent = target + ' の敵歩兵を選ぶと、その場で攻撃できます。'
-      + (game.selected ? ' 移動するには印のある草原を選びます。' : '');
+      + (game.selected ? ' 移動するには印のあるマスを選びます。' : '');
   } else if (spent) {
     state.textContent = '行動済み';
     if (game.attacked && game.isBattle) message.textContent = '戦闘終了。味方HP ' + game.playerHP + '、敵HP ' + game.enemyHP + '。ターンを終了できます。';
@@ -115,6 +121,7 @@ function showMission() {
     : '歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。';
   document.getElementById('battle-health').hidden = !battle;
   document.getElementById('enemy-report').hidden = !battle;
+  document.getElementById('terrain-legend').hidden = !battle;
   setBoardTabStop(cells[game.y * TrainingMap.size + game.x].button);
   render();
 }
@@ -128,6 +135,10 @@ for (let y = 0; y < TrainingMap.size; y++) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'tile';
+    const terrainLabel = document.createElement('span');
+    terrainLabel.className = 'terrain-label';
+    terrainLabel.setAttribute('aria-hidden', 'true');
+    button.append(terrainLabel);
     button.tabIndex = x === game.x && y === game.y ? 0 : -1;
     button.addEventListener('focus', () => setBoardTabStop(button));
     button.addEventListener('click', () => {
@@ -149,7 +160,7 @@ for (let y = 0; y < TrainingMap.size; y++) {
       const nextY = Math.max(0, Math.min(TrainingMap.size - 1, y + dy));
       cells[nextY * TrainingMap.size + nextX].button.focus();
     });
-    cells.push({x, y, button});
+    cells.push({x, y, button, terrainLabel});
     board.append(button);
   }
 }

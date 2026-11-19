@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=combat-screen">
-    <link rel="stylesheet" href="./combat.css?v=max-hp-10">
-    <script defer src="./rules.js?v=hp-damage"></script>
-    <script defer src="./combat.js?v=hp-damage"></script>
-    <script defer src="./game.js?v=hp-damage"></script>
+    <link rel="stylesheet" href="./style.css?v=terrain">
+    <link rel="stylesheet" href="./combat.css?v=terrain">
+    <script defer src="./rules.js?v=terrain"></script>
+    <script defer src="./combat.js?v=terrain"></script>
+    <script defer src="./game.js?v=terrain"></script>
   </head>
   <body>
     <header class="masthead">
@@ -42,6 +42,7 @@
             </div>
           </div>
           <div class="legend"><span><i class="friendly-key"></i>味方歩兵</span><span><i class="enemy-key"></i>敵歩兵</span><span><i class="range-key"></i>移動できるマス</span></div>
+          <div class="legend terrain-legend" id="terrain-legend" hidden><b>地形防御</b><span><i class="forest-key"></i>森 −1</span><span><i class="mountain-key"></i>山 −2</span></div>
         </section>
         <aside class="sidebar" aria-label="部隊と操作">
           <section class="unit-panel" aria-labelledby="unit-title">
@@ -49,7 +50,7 @@
             <div class="portrait" aria-hidden="true"><img src="./assets/infantry.png" alt=""></div>
             <div class="unit-details">
               <h3>歩兵</h3>
-              <dl><div><dt>現在地</dt><dd id="position">C3</dd></div><div><dt>移動力</dt><dd>2<span> マス</span></dd></div></dl>
+              <dl><div><dt>現在地</dt><dd id="position">C3</dd></div><div><dt>地形</dt><dd id="unit-terrain">草原</dd></div><div><dt>移動力</dt><dd>2<span> マス</span></dd></div></dl>
             </div>
           </section>
           <section class="orders" aria-labelledby="orders-title">
@@ -68,6 +69,7 @@
       <h2 id="guide-title">遊び方</h2>
       <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと戦闘が始まり、そのターンの味方の行動が終わります。</li><li>「ターン終了」で次に進みます。敵の隣でターンを始めたら、その場で攻撃できます。</li></ol>
       <p>攻撃する側のHPが8〜10なら3、4〜7なら2、1〜3なら1ダメージです。生き残った側は、被弾後のHPで1回だけ反撃します。「演出をスキップ」で結果をすぐに確認できます。</p>
+      <p>歩兵戦では、攻撃を受ける側が森にいるとダメージを1、山にいると2減らします。反撃を受けるときも同じで、ダメージは最低1です。歩兵は森や山にも移動できます。</p>
       <p id="mission-rules">歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。</p>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
@@ -76,8 +78,8 @@
       <div class="combat-frame">
         <header class="combat-heading"><h2 id="combat-title" tabindex="-1">戦闘</h2><span id="combat-turn"></span></header>
         <div class="combat-teams">
-          <div class="combat-team ally"><strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span></div>
-          <div class="combat-team foe"><strong>敵歩兵</strong><span class="combat-hp">HP <b id="combat-enemy-hp"></b></span></div>
+          <div class="combat-team ally"><strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span><small id="combat-player-terrain"></small></div>
+          <div class="combat-team foe"><strong>敵歩兵</strong><span class="combat-hp">HP <b id="combat-enemy-hp"></b></span><small id="combat-enemy-terrain"></small></div>
         </div>
         <div class="combat-field" aria-hidden="true">
           <div class="formation ally"></div><div class="formation foe"></div>
