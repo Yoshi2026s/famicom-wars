@@ -57,11 +57,18 @@ const music = (() => {
 
   function start() {
     const requestedScene = loadedScene;
+    const requestedSource = player.src;
     player.play().catch((error) => {
-      if (requestedScene === loadedScene && error.name === 'NotSupportedError') {
-        unavailable = true;
-        updateButtons();
+      if (requestedScene !== loadedScene || requestedSource !== player.src || error.name !== 'NotSupportedError') return;
+      if (requestedSource === battleSource && requestedSource.startsWith('blob:')) {
+        battleSource = tracks.battle;
+        URL.revokeObjectURL(requestedSource);
+        loadedScene = undefined;
+        updatePlayback();
+        return;
       }
+      unavailable = true;
+      updateButtons();
     });
   }
 
