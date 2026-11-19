@@ -1,0 +1,69 @@
+body:has(#combat-screen[open]) { overflow: hidden; }
+body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
+.tile, #end { -webkit-tap-highlight-color: transparent; }
+#combat-screen {
+  position: fixed; inset: 0; margin: 0; width: 100%; height: 100%; height: 100dvh;
+  max-width: none; max-height: none; border: 0; border-radius: 0; overflow: auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  color: #f8efd4; background: repeating-linear-gradient(0deg,#152b28 0 3px,#172f2b 3px 5px);
+}
+#combat-screen[open] { display: flex; }
+.combat-frame {
+  width: min(100%, 900px); margin: auto; background: #1f3532; border: 3px solid #8a9c85;
+  box-shadow: 0 0 0 2px #10221e, inset 0 0 0 2px #101f1d, 0 7px 0 #101f1d;
+}
+.combat-heading, .combat-teams, .combat-controls { display: flex; align-items: center; justify-content: space-between; }
+.combat-heading { padding: 12px clamp(12px,3vw,24px); border-bottom: 2px solid #506657; }
+.combat-heading h2 { margin: 0; color: #ffe09b; font-size: clamp(20px,3vw,28px); letter-spacing: .12em; }
+.combat-heading h2:focus { outline: none; }
+#combat-turn, .combat-hp { font-family: Consolas, monospace; font-size: 14px; font-weight: 700; }
+.combat-teams { align-items: stretch; background: #0f2728; }
+.combat-team { flex: 1; padding: 9px clamp(8px,2vw,20px); display: flex; gap: 8px; align-items: baseline; justify-content: space-between; border-top: 4px solid #75c4c2; background: #21494c; }
+.combat-team.foe { background: #5a3530; border-color: #e58c70; border-left: 2px solid #192b28; }
+.combat-team strong { font-size: clamp(13px,2vw,18px); }
+.combat-hp { white-space: nowrap; color: #fff2ca; }
+.combat-hp b { font-size: 1.15em; }
+.combat-field {
+  position: relative; overflow: hidden; isolation: isolate; height: clamp(172px,38vh,360px);
+  background: #b6dccf url("./assets/combat-field.png") center / cover no-repeat;
+  image-rendering: pixelated; border-block: 3px solid #142824;
+}
+.formation { position: absolute; inset: 0 50% 0 0; }
+.formation.foe { inset: 0 0 0 50%; transform: scaleX(-1); }
+.fighter {
+  position: absolute; width: 39%; max-width: 132px; aspect-ratio: 28/25;
+  background: url("./assets/combat-ally.png") center / contain no-repeat;
+}
+.foe .fighter { background-image: url("./assets/combat-foe.png"); }
+.fighter:nth-child(1) { left: 48%; bottom: 13%; z-index: 3; }
+.fighter:nth-child(2) { left: 16%; bottom: 19%; z-index: 2; }
+.fighter:nth-child(3) { left: 0; bottom: 5%; z-index: 4; }
+#combat-screen[data-attacker="player"][data-phase="attack"] .ally .fighter,
+#combat-screen[data-attacker="enemy"][data-phase="attack"] .foe .fighter { animation: advance .8s steps(4) both; }
+@keyframes advance { 0% { transform: translateX(-22%); } 50% { transform: translate(0,-4%); } 75% { transform: translateX(5%); } 100% { transform: none; } }
+.combat-volley { position: absolute; z-index: 5; left: 42%; top: 67%; width: 5%; height: 3px; opacity: 0; background: #fff4ab; box-shadow: -4px 2px #b77337; }
+[data-phase="attack"] .combat-volley { animation: volley .32s .48s steps(5) both; }
+[data-attacker="enemy"] .combat-volley { left: auto; right: 42%; }
+[data-attacker="enemy"][data-phase="attack"] .combat-volley { animation-name: volley-back; }
+@keyframes volley { 0% { opacity: 0; } 15% { opacity: 1; } 95% { opacity: 1; transform: translateX(330%); } 100% { opacity: 0; transform: translateX(330%); } }
+@keyframes volley-back { 0% { opacity: 0; } 15% { opacity: 1; } 95% { opacity: 1; transform: translateX(-330%); } 100% { opacity: 0; transform: translateX(-330%); } }
+.combat-impact { position: absolute; z-index: 6; left: 63%; bottom: 24%; width: 18px; height: 18px; opacity: 0; background: #ffe9a0; box-shadow: 3px 0 #be7242,-3px 0 #be7242,0 3px #be7242,0 -3px #be7242; }
+[data-attacker="enemy"] .combat-impact { left: auto; right: 63%; }
+[data-phase="result"] .combat-impact { animation: impact .38s steps(3) both; }
+@keyframes impact { from { opacity: 1; transform: scale(.6) rotate(45deg); } to { opacity: 0; transform: scale(1.7) rotate(45deg); } }
+.combat-controls { min-height: 76px; gap: 16px; padding: 12px clamp(12px,3vw,24px); }
+#combat-status { margin: 0; color: #fff1ce; font-size: clamp(15px,2vw,20px); font-weight: 700; }
+#combat-advance { width: auto; flex-shrink: 0; min-height: 48px; justify-content: center; }
+@media (max-width: 550px) {
+  .combat-controls { align-items: stretch; flex-direction: column; gap: 8px; }
+  .combat-team { flex-wrap: wrap; gap: 2px 4px; }
+}
+@media (max-height: 460px) {
+  .combat-field { height: clamp(90px,40dvh,180px); }
+  .combat-heading, .combat-controls { min-height: 0; padding-block: 5px; }
+  .combat-team { padding-block: 4px; }
+  .fighter { max-height: 65%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #combat-screen *, #combat-screen *::after { animation: none !important; }
+}

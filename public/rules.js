@@ -74,21 +74,26 @@ class TrainingMap {
     this.selected = false;
     this.moved = false;
     this.attacked = false;
-    if (this.isBattle) this.#takeEnemyTurn();
+    if (this.isBattle) {
+      this.enemyAction = this.planEnemyTurn();
+      this.enemy = {...this.enemyAction.to};
+      if (this.enemyAction.hit) this.playerHP -= 1;
+    }
     if (!this.result) this.turn += 1;
   }
 
-  #takeEnemyTurn() {
+  planEnemyTurn() {
+    if (!this.isBattle || this.result) return null;
     const from = {...this.enemy};
+    const to = {...from};
     const dx = this.x - from.x;
     const dy = this.y - from.y;
     if (Math.abs(dx) + Math.abs(dy) > 1) {
-      if (Math.abs(dx) >= Math.abs(dy)) this.enemy.x += Math.sign(dx);
-      else this.enemy.y += Math.sign(dy);
+      if (Math.abs(dx) >= Math.abs(dy)) to.x += Math.sign(dx);
+      else to.y += Math.sign(dy);
     }
-    const hit = Math.abs(this.x - this.enemy.x) + Math.abs(this.y - this.enemy.y) === 1;
-    if (hit) this.playerHP -= 1;
-    this.enemyAction = {turn: this.turn, from, to: {...this.enemy}, hit};
+    const hit = Math.abs(this.x - to.x) + Math.abs(this.y - to.y) === 1;
+    return {turn: this.turn, from, to, hit};
   }
 }
 

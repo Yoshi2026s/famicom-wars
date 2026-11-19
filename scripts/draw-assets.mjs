@@ -179,8 +179,57 @@ const unit = new Pixels(23,27);
 unit.sprite(0,0,infantryRows,uniform);
 unit.save('infantry.png');
 
-const enemy = new Pixels(23,27);
-enemy.sprite(0,0,infantryRows.map(row => [...row].reverse().join('')), {
+const enemyUniform = {
   ...uniform, o:'3d2d2c', t:'b35343', h:'e08965', l:'8b423b', d:'683b36', j:'eadab0',
-});
+};
+const enemy = new Pixels(23,27);
+enemy.sprite(0,0,infantryRows.map(row => [...row].reverse().join('')), enemyUniform);
 enemy.save('enemy-infantry.png');
+
+// Side view for the battle cutaway; both formations face the centre.
+const profile = [
+  '......oooooo', '....ootthhttoo', '...otthhhhtttlo', '..otthhttttttllo',
+  '..ottttttttlllllo', '..odddddddddddddoo', '...onnfsffnffo', '...onffsffoffo',
+  '...onnsfsfffffo', '....oosffffffo', '...oooossssso', '.ooppoojjjjdoo',
+  'oppppottjjjttloo....ooooo', 'opppotthttttttsoooooddddooo', 'opppottttssffffbddddddddddo',
+  'opppooltlosssoooddoodooo', 'oppooottlloooddoo', '.oooooddddbbbbo',
+  '.....odddybddo', '.....odlltddlo', '....odlldodllo', '....odlldoodllo',
+  '...obbbo...obbbo', '..obbbbo...obbbboo', '..oooooo...ooooooo',
+];
+for (const [name,palette] of [['combat-ally',uniform],['combat-foe',enemyUniform]]) {
+  const figure = new Pixels(28,25);
+  figure.sprite(0,0,profile,palette);
+  figure.save(name + '.png');
+}
+
+const vista = new Pixels(288,112);
+vista.rect(0,0,288,112,'8bcdd1');
+vista.rect(0,24,288,27,'b4dfd6');
+vista.rect(0,44,288,24,'d8e9c7');
+for (const [x,y,w] of [[9,20,30],[71,8,34],[121,27,19],[176,12,39],[235,25,33],[271,9,24]]) {
+  vista.rect(x,y,w,3,'c5e2d8'); vista.rect(x+2,y-2,w-5,4,'fff2cf');
+  vista.rect(x+7,y-5,Math.max(5,w-16),4,'fff4d7');
+}
+for (let x=0; x<288; x++) {
+  const ridge = 43 + Math.round(10*Math.sin(x/21) + 4*Math.sin(x/8));
+  const hill = 55 + Math.round(6*Math.cos(x/14) + 5*Math.sin(x/34));
+  vista.rect(x,ridge,1,80-ridge,'96bdb1');
+  vista.rect(x,hill,1,85-hill,'699b83');
+}
+for (let x=-8; x<288; x+=5+random(6)) {
+  vista.sprite(x,52+random(9),fir,{t:'537f66',l:'86ab7a',m:'64936e',w:'617756'});
+}
+for (let x=0; x<288; x++) {
+  const edge = 70 + Math.round(2*Math.sin(x/19));
+  vista.rect(x,edge,1,112-edge,'9ab96f');
+  vista.rect(x,edge,1,2,'c1cd83');
+  const path = 84 + Math.round(2*Math.sin(x/26) + x/80);
+  vista.rect(x,path,1,7,'dac28a');
+  vista.rect(x,path+7,1,2,'baa775');
+  vista.rect(x,102+Math.round(2*Math.sin(x/14)),1,12,'81a45f');
+}
+for (let i=0;i<660;i++) {
+  const x=random(288), y=73+random(39);
+  vista.rect(x,y,1+random(4),1,y>85 && y<92 ? 'c9b47b' : ['b9c781','a8bc73','789b60'][random(3)]);
+}
+vista.save('combat-field.png');
