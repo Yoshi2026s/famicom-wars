@@ -5,14 +5,18 @@ const combatScreen = (() => {
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let scene = null;
 
-  function showForces({playerHP, enemyHP}) {
+  function showForces({playerHP, enemyHP}, animateLoss = false) {
     for (const [side, team, hp] of [
       ['player', 'ally', playerHP],
       ['enemy', 'foe', enemyHP],
     ]) {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
+      document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = dialog.querySelector('.formation.' + team);
-      while (formation.childElementCount > hp) formation.lastElementChild.remove();
+      for (const fighter of [...formation.children].slice(hp)) {
+        if (animateLoss && !motion.matches) fighter.classList.add('retreating');
+        else fighter.remove();
+      }
       while (formation.childElementCount < hp) {
         const fighter = document.createElement('span');
         fighter.className = 'fighter';
@@ -24,12 +28,17 @@ const combatScreen = (() => {
     }
   }
 
+  function removeRetreatingFighters() {
+    dialog.querySelectorAll('.retreating').forEach(fighter => fighter.remove());
+  }
+
   function beginStrike(attacker) {
+    removeRetreatingFighters();
     dialog.dataset.attacker = attacker;
     dialog.dataset.phase = 'attack';
     const team = attacker === 'player' ? '味方歩兵' : '敵歩兵';
     status.textContent = team + (scene.nextStrike === 0 ? 'の攻撃！' : 'の反撃！');
-    scene.timer = setTimeout(showImpact, motion.matches ? 250 : 820);
+    scene.timer = setTimeout(showImpact, motion.matches ? 250 : 1100);
   }
 
   function defenseMessage(hit) {
@@ -39,17 +48,21 @@ const combatScreen = (() => {
   function showImpact() {
     scene.strikes ??= scene.resolve();
     const hit = scene.strikes[scene.nextStrike++];
-    showForces(hit);
+    showForces(hit, true);
     const target = hit.attacker === 'player' ? '敵歩兵' : '味方歩兵';
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
     const impact = remaining
       ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
       : `${target}を${hit.damage}ダメージで撃破。`;
     const defense = defenseMessage(hit);
+    document.getElementById('combat-damage').textContent = `−${hit.damage}`;
+    const cover = document.getElementById('combat-cover');
+    cover.textContent = defense;
+    cover.hidden = !defense;
     status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.phase = 'impact';
     const next = scene.strikes[scene.nextStrike];
-    scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, 460);
+    scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, motion.matches ? 460 : 740);
   }
 
   function showResult() {
@@ -68,7 +81,7 @@ const combatScreen = (() => {
     status.textContent = result + report.join('、') + '。';
     dialog.dataset.phase = 'result';
     advance.textContent = 'マップに戻る';
-    scene.timer = setTimeout(close, 1800);
+    scene.timer = setTimeout(close, 2200);
   }
 
   function close(restoreFocus = true) {
@@ -77,6 +90,7 @@ const combatScreen = (() => {
     const completed = scene;
     scene = null;
     clearTimeout(completed.timer);
+    removeRetreatingFighters();
     dialog.close();
     completed.onReturn(restoreFocus);
   }
@@ -102,8 +116,11 @@ const combatScreen = (() => {
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null};
       dialog.classList.toggle('platoon', map.isBattle);
       const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
-      document.getElementById('combat-player-terrain').textContent = map.terrainAt(map.x, map.y).name;
-      document.getElementById('combat-enemy-terrain').textContent = map.terrainAt(enemyPosition.x, enemyPosition.y).name;
+      for (const [side, team, position] of [['player', 'ally', map], ['enemy', 'foe', enemyPosition]]) {
+        const terrain = map.terrainAt(position.x, position.y);
+        document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
+        dialog.querySelector('.formation.' + team).dataset.terrain = terrain.id;
+      }
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
       showForces(map);

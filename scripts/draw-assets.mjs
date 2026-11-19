@@ -202,38 +202,8 @@ for (const [name,palette] of [['combat-ally',uniform],['combat-foe',enemyUniform
   figure.save(name + '.png');
 }
 
-const vista = new Pixels(288,112);
-vista.rect(0,0,288,112,'8bcdd1');
-vista.rect(0,24,288,27,'b4dfd6');
-vista.rect(0,44,288,24,'d8e9c7');
-for (const [x,y,w] of [[9,20,30],[71,8,34],[121,27,19],[176,12,39],[235,25,33],[271,9,24]]) {
-  vista.rect(x,y,w,3,'c5e2d8'); vista.rect(x+2,y-2,w-5,4,'fff2cf');
-  vista.rect(x+7,y-5,Math.max(5,w-16),4,'fff4d7');
-}
-for (let x=0; x<288; x++) {
-  const ridge = 43 + Math.round(10*Math.sin(x/21) + 4*Math.sin(x/8));
-  const hill = 55 + Math.round(6*Math.cos(x/14) + 5*Math.sin(x/34));
-  vista.rect(x,ridge,1,80-ridge,'96bdb1');
-  vista.rect(x,hill,1,85-hill,'699b83');
-}
-for (let x=-8; x<288; x+=5+random(6)) {
-  vista.sprite(x,52+random(9),fir,{t:'537f66',l:'86ab7a',m:'64936e',w:'617756'});
-}
-for (let x=0; x<288; x++) {
-  const edge = 70 + Math.round(2*Math.sin(x/19));
-  vista.rect(x,edge,1,112-edge,'9ab96f');
-  vista.rect(x,edge,1,2,'c1cd83');
-  const path = 84 + Math.round(2*Math.sin(x/26) + x/80);
-  vista.rect(x,path,1,7,'dac28a');
-  vista.rect(x,path+7,1,2,'baa775');
-  vista.rect(x,102+Math.round(2*Math.sin(x/14)),1,12,'81a45f');
-}
-for (let i=0;i<660;i++) {
-  const x=random(288), y=73+random(39);
-  vista.rect(x,y,1+random(4),1,y>85 && y<92 ? 'c9b47b' : ['b9c781','a8bc73','789b60'][random(3)]);
-}
-vista.save('combat-field.png');
-
+// Keep the established map tiles independent of edits to the battle panorama.
+seed = 779578159;
 const forestTile = new Pixels(40, 40);
 forestTile.rect(0, 0, 40, 40, '799b5b');
 for (let i = 0; i < 92; i++) {
@@ -263,3 +233,65 @@ for (const [x, y] of [[-1,5],[15,1],[8,17],[23,19]]) {
   mountainTile.sprite(x, y, peak, stoneColors);
 }
 mountainTile.save('terrain-mountain.png');
+
+const vista = new Pixels(360, 168);
+for (const [top, end, color] of [
+  [0, 15, '364867'], [15, 27, '56627d'], [27, 40, '867589'], [40, 52, 'bc8588'],
+  [52, 63, 'df9c89'], [63, 80, 'f0b391'], [80, 168, 'f5c99b'],
+]) {
+  vista.rect(0, top, 360, end - top, color);
+}
+for (let y = 36; y <= 79; y++) {
+  const halfWidth = Math.floor(Math.sqrt(Math.max(0, 22 ** 2 - (y - 58) ** 2)));
+  vista.rect(184 - halfWidth, y, 2 * halfWidth + 1, 1, y < 63 ? 'ffe4a8' : 'f6cb95');
+}
+for (const [x, y, width] of [[10,33,50],[62,22,48],[104,49,30],[144,17,49],[228,28,43],[270,48,60],[322,20,32]]) {
+  vista.rect(x, y, width, 2, 'c7a0a0');
+  vista.rect(x + 4, y - 2, width - 10, 2, 'dcae9e');
+  vista.rect(x + 12, y - 4, width - 20, 2, 'e1b4a2');
+}
+for (let x = 0; x < 360; x++) {
+  const ridge = 73 + Math.round(7 * Math.sin(x / 18) + 8 * Math.cos(x / 39) + 2 * Math.sin(x / 6));
+  const near = 92 + Math.round(6 * Math.sin(x / 21 + 2) + 4 * Math.cos(x / 11));
+  vista.rect(x, ridge, 1, 108 - ridge, '897985');
+  vista.rect(x, ridge + 2, 1, 2, 'a08a8c');
+  vista.rect(x, near, 1, 117 - near, '526a67');
+  vista.rect(x, near, 1, 1, '7c8b76');
+}
+for (let x = -4; x < 360; x += 6 + random(7)) {
+  const y = 85 + random(12);
+  vista.sprite(x, y, fir, {t:'3c5557', l:'788b72', m:'59766a', w:'595c50'});
+}
+for (let x = 0; x < 360; x++) {
+  const hill = 109 + Math.round(3 * Math.sin(x / 17));
+  const track = 126 + Math.round(2 * Math.sin(x / 27));
+  const foreground = 156 + Math.round(4 * Math.cos(x / 23));
+  vista.rect(x, hill, 1, 168 - hill, '9a9a64');
+  vista.rect(x, hill, 1, 2, 'bcc185');
+  vista.rect(x, track, 1, 18, 'c5a779');
+  vista.rect(x, track, 1, 2, 'dbc08e');
+  vista.rect(x, track + 16, 1, 3, 'a18360');
+  vista.rect(x, foreground, 1, 168 - foreground, '6b7955');
+}
+for (let i = 0; i < 1200; i++) {
+  const x = random(360);
+  const y = 114 + random(54);
+  const palette = y >= 128 && y <= 143 ? ['d1b485','b99b70'] : ['aeb178','828b5f','5f7054','b4b87b'];
+  vista.rect(x, y, 1 + random(5), 1, palette[random(palette.length)]);
+}
+for (const [x, y] of [[2,149],[30,151],[69,146],[116,157],[138,151],[210,151],[230,158],[285,149],[311,155],[342,147]]) {
+  vista.sprite(x, y, rocks, rockColors);
+}
+vista.save('combat-field.png');
+
+const forestCover = new Pixels(64, 41);
+for (const [x, y] of [[0,19],[7,7],[19,3],[26,12],[37,14],[4,26],[21,24],[34,25],[48,26],[52,20]]) {
+  forestCover.sprite(x, y, fir, {t:'2d4c46', l:'8f9b64', m:'506e55', w:'74664d'});
+}
+forestCover.save('combat-cover-forest.png');
+
+const mountainCover = new Pixels(64, 41);
+for (const [x, y] of [[0,10],[14,2],[32,15],[8,22],[24,21],[45,23]]) {
+  mountainCover.sprite(x, y, peak, stoneColors);
+}
+mountainCover.save('combat-cover-mountain.png');

@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=terrain">
-    <link rel="stylesheet" href="./combat.css?v=terrain">
+    <link rel="stylesheet" href="./combat.css?v=battle-action">
     <script defer src="./rules.js?v=terrain"></script>
-    <script defer src="./combat.js?v=terrain"></script>
+    <script defer src="./combat.js?v=battle-action"></script>
     <script defer src="./game.js?v=terrain"></script>
   </head>
   <body>
@@ -78,12 +78,20 @@
       <div class="combat-frame">
         <header class="combat-heading"><h2 id="combat-title" tabindex="-1">戦闘</h2><span id="combat-turn"></span></header>
         <div class="combat-teams">
-          <div class="combat-team ally"><strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span><small id="combat-player-terrain"></small></div>
-          <div class="combat-team foe"><strong>敵歩兵</strong><span class="combat-hp">HP <b id="combat-enemy-hp"></b></span><small id="combat-enemy-terrain"></small></div>
+          <div class="combat-team ally">
+            <strong>味方歩兵</strong><span class="combat-hp">HP <b id="combat-player-hp"></b></span>
+            <small id="combat-player-terrain"></small><span class="force-health" id="combat-player-bar" aria-hidden="true"></span>
+          </div>
+          <div class="combat-team foe">
+            <strong>敵歩兵</strong><span class="combat-hp">HP <b id="combat-enemy-hp"></b></span>
+            <small id="combat-enemy-terrain"></small><span class="force-health" id="combat-enemy-bar" aria-hidden="true"></span>
+          </div>
         </div>
         <div class="combat-field" aria-hidden="true">
           <div class="formation ally"></div><div class="formation foe"></div>
-          <i class="combat-volley"></i><i class="combat-impact"></i>
+          <div class="combat-volley"><i></i><i></i><i></i></div>
+          <i class="combat-impact"></i><i class="combat-smoke"></i>
+          <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
         </div>
         <div class="combat-controls">
           <p id="combat-status" role="status" aria-atomic="true"></p>
