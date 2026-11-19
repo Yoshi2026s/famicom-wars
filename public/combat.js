@@ -3,6 +3,8 @@ const combatScreen = (() => {
   const advance = document.getElementById('combat-advance');
   const status = document.getElementById('combat-status');
   const stage = document.getElementById('combat-stage');
+  const finale = document.getElementById('combat-outcome');
+  const finaleTitle = document.getElementById('combat-outcome-title');
   const camera = dialog.querySelector('.combat-camera');
   const backdrop = camera.querySelector('.combat-backdrop img');
   const volley = camera.querySelector('.combat-volley');
@@ -126,8 +128,10 @@ const combatScreen = (() => {
     const [attack, counter] = scene.strikes;
     const outcome = counter ?? attack;
     showForces(outcome);
-    const result = outcome.playerHP === 0 ? '味方歩兵が撃破されました。'
-      : outcome.enemyHP === 0 ? '敵歩兵を撃破しました。' : '戦闘終了。';
+    const verdict = scene.map.result ?? (outcome.enemyHP === 0 ? 'victory' : null);
+    const title = verdict === 'victory' ? '勝利' : '敗北';
+    const result = verdict === 'victory' ? '勝利。敵歩兵を撃破しました。'
+      : verdict === 'defeat' ? '敗北。味方歩兵が全滅しました。' : '戦闘終了。';
     const report = scene.strikes.map((hit, index) => {
       const action = index === 0 ? '先攻' : '反撃';
       const defense = defenseMessage(hit);
@@ -136,7 +140,14 @@ const combatScreen = (() => {
     status.textContent = result + report.join('、') + '。';
     dialog.dataset.phase = 'result';
     advance.textContent = 'マップに戻る';
-    scene.timer = setTimeout(close, 2200);
+    if (verdict) {
+      dialog.dataset.outcome = verdict;
+      finaleTitle.textContent = title;
+      finale.hidden = false;
+      music.setScene(verdict);
+    } else {
+      scene.timer = setTimeout(close, 2200);
+    }
   }
 
   function close(restoreFocus = true) {
@@ -187,6 +198,8 @@ const combatScreen = (() => {
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
       showForces(map);
+      delete dialog.dataset.outcome;
+      finale.hidden = true;
       dialog.dataset.attacker = attacker;
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';

@@ -199,6 +199,38 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 @keyframes hit-pose { 0% { background-position-y: 80%; } 35% { background-position-y: 100%; } 85%, 100% { background-position-y: 0%; } }
 @keyframes flinch { 0% { transform: translate(-14%, -3%); } 35% { transform: translate(-12%, 3%); } 100% { transform: none; } }
 @keyframes retreat { 0% { opacity: 1; transform: translate(-9%, -3%); } 50% { opacity: .79; } 100% { opacity: 0; transform: translate(-66%, 11%) scale(.78); } }
+.combat-outcome {
+  --verdict-light: #ffe7a7; --verdict-rim: #edbc6c; --verdict-bg: #2a1c17ec;
+  position: absolute; inset: 0; z-index: 13; display: grid; align-content: center; justify-items: center;
+  gap: clamp(5px, 1.5dvh, 12px); color: var(--verdict-light);
+  background: radial-gradient(ellipse at 50% 25%, #ffc98052, transparent 58%), linear-gradient(#2618112c, #251a183d 36%, #1d192c76);
+  animation: outcome-arrive .55s ease-out both;
+}
+[data-outcome="defeat"] .combat-outcome {
+  --verdict-light: #deebff; --verdict-rim: #8ea5c1; --verdict-bg: #101b2cee;
+  background: radial-gradient(ellipse at 50% 34%, #9bb7d322, #101a30bf 78%), linear-gradient(135deg, #13213637, #0e1d31a3);
+  animation: outcome-arrive .85s ease-out both;
+}
+[data-outcome="defeat"] .combat-backdrop { filter: saturate(.48) contrast(.94); }
+.outcome-emblem {
+  width: clamp(20px, 8dvh, 76px); aspect-ratio: 1; background: var(--verdict-rim);
+  clip-path: polygon(20% 11%, 86% 11%, 70% 32%, 86% 53%, 30% 53%, 30% 87%, 20% 87%);
+  animation: outcome-standard .62s cubic-bezier(.2,.77,.29,1) both;
+}
+[data-outcome="defeat"] .outcome-emblem {
+  transform: rotate(-24deg); clip-path: polygon(20% 11%, 86% 11%, 64% 34%, 74% 52%, 30% 51%, 30% 87%, 20% 87%);
+  animation: none;
+}
+.combat-outcome h3 {
+  min-width: 52%; max-width: 85%; padding: .12em .58em .2em; text-align: center;
+  background: var(--verdict-bg); border-block: 2px solid var(--verdict-rim);
+  box-shadow: 0 7px 20px #0d142588, inset 0 0 20px #d9a85923;
+  font-size: clamp(28px, 10vw, 78px); letter-spacing: .22em; text-indent: .22em; line-height: 1.3;
+  text-shadow: 0 2px 0 #091122aa, 0 0 18px #d8ad6250;
+}
+[data-outcome="defeat"] .combat-outcome h3 { box-shadow: 0 7px 22px #0d1425ba, inset 0 0 20px #819db52d; text-shadow: 0 2px 0 #10233c; }
+@keyframes outcome-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes outcome-standard { from { transform: translateY(12px) scale(.86); } to { transform: none; } }
 .combat-controls { min-height: 76px; gap: 16px; padding: 12px clamp(12px,3vw,24px); }
 #combat-status { margin: 0; color: #fff1ce; font-size: clamp(15px,2vw,20px); font-weight: 700; }
 #combat-advance { width: auto; flex-shrink: 0; min-height: 48px; justify-content: center; }
@@ -216,6 +248,7 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
   .combat-team { padding-block: 4px; }
   .fighter { max-width: 82px; }
   .combat-damage { translate: -50% calc(-100% - 6px); }
+  .combat-outcome h3 { font-size: clamp(25px, 9dvh, 46px); }
 }
 @media (prefers-reduced-motion: reduce) {
   #combat-screen *, #combat-screen *::before, #combat-screen *::after { animation: none !important; transition: none !important; }

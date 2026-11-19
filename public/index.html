@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=highland">
-    <link rel="stylesheet" href="./combat.css?v=volley-2">
+    <link rel="stylesheet" href="./combat.css?v=finale">
     <script defer src="./rules.js?v=terrain"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
-    <script defer src="./music.js?v=volley"></script>
-    <script defer src="./combat.js?v=volley-2"></script>
+    <script defer src="./music.js?v=finale"></script>
+    <script defer src="./combat.js?v=finale"></script>
     <script defer src="./game.js?v=graphics-bgm"></script>
   </head>
   <body>
@@ -78,7 +78,7 @@
       <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと戦闘が始まり、そのターンの味方の行動が終わります。</li><li>「ターン終了」で次に進みます。敵の隣でターンを始めたら、その場で攻撃できます。</li></ol>
       <p>攻撃する側のHPが8〜10なら3、4〜7なら2、1〜3なら1ダメージです。生き残った側は、被弾後のHPで1回だけ反撃します。「演出をスキップ」で結果をすぐに確認できます。</p>
       <p>歩兵戦では、攻撃を受ける側が森にいるとダメージを1、山にいると2減らします。反撃を受けるときも同じで、ダメージは最低1です。歩兵は森や山にも移動できます。</p>
-      <p>「BGM」と「効果音」は別々に切り替えられます。BGMをオンにすると、マップと戦闘で曲が切り替わります。</p>
+      <p>「BGM」と「効果音」は別々に切り替えられます。BGMをオンにすると、マップ・戦闘に加えて勝利・敗北で専用曲が流れます。</p>
       <p id="mission-rules">歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。</p>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
@@ -105,8 +105,8 @@
             <small id="combat-enemy-terrain"></small><span class="force-health" id="combat-enemy-bar" aria-hidden="true"></span>
           </div>
         </div>
-        <div class="combat-field" aria-hidden="true">
-          <div class="combat-camera">
+        <div class="combat-field">
+          <div class="combat-camera" aria-hidden="true">
             <div class="combat-backdrop">
               <img src="./assets/highland-dusk.webp" alt="" decoding="async" fetchpriority="low">
             </div>
@@ -118,7 +118,11 @@
               <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
             </div>
           </div>
-          <span class="combat-stage" id="combat-stage"></span>
+          <span class="combat-stage" id="combat-stage" aria-hidden="true"></span>
+          <div class="combat-outcome" id="combat-outcome" hidden>
+            <div class="outcome-emblem" aria-hidden="true"></div>
+            <h3 id="combat-outcome-title"></h3>
+          </div>
         </div>
         <div class="combat-controls">
           <p id="combat-status" role="status" aria-atomic="true"></p>

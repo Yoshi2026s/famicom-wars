@@ -2,10 +2,13 @@ const music = (() => {
   const player = document.getElementById('bgm-player');
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
-  const tracks = {map: './assets/bgm-map.mp3?v=highland', battle: './assets/bgm-battle.mp3?v=volley'};
+  const tracks = {
+    map: './assets/bgm-map.mp3?v=highland', battle: './assets/bgm-battle.mp3?v=volley',
+    victory: './assets/bgm-victory.mp3?v=finale', defeat: './assets/bgm-defeat.mp3?v=finale',
+  };
+  const sources = {...tracks};
+  const requested = new Set();
   let mapPosition = 0;
-  let battleSource = tracks.battle;
-  let battleRequested = false;
   let enabled = false;
   let unavailable = false;
   let interacted = false;
@@ -33,26 +36,33 @@ const music = (() => {
       return;
     }
     if (loadedScene !== scene) {
-      if (loadedScene === 'map') mapPosition = player.currentTime;
-      player.src = scene === 'battle' ? battleSource : tracks.map;
+      player.loop = scene === 'map' || scene === 'battle';
+      player.src = sources[scene];
       player.currentTime = scene === 'map' ? mapPosition : 0;
       loadedScene = scene;
       start();
-    } else if (player.paused) {
+    } else if (player.paused && !player.ended) {
       start();
     }
-    if (scene === 'map' && !battleRequested && location.protocol !== 'file:') {
-      battleRequested = true;
-      fetch(tracks.battle)
-        .then((response) => {
-          if (!response.ok) throw new Error('Battle music is unavailable');
-          return response.blob();
-        })
-        .then((track) => { battleSource = URL.createObjectURL(track); })
-        .catch(() => {
-          // The player can still request the original URL on entering combat.
-        });
+    if (scene === 'map') prefetch('battle');
+    if (scene === 'battle') {
+      prefetch('victory');
+      prefetch('defeat');
     }
+  }
+
+  function prefetch(track) {
+    if (requested.has(track) || location.protocol === 'file:') return;
+    requested.add(track);
+    fetch(tracks[track])
+      .then((response) => {
+        if (!response.ok) throw new Error('Track is unavailable');
+        return response.blob();
+      })
+      .then((audio) => { sources[track] = URL.createObjectURL(audio); })
+      .catch(() => {
+        // The player can still request the original URL when the scene opens.
+      });
   }
 
   function start() {
@@ -60,8 +70,8 @@ const music = (() => {
     const requestedSource = player.src;
     player.play().catch((error) => {
       if (requestedScene !== loadedScene || requestedSource !== player.src || error.name !== 'NotSupportedError') return;
-      if (requestedSource === battleSource && requestedSource.startsWith('blob:')) {
-        battleSource = tracks.battle;
+      if (requestedSource === sources[requestedScene] && requestedSource.startsWith('blob:')) {
+        sources[requestedScene] = tracks[requestedScene];
         URL.revokeObjectURL(requestedSource);
         loadedScene = undefined;
         updatePlayback();
@@ -100,6 +110,10 @@ const music = (() => {
   updateButtons();
   return {
     setScene(nextScene) {
+      if (scene !== nextScene && loadedScene === scene) {
+        if (scene === 'map') mapPosition = player.currentTime;
+        loadedScene = undefined;
+      }
       scene = nextScene;
       updatePlayback();
     },
