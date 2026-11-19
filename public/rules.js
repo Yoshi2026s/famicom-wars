@@ -11,8 +11,9 @@ class TrainingMap {
 
   constructor(mode = 'training') {
     this.isBattle = mode === 'battle';
-    this.playerHP = this.maxHP;
-    this.enemyHP = this.maxHP;
+    const startingHP = this.isBattle ? this.maxHP : 1;
+    this.playerHP = startingHP;
+    this.enemyHP = startingHP;
     this.enemyAction = null;
     if (this.isBattle) {
       this.x = 1;
@@ -22,7 +23,7 @@ class TrainingMap {
   }
 
   get maxHP() {
-    return this.isBattle ? 3 : 1;
+    return 10;
   }
 
   get result() {
