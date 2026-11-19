@@ -81,31 +81,33 @@ const mapSize = 320;
 const map = new Pixels(mapSize, mapSize);
 // Continuous paths and patches of meadow are terrain decoration on this flat training map.
 function pathX(y) {
-  return Math.round(245 - y * .56 + 14 * Math.sin(y / 27));
+  return Math.round(266 - y * .66 + 24 * Math.sin(y / 39) + 10 * Math.cos(y / 22));
 }
-const meadowColors = ['789557','83a05c','8aaa63','9bb66a','a6ba6d','adbf74'];
-const pathColors = ['d6bd87','d8c28e','cfb883','e2ca94'];
+const meadowColors = ['547b59','628760','739669','85a46d','98ad74','aeb77e'];
+const meadowDither = ['5a805e','698c63','7a9b6e','8ba773','9daf78','b2ba82'];
+const pathColors = ['b4a079','bba981','c4af87','c9b88b'];
 for (let y = 0; y < mapSize; y++) {
   const center = pathX(y);
   for (let x = 0; x < mapSize; x++) {
-    const slope = Math.sin(x / 39 + y / 49) + Math.cos(x / 55 - y / 27) + .6 * Math.sin(y / 22);
-    const band = Math.max(0, Math.min(5, Math.round(2.45 + slope * 1.15)));
+    const slope = Math.sin(x / 46 + y / 56) + Math.cos(x / 63 - y / 34) + .39 * Math.sin(y / 22);
+    const slopeIndex = Math.max(0, Math.min(5.99, 2.7 + slope * 1.35));
+    const band = Math.floor(slopeIndex);
     const trail = Math.abs(x - center) + random(3);
-    let color = meadowColors[band];
+    let color = slopeIndex % 1 > .72 && (x + y) % 2 ? meadowDither[band] : meadowColors[band];
     if (trail < 10) color = pathColors[random(pathColors.length)];
-    else if (trail < 13) color = trail < 11 ? 'e4cb91' : 'b3b77d';
+    else if (trail < 13) color = trail < 11 ? 'd5c397' : 'a6a879';
     map.rect(x,y,1,1,color);
   }
 }
-for (let i = 0; i < 3500; i++) {
+for (let i = 0; i < 2440; i++) {
   const x = random(mapSize), y = random(mapSize);
   if (Math.abs(x-pathX(y)) < 9) {
-    map.rect(x,y,random(4)+1,1,i % 3 ? 'c2aa79' : 'f3dba3');
+    map.rect(x,y,random(4)+1,1,i % 3 ? 'a59571' : 'e2ce9d');
   } else {
-    map.rect(x,y,random(4)+1,1,['b4cd7d','6f9156','bed288'][random(3)]);
+    map.rect(x,y,random(3)+1,1,['a6b87a','4e7757','aabe80'][random(3)]);
     if (i % 6 === 0) {
-      map.rect(x-1,y-1,1,2,'7e9e5b'); map.rect(x+1,y-2,1,3,'8ba760');
-      map.rect(x+2,y-2,1,1,'cfda8b');
+      map.rect(x-1,y-1,1,2,'658b5b'); map.rect(x+1,y-2,1,3,'799a62');
+      map.rect(x+2,y-2,1,1,'c0c98e');
     }
   }
 }
@@ -118,7 +120,7 @@ for (const [cx,cy] of [[17,12],[9,82],[175,26],[155,106],[29,143],[174,180],[89,
 for (const [x,y] of [[6,5],[17,7],[1,13],[11,16],[55,0],[183,1],[171,8],[185,13],
   [4,55],[9,64],[175,54],[185,62],[144,124],[153,129],[3,169],[11,177],[166,177],[176,183],[158,185]]) {
   const left = Math.round(x * 1.6), top = Math.round(y * 1.6);
-  map.ellipse(left + 12, top + 26, 14, 3, '628351');
+  map.ellipse(left + 18, top + 26, 17, 4, '456b50');
   map.sprite(left,top,fir,treeColors,2);
 }
 for (const [x,y] of [[84,13],[90,16],[34,54],[151,77],[26,111],[120,148],[127,152],[78,179],[185,147]]) {
@@ -211,25 +213,35 @@ const profile = [
   '.....odddybddo', '.....odlltddlo', '....odlldodllo', '....odlldoodllo',
   '...obbbo...obbbo', '..obbbbo...obbbboo', '..oooooo...ooooooo',
 ];
-for (const [name,palette] of [['combat-ally',uniform],['combat-foe',enemyUniform]]) {
-  const figure = new Pixels(56,50);
-  figure.sprite(0,0,profile,palette,2);
-  figure.rect(12,4,9,2,palette.a);
-  figure.rect(42,28,10,1,palette.h);
-  figure.rect(11,32,3,5,palette.h);
-  figure.save(name + '.png');
+for (const [name, palette] of [['ally', uniform], ['foe', enemyUniform]]) {
+  const sheet = new Pixels(56, 150);
+  for (const [pose, head, arms, backFoot] of [[0,0,0,0], [1,1,1,-1], [2,-1,-1,-1]]) {
+    const top = pose * 50;
+    for (const [row, pixels] of profile.entries()) {
+      const shift = row < 11 ? head : row < 19 ? arms : 0;
+      if (row < 21) sheet.sprite(shift * 2, top + row * 2, [pixels], palette, 2);
+      else {
+        sheet.sprite(backFoot * 2, top + row * 2, [pixels.slice(0, 10)], palette, 2);
+        sheet.sprite((10 - backFoot) * 2, top + row * 2, [pixels.slice(10)], palette, 2);
+      }
+    }
+    sheet.rect(12 + head * 2, top + 4, 9, 2, palette.a);
+    sheet.rect(42 + arms * 2, top + 28, 10, 1, palette.h);
+    sheet.rect(11 + arms * 2, top + 32, 3, 5, palette.h);
+  }
+  sheet.save('squad-' + name + '.png');
 }
 
 // Keep the established map tiles independent of edits to the battle panorama.
 seed = 779578159;
 const forestTile = new Pixels(64, 64);
-forestTile.rect(0, 0, 64, 64, '68874f');
+forestTile.rect(0, 0, 64, 64, '597a56');
 for (let i = 0; i < 175; i++) {
-  forestTile.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '95ad64' : '506f47');
+  forestTile.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '819d6b' : '486f55');
 }
 for (const [x, y] of [[-3,-4],[13,-6],[36,-4],[50,-3],[6,8],[28,9],[46,12],[-4,24],[17,25],[36,26],[51,31],[4,39],[22,40],[40,41]]) {
-  forestTile.ellipse(x + 13, y + 26, 13, 4, '405f42');
-  forestTile.sprite(x, y, fir, {t:'254d41', l:'94c875', m:'527f52', w:'796043'},2);
+  forestTile.ellipse(x + 17, y + 26, 14, 5, '365b48');
+  forestTile.sprite(x, y, fir, {t:'254b43', l:'90b977', m:'4f815d', w:'80664d'},2);
 }
 forestTile.save('terrain-forest.png');
 
@@ -246,7 +258,7 @@ const peak = [
   '..tllrllrssdsdddddtt..', '..tllrrrrssddssddddd..', '.tllrlrrsdsdddsddddtt.',
   'tllrllrsdsdddssddddddt', 'ttrrlrrssdddddddddddtt', '.ttrrrssdddttttttttt..',
 ];
-const stoneColors = {t:'4c605f', l:'d3d3bb', h:'f7e8c6', r:'aab8ac', s:'8c9e9e', d:'617785'};
+const stoneColors = {t:'455766', l:'d5d0bc', h:'f7e8c6', r:'b2b5b0', s:'8c9ba3', d:'637689'};
 for (const [x, y, scale] of [[-7,8,2],[25,1,2],[16,24,2],[0,43,1],[40,39,1],[31,47,1]]) {
   mountainTile.ellipse(x+11*scale,y+17*scale,12*scale,3*scale,'5c7164');
   mountainTile.sprite(x, y, peak, stoneColors, scale);
