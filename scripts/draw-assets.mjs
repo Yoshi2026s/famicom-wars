@@ -1,4 +1,4 @@
-// Original pixel art. Run with Node.js to rebuild the three PNGs used by the game.
+// Original pixel art. Run with Node.js to rebuild the PNGs used by the game.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
@@ -145,8 +145,7 @@ for (let i=0; i<220; i++) {
 portrait.rect(77,64,24,2,'80965f');
 portrait.save('meadow.png');
 
-const unit = new Pixels(23,27);
-unit.sprite(0,0,[
+const infantryRows = [
   '.........ooooo.........',
   '.......ootttttoo.......',
   '......otthhhttllo......',
@@ -173,6 +172,15 @@ unit.sprite(0,0,[
   '......obbbboobbbo......',
   '......obbbboobbbbo.....',
   '......ooooo.oooooo.....',
-],{o:'28392f', t:'418991', h:'79b6a8', l:'32636a', d:'335257', n:'795941',
-  s:'d29a62', f:'f1c58b', j:'e8aa51', p:'8c8152', b:'5d5142', y:'d7b16a'});
+];
+const uniform = {o:'28392f', t:'418991', h:'79b6a8', l:'32636a', d:'335257', n:'795941',
+  s:'d29a62', f:'f1c58b', j:'e8aa51', p:'8c8152', b:'5d5142', y:'d7b16a'};
+const unit = new Pixels(23,27);
+unit.sprite(0,0,infantryRows,uniform);
 unit.save('infantry.png');
+
+const enemy = new Pixels(23,27);
+enemy.sprite(0,0,infantryRows.map(row => [...row].reverse().join('')), {
+  ...uniform, o:'3d2d2c', t:'b35343', h:'e08965', l:'8b423b', d:'683b36', j:'eadab0',
+});
+enemy.save('enemy-infantry.png');
