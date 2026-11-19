@@ -60,9 +60,10 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 }
 .combat-backdrop {
   position: absolute; inset: 0; z-index: -2;
-  background: url("./assets/highland-dusk.webp") center 61% / cover no-repeat,
-    url("./assets/combat-field.png?v=graphics-bgm") center 65% / cover no-repeat;
+  background: url("./assets/combat-field.png?v=graphics-bgm") center 65% / cover no-repeat;
 }
+.combat-backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 61%; opacity: 0; transition: opacity .2s ease-out; }
+.combat-backdrop img.is-ready { opacity: 1; }
 [data-phase="entry"] .combat-backdrop { animation: reveal-field .42s cubic-bezier(.16,.82,.35,1) both; }
 @keyframes reveal-field { from { transform: scale(1.075); filter: brightness(.77); } to { transform: none; filter: none; } }
 .combat-atmosphere {
