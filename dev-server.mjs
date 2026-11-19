@@ -9,6 +9,7 @@ const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.png', 'image/png'],
+  ['.wav', 'audio/wav'],
   ['.webp', 'image/webp'],
 ]);
 
@@ -25,10 +26,29 @@ export function createDevServer() {
       }
 
       const body = await readFile(file);
-      response.writeHead(200, {
+      const headers = {
         'Content-Type': contentTypes.get(extname(file)) ?? 'application/octet-stream',
         'Cache-Control': 'no-store',
-      }).end(body);
+        'Content-Length': body.length,
+      };
+      if (extname(file) === '.wav') {
+        headers['Accept-Ranges'] = 'bytes';
+        if (request.headers.range) {
+          const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range);
+          const start = range?.[1] ? Number(range[1]) : Math.max(0, body.length - Number(range?.[2]));
+          const end = range?.[1] && range[2] ? Math.min(Number(range[2]), body.length - 1) : body.length - 1;
+          if (!range || start > end || !Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
+            response.writeHead(416, {'Content-Range': `bytes */${body.length}`}).end();
+            return;
+          }
+          const part = body.subarray(start, end + 1);
+          headers['Content-Range'] = `bytes ${start}-${end}/${body.length}`;
+          headers['Content-Length'] = part.length;
+          response.writeHead(206, headers).end(part);
+          return;
+        }
+      }
+      response.writeHead(200, headers).end(body);
     } catch (error) {
       response.writeHead(error instanceof URIError ? 400 : 404).end();
     }
