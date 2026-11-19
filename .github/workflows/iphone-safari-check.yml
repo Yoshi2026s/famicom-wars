@@ -1,0 +1,43 @@
+name: iPhone Safari verification
+
+on:
+  push:
+    branches: [codex/iphone-safari-check]
+
+permissions:
+  contents: read
+
+jobs:
+  safari:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Run iPhone Safari
+        env:
+          GAME_URL: https://yoshi2026s.github.io/famicom-wars/?v=81d3251
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available -j > "$RUNNER_TEMP/devices.json"
+          SIM_UDID=$(node -e '
+            const list = require(process.argv[1]).devices;
+            const candidate = Object.entries(list).reverse().flatMap(([runtime, devices]) =>
+              runtime.includes("iOS") ? devices.filter(device => device.name === "iPhone 16") : []);
+            if (!candidate.length) throw Error("iPhone 16 simulator unavailable");
+            process.stdout.write(candidate[0].udid);
+          ' "$RUNNER_TEMP/devices.json")
+          export SIM_UDID
+          xcrun simctl boot "$SIM_UDID"
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          sudo safaridriver --enable
+          safaridriver --port 4444 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
+          driver=$!
+          trap 'kill "$driver" 2>/dev/null || true; cat "$RUNNER_TEMP/safaridriver.log"' EXIT
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4444/status
+          node scripts/verify-ios-safari.mjs
