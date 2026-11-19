@@ -68,7 +68,7 @@ function render() {
       + (game.selected ? ' 移動するには印のある草原を選びます。' : '');
   } else if (spent) {
     state.textContent = '行動済み';
-    if (game.attacked && game.isBattle) message.textContent = '敵に1ダメージ。残りHPは' + game.enemyHP + 'です。ターンを終了できます。';
+    if (game.attacked && game.isBattle) message.textContent = '戦闘終了。味方HP ' + game.playerHP + '、敵HP ' + game.enemyHP + '。ターンを終了できます。';
     else message.textContent = game.attacked ? '敵歩兵を撃破しました！' : position + ' に移動しました。ターンを終了できます。';
   } else if (game.selected) {
     state.textContent = '選択中';
@@ -95,7 +95,7 @@ function renderBattleStatus() {
   const from = coordinate(action.from.x, action.from.y);
   const to = coordinate(action.to.x, action.to.y);
   const movement = from === to ? to + ' に留まり' : from + ' から ' + to + ' へ移動し';
-  report.textContent = action.turn + 'ターン目、敵は' + movement + (action.hit ? '、味方に1ダメージ。' : 'ました。');
+  report.textContent = action.turn + 'ターン目、敵は' + movement + (action.hit ? '、戦闘を開始しました。' : 'ました。');
 }
 
 function showMission() {
@@ -110,7 +110,7 @@ function showMission() {
     else link.removeAttribute('aria-current');
   }
   document.getElementById('mission-rules').textContent = battle
-    ? '歩兵戦では味方HPは3、敵HPは2です。敵は毎ターン最大1マス近づき、上下左右に隣接すると1ダメージを与えます。先に相手のHPを0にすると勝利です。'
+    ? '歩兵戦では味方・敵ともにHP3です。敵は毎ターン最大1マス近づき、上下左右に隣接すると攻撃します。1回の攻撃や反撃でHPが1減り、先に相手のHPを0にすると勝利です。'
     : '歩兵訓練では敵はその場で待機します。攻撃1回で撃破できます。';
   document.getElementById('battle-health').hidden = !battle;
   document.getElementById('enemy-report').hidden = !battle;
