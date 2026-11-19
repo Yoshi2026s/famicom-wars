@@ -16,6 +16,9 @@ const combatScreen = (() => {
       while (formation.childElementCount < hp) {
         const fighter = document.createElement('span');
         fighter.className = 'fighter';
+        const slot = formation.childElementCount;
+        fighter.style.setProperty('--column', slot % 5);
+        fighter.style.setProperty('--rank', Math.floor(slot / 5));
         formation.append(fighter);
       }
     }
@@ -83,6 +86,7 @@ const combatScreen = (() => {
     open(map, attacker, resolve, onReturn) {
       if (scene) return;
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null};
+      dialog.classList.toggle('platoon', map.isBattle);
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
       showForces(map);

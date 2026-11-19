@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#18392d">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=combat-screen">
-    <link rel="stylesheet" href="./combat.css?v=counterattack">
-    <script defer src="./rules.js?v=counterattack"></script>
-    <script defer src="./combat.js?v=counterattack"></script>
-    <script defer src="./game.js?v=counterattack"></script>
+    <link rel="stylesheet" href="./combat.css?v=max-hp-10">
+    <script defer src="./rules.js?v=max-hp-10"></script>
+    <script defer src="./combat.js?v=max-hp-10"></script>
+    <script defer src="./game.js?v=max-hp-10"></script>
   </head>
   <body>
     <header class="masthead">
@@ -31,8 +31,8 @@
         <section class="map-panel" aria-labelledby="map-title">
           <div class="map-bar"><h2 id="map-title"><span class="map-icon" aria-hidden="true">▦</span> 作戦マップ</h2><span class="dimensions">5 × 5</span></div>
           <div class="battle-health" id="battle-health" hidden>
-            <span>味方HP <meter id="player-hp" min="0" max="3" value="3" aria-label="味方HP"></meter><b id="player-hp-text">3/3</b></span>
-            <span>敵HP <meter id="enemy-hp" min="0" max="3" value="3" aria-label="敵HP"></meter><b id="enemy-hp-text">3/3</b></span>
+            <span>味方HP <meter id="player-hp" min="0" aria-label="味方HP"></meter><b id="player-hp-text"></b></span>
+            <span>敵HP <meter id="enemy-hp" min="0" aria-label="敵HP"></meter><b id="enemy-hp-text"></b></span>
           </div>
           <div class="map-surround">
             <div class="chart">
@@ -68,7 +68,7 @@
       <h2 id="guide-title">遊び方</h2>
       <ol><li>青い味方歩兵を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。移動は1ターンに1回、上下左右に合計2マスまでです。敵がいるマスは通れません。</li><li>上下左右に隣り合う敵には「攻撃」の印が付きます。敵を選ぶと1ダメージを与え、そのターンの味方の行動が終わります。</li><li>「ターン終了」で次に進みます。敵の隣でターンを始めたら、その場で攻撃できます。</li></ol>
       <p>攻撃が始まると戦闘画面に切り替わります。攻撃を受けた側のHPが残っていれば、その場で1回だけ反撃します。戦闘後は残りHPを表示してマップへ戻ります。「演出をスキップ」で結果をすぐに確認できます。</p>
-      <p id="mission-rules">歩兵訓練では敵はその場で待機します。攻撃1回で撃破できます。</p>
+      <p id="mission-rules">歩兵訓練ではHP1で始まり、敵はその場で待機します。攻撃1回で撃破できます。</p>
       <p>選択を取り消すには歩兵をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end">閉じる</button></form>
     </dialog>

@@ -31,13 +31,15 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 .formation { position: absolute; inset: 0 50% 0 0; }
 .formation.foe { inset: 0 0 0 50%; transform: scaleX(-1); }
 .fighter {
-  position: absolute; width: 39%; max-width: 132px; aspect-ratio: 28/25;
+  position: absolute; left: 48%; bottom: 13%; width: 39%; max-width: 132px; aspect-ratio: 28/25;
   background: url("./assets/combat-ally.png") center / contain no-repeat;
 }
 .foe .fighter { background-image: url("./assets/combat-foe.png"); }
-.fighter:nth-child(1) { left: 48%; bottom: 13%; z-index: 3; }
-.fighter:nth-child(2) { left: 16%; bottom: 19%; z-index: 2; }
-.fighter:nth-child(3) { left: 0; bottom: 5%; z-index: 4; }
+.platoon .fighter {
+  left: calc(74% - var(--column) * 17% + var(--rank) * 2%);
+  bottom: calc(10% + var(--rank) * min(7vw, 54px));
+  width: 21%; max-width: min(70px, 14dvh); z-index: calc(2 - var(--rank));
+}
 #combat-screen[data-attacker="player"][data-phase="attack"] .ally .fighter,
 #combat-screen[data-attacker="enemy"][data-phase="attack"] .foe .fighter { animation: advance .8s steps(4) both; }
 @keyframes advance { 0% { transform: translateX(-22%); } 50% { transform: translate(0,-4%); } 75% { transform: translateX(5%); } 100% { transform: none; } }
