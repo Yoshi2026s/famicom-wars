@@ -12,11 +12,11 @@ E2に訓練用の敵歩兵が1体います。最初のターンは、C3の味方
 
 訓練・歩兵戦とも、攻撃が成立すると専用の戦闘画面に切り替わります。攻撃する側のHPが8〜10なら3、4〜7なら2、1〜3なら1ダメージです。先に攻撃を受けた側が生き残ると、被弾後のHPで同じ画面から1回だけ反撃します。実際に減る量は相手の残りHPが上限です。「演出をスキップ」で攻撃と反撃を含む結果を先に確認し、「マップに戻る」で続行できます。
 
-戦闘画面では敵味方の発射、着弾、被弾した歩兵の後退を順に表示します。着弾する側にダメージと地形による軽減量が出ます。端末の「動きを減らす」が有効な場合は画面の動きを抑え、HPと結果を表示します。
+戦闘画面では夕暮れの高原を背景に、隊列が展開してから構え、射撃、被弾、後退が順に進みます。着弾に合わせて火花と土煙が立ち、ダメージと地形による軽減量が出ます。端末の「動きを減らす」が有効な場合は画面の動きを抑え、HPと結果を表示します。
 
 マップと戦闘画面にある「効果音」で、射撃音と着弾音のオン・オフを切り替えます。初期設定はオフです。選択した設定は同じブラウザーで次に開いたときにも適用されます。演出をスキップすると、残りの効果音は停止します。
 
-「BGM」は効果音とは別に設定します。マップではオリジナル曲「尾根の偵察」、戦闘では「交戦開始」を繰り返し再生します。戦闘後はマップ曲の続きに戻り、画面を離れると一時停止します。初期設定はオフで、オン・オフは同じブラウザーに保存されます。
+「BGM」は効果音とは別に設定します。マップではピアノとフルートが旋律を受け渡す「風渡る尾根」、戦闘ではブラスと打楽器が先導する「残照の激突」を再生します。どちらもオリジナル曲です。交戦のたびに戦闘曲の頭から始まり、戦闘後はマップ曲の続きに戻ります。画面を離れると一時停止します。初期設定はオフで、オン・オフは同じブラウザーに保存されます。
 
 ## 歩兵戦「草原の遭遇戦」
 
@@ -43,8 +43,16 @@ node dev-server.mjs
 - `public/` にブラウザーへ配信する HTML、CSS、JavaScript、素材を置きます。
 - `test/` に自動テストを置きます。変更後は `node --test` を実行します。
 
-- 盤面・風景・歩兵のドット絵の編集元は `scripts/draw-assets.mjs` です。`node scripts/draw-assets.mjs` で `public/assets/` のPNGを再生成できます。
+- 盤面・補助背景・歩兵のドット絵の編集元は `scripts/draw-assets.mjs` です。`node scripts/draw-assets.mjs` でPNGを再生成できます。歩兵の戦闘用画像は待機・構え・反動の3コマを1ファイルに格納しています。
+- 戦闘背景 `public/assets/highland-dusk.webp` は組み込みの画像生成で制作し、WebPに変換した素材です。
 - BGMの曲データとMP3生成は `scripts/compose-bgm.mjs` にあります。`pnpm install --frozen-lockfile` で生成用の依存関係を取得し、`node scripts/compose-bgm.mjs` で2曲を再生成できます。
+
+<details>
+<summary>戦闘背景の生成プロンプト</summary>
+
+> Create an original environment background for a retro browser tactical videogame battle. Landscape 3:2, edge to edge. Exceptional hand-crafted 32-bit pixel art with a perceptible pixel grid, nuanced clusters of color and selective dithering, elegant atmosphere. A luminous evening sun behind distant indigo mountain peaks over a wide highland valley; receding fir-covered ridges, amber rim light, violet cloud bands, light haze. The horizon is high (about 36% from top); from around 62% down is a broad uninterrupted FLAT readable meadow of sage grass and warm packed earth where side-view pixel soldiers will be composited; foreground grass only in little clusters at lower corners. Balanced composition with the sun slightly off-center. Keep the entire central three quarters and lower third readable and open so responsive crops also include the twilight valley and ground. Rich teal shadows and apricot gold sun, cinematic value separation without oppressive darkness. Background only, absolutely no sprites, no people, no buildings, no signs, no text, logos, battle effects, frames, or UI. Independent fictional setting; no resemblance to any specific game or existing asset.
+
+</details>
 
 ## GitHub Pages への公開
 

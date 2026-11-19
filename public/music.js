@@ -2,8 +2,8 @@ const music = (() => {
   const player = document.getElementById('bgm-player');
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
-  const tracks = {map: './assets/bgm-map.mp3', battle: './assets/bgm-battle.mp3'};
-  const positions = {map: 0, battle: 0};
+  const tracks = {map: './assets/bgm-map.mp3?v=highland', battle: './assets/bgm-battle.mp3?v=highland'};
+  let mapPosition = 0;
   let battleSource = tracks.battle;
   let battleRequested = false;
   let enabled = false;
@@ -33,9 +33,9 @@ const music = (() => {
       return;
     }
     if (loadedScene !== scene) {
-      if (loadedScene) positions[loadedScene] = player.currentTime;
+      if (loadedScene === 'map') mapPosition = player.currentTime;
       player.src = scene === 'battle' ? battleSource : tracks.map;
-      player.currentTime = positions[scene];
+      player.currentTime = scene === 'map' ? mapPosition : 0;
       loadedScene = scene;
       start();
     } else if (player.paused) {

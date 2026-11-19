@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#102a2f">
+    <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=graphics-bgm">
-    <link rel="stylesheet" href="./combat.css?v=graphics-bgm">
+    <link rel="stylesheet" href="./style.css?v=highland">
+    <link rel="stylesheet" href="./combat.css?v=highland">
     <script defer src="./rules.js?v=terrain"></script>
     <script defer src="./combat-audio.js?v=battle-audio"></script>
-    <script defer src="./music.js?v=graphics-bgm-4"></script>
-    <script defer src="./combat.js?v=graphics-bgm"></script>
+    <script defer src="./music.js?v=highland"></script>
+    <script defer src="./combat.js?v=highland"></script>
     <script defer src="./game.js?v=graphics-bgm"></script>
   </head>
   <body>
@@ -106,9 +106,11 @@
           </div>
         </div>
         <div class="combat-field" aria-hidden="true">
+          <div class="combat-backdrop"></div>
+          <div class="combat-atmosphere"></div>
           <div class="formation ally"></div><div class="formation foe"></div>
           <div class="combat-volley"><i></i><i></i><i></i></div>
-          <i class="combat-impact"></i><i class="combat-smoke"></i>
+          <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i>
           <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
         </div>
         <div class="combat-controls">

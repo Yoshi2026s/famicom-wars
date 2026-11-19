@@ -135,10 +135,14 @@ const combatScreen = (() => {
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
       showForces(map);
-      beginStrike(attacker);
+      dialog.dataset.attacker = attacker;
+      dialog.dataset.phase = 'entry';
+      status.textContent = '交戦開始';
       dialog.showModal();
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
+      if (motion.matches) beginStrike(attacker);
+      else scene.timer = setTimeout(() => beginStrike(attacker), 420);
     },
     close,
   };
