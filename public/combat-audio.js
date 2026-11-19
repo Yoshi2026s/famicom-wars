@@ -32,7 +32,7 @@ const combatAudio = (() => {
 
   function makeEffect(kind) {
     const impact = kind === 'impact';
-    const duration = impact ? 0.22 : 0.09;
+    const duration = impact ? 0.32 : 0.14;
     const rate = context.sampleRate;
     const buffer = context.createBuffer(1, Math.ceil(rate * duration), rate);
     const samples = buffer.getChannelData(0);
@@ -45,24 +45,33 @@ const combatAudio = (() => {
       smoothNoise += (noise - smoothNoise) * (impact ? 0.09 : 0.22);
       const time = i / rate;
       const progress = time / duration;
-      phase += (impact ? 123 - 68 * progress : 432 - 224 * progress) / rate;
+      phase += (impact ? 112 - 62 * progress : 350 - 215 * progress) / rate;
       const tone = Math.sin(phase * 2 * Math.PI);
-      const envelope = Math.min(1, time / 0.0025) * (1 - progress) ** (impact ? 3 : 4);
-      samples[i] = envelope * (impact ? 0.32 * tone + 0.24 * smoothNoise : 0.27 * (noise - smoothNoise) + 0.10 * Math.sign(tone));
+      const envelope = Math.min(1, time / 0.0025, (duration - time) / .015) * Math.exp(-time * (impact ? 18 : 27));
+      const tail = noise * Math.max(0, 1 - progress) ** 5 * .027;
+      samples[i] = envelope * (impact ? .35 * tone + .25 * smoothNoise : .25 * (noise - smoothNoise) + .11 * tone) + tail;
     }
     return buffer;
   }
 
-  function play(kind) {
+  function play(kind, pan = 0) {
     if (!enabled || document.hidden || context?.state !== 'running') return;
     if (!effects.has(kind)) effects.set(kind, makeEffect(kind));
     const source = context.createBufferSource();
     source.buffer = effects.get(kind);
+    const panner = context.createStereoPanner?.();
+    if (panner) {
+      panner.pan.value = pan;
+      source.connect(panner);
+      panner.connect(context.destination);
+    } else {
+      source.connect(context.destination);
+    }
     source.onended = () => {
       sources.delete(source);
       source.disconnect();
+      panner?.disconnect();
     };
-    source.connect(context.destination);
     source.start();
     sources.add(source);
   }

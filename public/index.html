@@ -6,11 +6,11 @@
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=highland">
-    <link rel="stylesheet" href="./combat.css?v=highland">
+    <link rel="stylesheet" href="./combat.css?v=volley">
     <script defer src="./rules.js?v=terrain"></script>
-    <script defer src="./combat-audio.js?v=battle-audio"></script>
-    <script defer src="./music.js?v=highland"></script>
-    <script defer src="./combat.js?v=highland"></script>
+    <script defer src="./combat-audio.js?v=volley"></script>
+    <script defer src="./music.js?v=volley"></script>
+    <script defer src="./combat.js?v=volley"></script>
     <script defer src="./game.js?v=graphics-bgm"></script>
   </head>
   <body>
@@ -106,12 +106,17 @@
           </div>
         </div>
         <div class="combat-field" aria-hidden="true">
-          <div class="combat-backdrop"></div>
-          <div class="combat-atmosphere"></div>
-          <div class="formation ally"></div><div class="formation foe"></div>
-          <div class="combat-volley"><i></i><i></i><i></i></div>
-          <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i>
-          <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
+          <div class="combat-camera">
+            <div class="combat-backdrop"></div>
+            <div class="combat-atmosphere"></div>
+            <div class="formation ally"></div><div class="formation foe"></div>
+            <div class="combat-volley"><i></i><i></i><i></i></div>
+            <div class="combat-hit">
+              <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i>
+              <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
+            </div>
+          </div>
+          <span class="combat-stage" id="combat-stage"></span>
         </div>
         <div class="combat-controls">
           <p id="combat-status" role="status" aria-atomic="true"></p>
