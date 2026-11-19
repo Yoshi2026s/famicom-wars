@@ -7,8 +7,8 @@ const tau = 2 * Math.PI;
 const chords = {
   D: [38, 54, 57, 62], A: [33, 52, 57, 61], Bm: [35, 54, 59, 62],
   G: [31, 55, 59, 62], Em: [40, 55, 59, 64], Fsharp: [42, 54, 58, 61],
-  Dm: [38, 53, 57, 62], Bb: [34, 53, 58, 62], F: [41, 53, 57, 60],
-  C: [36, 55, 60, 64], Gm: [43, 55, 58, 62], A7: [33, 55, 57, 61],
+  F: [41, 53, 57, 60], C: [36, 55, 60, 64],
+  Am: [33, 57, 60, 64], B7: [35, 57, 59, 63],
 };
 const mapScore = {
   bpm: 106,
@@ -30,26 +30,27 @@ const mapScore = {
   ],
 };
 const battleScore = {
-  bpm: 148,
-  harmony: ['Dm','Bb','Gm','A7','Dm','C','Bb','A7','Gm','Dm','F','C','Bb','Gm','Dm','A7',
-    'Dm','Bb','F','C','Gm','Bb','A7','A7'],
+  bpm: 156,
+  harmony: ['Em','C','Am','B7','Em','G','D','B7','C','G','Am','Em','F','Am','Em','B7',
+    'Em','C','D','B7','Em','Am','C','B7'],
   melody: [
-    [[0,.66,74],[.75,.2,74],[1,.54,77],[1.75,.24,81],[2,1.4,86],[3.5,.4,84]],
-    [[0,.72,82],[.75,.25,81],[1,1,77],[2.5,.45,74],[3,.85,77]],
-    [[0,.9,79],[1,.45,82],[1.5,.4,86],[2,.76,89],[3,.74,86]],
-    [[0,.78,85],[1,.5,81],[1.5,.4,79],[2,1.6,76]],
-    [[0,.75,74],[.75,.23,74],[1,.6,77],[1.75,.24,81],[2,1.4,89],[3.5,.4,86]],
-    [[0,.9,84],[1,.5,79],[1.5,.4,76],[2,1.35,79]],
-    [[0,.72,77],[1,.45,82],[1.5,.4,84],[2,1.4,86]], [[0,.75,85],[1,.6,81],[2,1.7,76]],
-    [[0,1.15,82],[1.5,.4,79],[2,1.5,74]], [[0,.9,81],[1,.75,77],[2,1.5,74]],
-    [[0,1.2,84],[1.5,.4,81],[2,1.6,77]], [[0,.9,79],[1,.75,76],[2,1.5,72]],
-    [[0,.7,74],[1,.45,77],[1.5,.45,82],[2,1.35,86]], [[0,.7,82],[1,.75,79],[2,1.45,86]],
-    [[0,.75,81],[1,.4,84],[1.5,.4,86],[2,1.45,89]], [[0,.75,91],[1,.65,89],[2,1.7,85]],
-    [[0,.65,86],[.75,.24,86],[1,.6,89],[1.75,.24,93],[2,1.45,89]],
-    [[0,.75,86],[1,.5,82],[2,.6,77],[3,.76,82]], [[0,.85,81],[1,.55,84],[2,1.5,89]],
-    [[0,.85,84],[1,.55,79],[2,1.5,76]], [[0,.7,79],[1,.45,82],[1.5,.45,86],[2,1.5,91]],
-    [[0,.75,89],[1,.65,86],[2,1.45,82]], [[0,.7,81],[1,.75,85],[2,1.55,88]],
-    [[0,.65,85],[1,.7,81],[2,.5,79],[3,.8,73]],
+    [[0,.58,76],[.75,.2,76],[1,.32,79],[1.5,.37,83],[2,1.18,88],[3.5,.34,86]],
+    [[0,.65,84],[.75,.2,83],[1,1.35,79],[2.75,.37,76],[3.25,.57,79]],
+    [[0,.65,81],[.75,.42,84],[1.25,.5,88],[2,.7,91],[3,.7,88]],
+    [[0,.8,87],[1,.46,83],[1.5,.42,81],[2,1.64,75]],
+    [[0,.58,76],[.75,.2,76],[1,.32,79],[1.5,.37,83],[2,1.18,91],[3.5,.34,88]],
+    [[0,.7,86],[1,.45,83],[1.5,.42,79],[2,1.55,83]],
+    [[0,.65,81],[.75,.5,86],[1.5,.43,88],[2,1.38,90]],
+    [[0,.78,87],[1,.49,83],[1.5,.42,81],[2,1.55,78]],
+    [[.25,1.28,84],[1.75,.5,83],[2.5,1.25,79]], [[0,1.17,81],[1.5,.5,79],[2,1.7,74]],
+    [[0,1.25,76],[1.5,.5,79],[2,1.65,81]], [[0,1.1,83],[1.5,.46,79],[2,1.6,76]],
+    [[0,1.1,77],[1.5,.45,81],[2,1.5,84]], [[0,1.1,88],[1.5,.5,84],[2,1.5,81]],
+    [[0,1.1,79],[1.5,.45,83],[2,1.55,88]], [[0,.65,90],[1,.55,88],[2,1.5,87]],
+    [[0,.6,88],[.75,.2,88],[1,.32,91],[1.5,.4,95],[2,1.18,91],[3.5,.34,88]],
+    [[0,.78,84],[1,.48,88],[1.5,.45,91],[2,1.64,88]], [[0,.75,90],[1,.44,88],[1.5,.45,86],[2,1.6,81]],
+    [[0,.71,83],[1,.42,87],[1.5,.45,90],[2,1.62,87]], [[0,.74,88],[1,.43,91],[1.5,.43,95],[2,1.55,93]],
+    [[0,.7,91],[1,.55,88],[2,1.6,84]], [[0,.8,83],[1,.5,84],[2,1.53,88]],
+    [[0,.7,87],[1,.43,83],[1.5,.43,81],[2,1.58,75]],
   ],
 };
 
@@ -65,6 +66,11 @@ const instruments = {
   brass: {attack: .018, wave: (phase, t) =>
     Math.sin(phase) + .34 * Math.sin(2 * phase) + .20 * Math.sin(3 * phase)
     + .14 * Math.sin(phase * 4) * Math.exp(-3 * t)},
+  horn: {attack: .013, wave: (phase, t) =>
+    Math.sin(phase + .25 * Math.sin(2 * phase)) + .33 * Math.sin(phase * 1.003)
+    + .18 * Math.sin(3 * phase) * Math.exp(-3.6 * t)},
+  pulse: {attack: .007, wave: (phase, t) =>
+    (Math.sin(phase + .51 * Math.sin(phase * 2)) + .22 * Math.sin(phase * 2.004)) * Math.exp(-5.5 * t)},
   bass: {attack: .022, wave: (phase) => .9 * Math.sin(phase) + .27 * Math.sin(2 * phase)},
 };
 
@@ -99,7 +105,7 @@ function arrange({bpm, harmony, melody}, battle) {
   }
 
   function percussion(start, kind, gain, pan = 0) {
-    const duration = kind === 'kick' ? .36 : kind === 'snare' ? .24 : .095;
+    const duration = kind === 'kick' ? .36 : kind === 'snare' ? .24 : kind === 'tom' ? .34 : .095;
     let last = 0;
     add(start, duration, pan, (t) => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -108,7 +114,8 @@ function arrange({bpm, harmony, melody}, battle) {
       last = noise;
       const kick = Math.sin(tau * (46 * t + 3.6 * (1 - Math.exp(-t * 21))));
       const snare = .68 * noise + .32 * Math.sin(tau * 165 * t) * Math.exp(-24 * t);
-      const waveform = kind === 'kick' ? kick : kind === 'snare' ? snare : high;
+      const tom = .81 * Math.sin(tau * (93 * t + 2.2 * (1 - Math.exp(-t * 34)))) + .19 * noise;
+      const waveform = kind === 'kick' ? kick : kind === 'snare' ? snare : kind === 'tom' ? tom : high;
       return gain * waveform * Math.min(1, t / .003) * (1 - t / duration) ** 3;
     });
   }
@@ -119,32 +126,53 @@ function arrange({bpm, harmony, melody}, battle) {
     const bridge = bar >= 8 && bar < 16;
     const finale = bar >= 16;
 
-    tones.forEach((pitch, i) => note(start, 4.02, pitch, battle ? .035 : .048, 'strings', (i - 1) * .68));
-    for (const [i, step] of (battle ? [0,.75,1.5,2,2.75,3.5] : [0,1.5,2.75]).entries()) {
-      note(start + step, battle ? .32 : .86, root + (i % 3 === 2 ? 12 : 0), battle ? .13 : .074, 'bass');
+    if (battle) {
+      const rhythm = bridge ? [0, .75, 1.5, 2.5, 3.5] : [0, .5, .75, 1.5, 2, 2.75, 3.25, 3.5];
+      tones.forEach((pitch, voice) => note(start, 4, pitch, bridge ? .072 : .036, 'strings', (voice - 1) * .76));
+      for (const [i, step] of rhythm.entries()) {
+        note(start + step, .32, root + (i % 4 === 3 ? 12 : 0), .145, 'bass');
+        note(start + step, .28, tones[i % tones.length] + 12, bridge ? .042 : .083, 'pulse', i % 2 ? -.63 : .57);
+      }
+      for (const [offset, duration, pitch] of melody[bar]) {
+        note(start + offset, duration, pitch, bridge ? .15 : .173, bridge ? 'strings' : 'horn', -.16);
+        note(start + offset + .135, duration * .76, pitch - 12, bridge || finale ? .069 : .045, 'brass', .45);
+        if (finale) note(start + offset + .38, duration * .62, pitch, .044, 'piano', .77);
+      }
+      for (const step of (bridge ? [0, 2.5] : [0, 1.5, 2, 3.5])) percussion(start + step, 'kick', .23);
+      for (const step of [1, 3]) percussion(start + step, 'snare', bridge ? .070 : .14, -.18);
+      for (const step of (bar % 4 === 3 ? [2.75, 3.25, 3.5, 3.75] : [0, 2])) {
+        percussion(start + step, 'tom', bridge ? .058 : .132, step < 2 ? -.34 : .35);
+      }
+      for (let i = 0; i < 8; i++) percussion(start + i * .5, 'hat', i % 2 ? .047 : .025, i % 2 ? .48 : -.42);
+      if (bar % 4 === 0) {
+        tones.forEach((pitch, voice) => note(start, .68, pitch, .076, 'brass', (voice - 1) * .57));
+      }
+      continue;
+    }
+
+    tones.forEach((pitch, i) => note(start, 4.02, pitch, .048, 'strings', (i - 1) * .68));
+    for (const [i, step] of [0,1.5,2.75].entries()) {
+      note(start + step, .86, root + (i % 3 === 2 ? 12 : 0), .074, 'bass');
     }
     for (let i = 0; i < 8; i++) {
-      const pitch = tones[(i + (bridge ? bar : 0)) % tones.length] + (battle ? 0 : 12);
-      note(start + i * .5, .42, pitch, battle ? .038 : .062, 'piano', i % 2 ? -.61 : .49);
-      if (battle || finale) percussion(start + i * .5, 'hat', i % 2 ? .036 : .020, i % 2 ? .42 : -.24);
+      const pitch = tones[(i + (bridge ? bar : 0)) % tones.length] + 12;
+      note(start + i * .5, .42, pitch, .062, 'piano', i % 2 ? -.61 : .49);
+      if (finale) percussion(start + i * .5, 'hat', i % 2 ? .036 : .020, i % 2 ? .42 : -.24);
     }
     for (const [offset, duration, pitch] of melody[bar]) {
-      const lead = battle && !bridge ? 'brass' : bridge || finale ? 'flute' : 'piano';
+      const lead = bridge || finale ? 'flute' : 'piano';
       note(start + offset, duration, pitch, lead === 'flute' ? .142 : .158, lead, -.13);
       note(start + offset + .375, duration * .72, pitch, .028, 'piano', .66);
-      if (finale || (battle && offset === 0)) {
-        note(start + offset, Math.min(duration, .85), pitch - 12, .053, battle ? 'brass' : 'strings', .36);
+      if (finale) {
+        note(start + offset, Math.min(duration, .85), pitch - 12, .053, 'strings', .36);
       }
     }
 
-    for (const step of (battle ? [0, 1.5, 2, 3.5] : [0, 2.5])) {
-      percussion(start + step, 'kick', battle ? .22 : .108);
+    for (const step of [0, 2.5]) {
+      percussion(start + step, 'kick', .108);
     }
-    for (const step of (battle ? [1, 3, ...(bar % 4 === 3 ? [3.25, 3.5, 3.75] : [])] : [1, 3])) {
-      percussion(start + step, 'snare', battle ? .116 : .041, -.14);
-    }
-    if (battle && bar % 4 === 0) {
-      tones.forEach((pitch, i) => note(start, .72, pitch, .076, 'brass', (i - 1) * .57));
+    for (const step of [1, 3]) {
+      percussion(start + step, 'snare', .041, -.14);
     }
   }
   return [left, right];

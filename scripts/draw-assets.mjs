@@ -232,6 +232,36 @@ for (const [name, palette] of [['ally', uniform], ['foe', enemyUniform]]) {
   sheet.save('squad-' + name + '.png');
 }
 
+// Stand, aim, fire, recoil, take a hit, duck. Each cell is 64 × 56 pixels.
+const poses = [
+  {head: [0, 0], arms: [0, 0], stance: 0},
+  {head: [1, 0], arms: [1, -1], stance: 1},
+  {head: [1, 0], arms: [2, -1], stance: 1},
+  {head: [-1, -1], arms: [-1, -2], stance: 2},
+  {head: [-2, 1], arms: [-1, 1], stance: 2},
+  {head: [1, 3], arms: [1, 2], stance: 2},
+];
+for (const [name, palette] of [['ally', uniform], ['foe', enemyUniform]]) {
+  const atlas = new Pixels(64, 56 * poses.length);
+  for (const [index, {head, arms, stance}] of poses.entries()) {
+    const top = index * 56;
+    for (const [row, pixels] of profile.entries()) {
+      if (row >= 20) {
+        atlas.sprite(4 - stance * 2, top + 4 + row * 2, [pixels.slice(0, 10)], palette, 2);
+        atlas.sprite(24 + stance * 2, top + 4 + row * 2, [pixels.slice(10)], palette, 2);
+      } else {
+        const [x, y] = row < 11 ? head : arms;
+        const hipOffset = row < 16 ? y : Math.round(y * (20 - row) / 4);
+        atlas.sprite(4 + x * 2, top + 4 + (row + hipOffset) * 2, [pixels], palette, 2);
+      }
+    }
+    atlas.rect(16 + head[0] * 2, top + 8 + head[1] * 2, 10, 2, palette.a);
+    atlas.rect(46 + arms[0] * 2, top + 32 + arms[1] * 2, 10, 1, palette.h);
+    atlas.rect(15 + arms[0] * 2, top + 36 + arms[1] * 2, 3, 4, palette.h);
+  }
+  atlas.save('volley-' + name + '.png');
+}
+
 // Keep the established map tiles independent of edits to the battle panorama.
 seed = 779578159;
 const forestTile = new Pixels(64, 64);
@@ -333,3 +363,20 @@ for (const [x, y] of [[0,10],[14,2],[32,15],[8,22],[24,21],[45,23]]) {
   mountainCover.sprite(x, y, peak, stoneColors);
 }
 mountainCover.save('combat-cover-mountain.png');
+
+const duskForest = new Pixels(140, 76);
+for (const [x, y, shade] of [[4,8,0],[26,5,0],[46,12,0],[66,17,0],[11,27,1],[36,22,1],[58,32,1],[77,40,1],[103,43,1]]) {
+  const colors = shade ? {t:'274842', l:'8ca375', m:'4e715d', w:'7c5c48'} :
+    {t:'293f49', l:'618675', m:'45605b', w:'61524a'};
+  duskForest.ellipse(x + 15, y + 28, 16, 3, '3e4843');
+  duskForest.sprite(x, y, fir, colors, 2);
+}
+duskForest.save('volley-cover-forest.png');
+
+const duskMountain = new Pixels(140, 76);
+const shale = {t:'394350', l:'b4aa9f', h:'e4c6a8', r:'948b88', s:'687482', d:'4e6073'};
+for (const [x, y, scale] of [[2,13,2],[35,3,2],[62,18,2],[17,40,1],[44,43,1],[67,41,1],[88,50,1],[112,56,1]]) {
+  duskMountain.ellipse(x + 11*scale, y + 17*scale, 12*scale, 3*scale, '4a4a4b');
+  duskMountain.sprite(x, y, peak, shale, scale);
+}
+duskMountain.save('volley-cover-mountain.png');
