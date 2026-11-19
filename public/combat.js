@@ -98,6 +98,7 @@ const combatScreen = (() => {
     combatAudio.stop();
     removeRetreatingFighters();
     dialog.close();
+    music.setScene('map');
     completed.onReturn(restoreFocus);
   }
 
@@ -136,6 +137,7 @@ const combatScreen = (() => {
       showForces(map);
       beginStrike(attacker);
       dialog.showModal();
+      music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
     },
     close,

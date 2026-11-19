@@ -16,4 +16,13 @@ test('トップページを配信し、公開範囲外のファイルを返さ�
 
   const outside = await fetch(base + '/..%2fREADME.md');
   assert.equal(outside.status, 404);
+
+  const preview = await fetch(base + '/assets/bgm-map.wav', {headers: {Range: 'bytes=0-3'}});
+  assert.equal(preview.status, 206);
+  assert.equal(preview.headers.get('Content-Type'), 'audio/wav');
+  assert.match(preview.headers.get('Content-Range'), /^bytes 0-3\/\d+$/);
+  assert.equal(await preview.text(), 'RIFF');
+
+  const invalidRange = await fetch(base + '/assets/bgm-map.wav', {headers: {Range: 'bytes=-0'}});
+  assert.equal(invalidRange.status, 416);
 });

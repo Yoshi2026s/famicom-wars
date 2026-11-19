@@ -5,11 +5,11 @@ const board = document.getElementById('board');
 const cells = [];
 const columns = 'ABCDE';
 const troop = document.createElement('img');
-troop.src = './assets/infantry.png';
+troop.src = './assets/infantry.png?v=graphics-bgm';
 troop.alt = '';
 troop.draggable = false;
 const opposingTroop = troop.cloneNode();
-opposingTroop.src = './assets/enemy-infantry.png';
+opposingTroop.src = './assets/enemy-infantry.png?v=graphics-bgm';
 
 function coordinate(x, y) {
   return columns[x] + (y + 1);

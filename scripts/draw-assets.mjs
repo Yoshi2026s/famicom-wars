@@ -37,12 +37,18 @@ class Pixels {
       }
     }
   }
-  sprite(x, y, rows, colors) {
+  sprite(x, y, rows, colors, scale = 1) {
     rows.forEach((row, j) => {
       [...row].forEach((key, i) => {
-        if (colors[key]) this.rect(x + i, y + j, 1, 1, colors[key]);
+        if (colors[key]) this.rect(x + i * scale, y + j * scale, scale, scale, colors[key]);
       });
     });
+  }
+  ellipse(x, y, rx, ry, color) {
+    for (let row = -ry; row <= ry; row++) {
+      const half = Math.floor(rx * Math.sqrt(1 - (row / ry) ** 2));
+      this.rect(x - half, y + row, 2 * half + 1, 1, color);
+    }
   }
   save(name) {
     const header = Buffer.alloc(13);
@@ -71,32 +77,32 @@ const fir = [
 const treeColors = {t:'466e48', l:'82a75b', m:'60914f', w:'806e47'};
 const rocks = ['...aaa...', '..ahlha..', '.ahlllla.', 'allmmlmma', '.ammmaa..'];
 const rockColors = {a:'67755f', h:'e1dcb3', l:'bdc3a0', m:'95a68c'};
-const map = new Pixels(200, 200);
+const mapSize = 320;
+const map = new Pixels(mapSize, mapSize);
 // Continuous paths and patches of meadow are terrain decoration on this flat training map.
 function pathX(y) {
-  const points = [[0,151],[34,140],[56,118],[83,114],[109,92],[132,68],[154,65],[178,47],[200,37]];
-  const i = points.findIndex(([height]) => height >= y);
-  if (i <= 0) return points[0][1];
-  const [a,b] = points[i-1], [c,d] = points[i];
-  return Math.round(b + (d-b) * (y-a) / (c-a));
+  return Math.round(245 - y * .56 + 14 * Math.sin(y / 27));
 }
-for (let y = 0; y < 200; y++) {
+const meadowColors = ['789557','83a05c','8aaa63','9bb66a','a6ba6d','adbf74'];
+const pathColors = ['d6bd87','d8c28e','cfb883','e2ca94'];
+for (let y = 0; y < mapSize; y++) {
   const center = pathX(y);
-  for (let x = 0; x < 200; x++) {
-    const patch = Math.sin(x/15 + y/21) + Math.cos(x/19 - y/13) + .6 * Math.sin(y/9);
-    const trail = Math.abs(x - center) + random(4);
-    let color = patch > 1 ? 'baca7c' : patch < -.7 ? 'a0b96e' : 'adc575';
-    if (trail < 9) color = ['d9ca8d','d7c689','d8c88b','dfd198'][random(4)];
-    else if (trail < 12) color = 'c5c585';
+  for (let x = 0; x < mapSize; x++) {
+    const slope = Math.sin(x / 39 + y / 49) + Math.cos(x / 55 - y / 27) + .6 * Math.sin(y / 22);
+    const band = Math.max(0, Math.min(5, Math.round(2.45 + slope * 1.15)));
+    const trail = Math.abs(x - center) + random(3);
+    let color = meadowColors[band];
+    if (trail < 10) color = pathColors[random(pathColors.length)];
+    else if (trail < 13) color = trail < 11 ? 'e4cb91' : 'b3b77d';
     map.rect(x,y,1,1,color);
   }
 }
-for (let i = 0; i < 1800; i++) {
-  const x = random(200), y = random(200);
-  if (Math.abs(x-pathX(y)) < 11) {
-    map.rect(x,y,random(3)+1,1,'c0b781');
+for (let i = 0; i < 3500; i++) {
+  const x = random(mapSize), y = random(mapSize);
+  if (Math.abs(x-pathX(y)) < 9) {
+    map.rect(x,y,random(4)+1,1,i % 3 ? 'c2aa79' : 'f3dba3');
   } else {
-    map.rect(x,y,random(3)+1,1,['bed385','95b067','ccda92'][random(3)]);
+    map.rect(x,y,random(4)+1,1,['b4cd7d','6f9156','bed288'][random(3)]);
     if (i % 6 === 0) {
       map.rect(x-1,y-1,1,2,'7e9e5b'); map.rect(x+1,y-2,1,3,'8ba760');
       map.rect(x+2,y-2,1,1,'cfda8b');
@@ -105,16 +111,18 @@ for (let i = 0; i < 1800; i++) {
 }
 for (const [cx,cy] of [[17,12],[9,82],[175,26],[155,106],[29,143],[174,180],[89,49]]) {
   for (let i=0; i<10; i++) {
-    const x=cx+random(13), y=cy+random(10);
+    const x=Math.round(cx*1.6)+random(19), y=Math.round(cy*1.6)+random(15);
     map.rect(x,y+1,1,2,'76974e'); map.rect(x-1,y,3,1,i%3 ? 'f7e5aa' : 'ecd477');
   }
 }
 for (const [x,y] of [[6,5],[17,7],[1,13],[11,16],[55,0],[183,1],[171,8],[185,13],
   [4,55],[9,64],[175,54],[185,62],[144,124],[153,129],[3,169],[11,177],[166,177],[176,183],[158,185]]) {
-  map.rect(x+1,y+12,12,2,'91a767'); map.sprite(x,y,fir,treeColors);
+  const left = Math.round(x * 1.6), top = Math.round(y * 1.6);
+  map.ellipse(left + 12, top + 26, 14, 3, '628351');
+  map.sprite(left,top,fir,treeColors,2);
 }
 for (const [x,y] of [[84,13],[90,16],[34,54],[151,77],[26,111],[120,148],[127,152],[78,179],[185,147]]) {
-  map.sprite(x,y,rocks,rockColors);
+  map.sprite(Math.round(x * 1.6),Math.round(y * 1.6),rocks,rockColors,2);
 }
 map.save('grassland.png');
 
@@ -173,17 +181,24 @@ const infantryRows = [
   '......obbbboobbbbo.....',
   '......ooooo.oooooo.....',
 ];
-const uniform = {o:'28392f', t:'418991', h:'79b6a8', l:'32636a', d:'335257', n:'795941',
-  s:'d29a62', f:'f1c58b', j:'e8aa51', p:'8c8152', b:'5d5142', y:'d7b16a'};
-const unit = new Pixels(23,27);
-unit.sprite(0,0,infantryRows,uniform);
+const uniform = {o:'182a32', t:'348c98', h:'89dbd0', l:'256279', d:'274457', n:'79594e',
+  s:'d49264', f:'ffd4a1', j:'ebbe60', p:'887550', b:'514941', y:'e2b669', a:'b9f2d9'};
+const unit = new Pixels(46,54);
+unit.sprite(0,0,infantryRows,uniform,2);
+unit.rect(23,8,10,2,uniform.h);
+unit.rect(27,6,5,2,uniform.a);
+unit.rect(27,32,5,2,uniform.h);
+unit.rect(27,34,2,2,uniform.a);
 unit.save('infantry.png');
 
 const enemyUniform = {
-  ...uniform, o:'3d2d2c', t:'b35343', h:'e08965', l:'8b423b', d:'683b36', j:'eadab0',
+  ...uniform, o:'38272f', t:'b84f4d', h:'f4a479', l:'8d3d45', d:'663342', j:'f0deb0', a:'ffd3a2',
 };
-const enemy = new Pixels(23,27);
-enemy.sprite(0,0,infantryRows.map(row => [...row].reverse().join('')), enemyUniform);
+const enemy = new Pixels(46,54);
+enemy.sprite(0,0,infantryRows.map(row => [...row].reverse().join('')), enemyUniform,2);
+enemy.rect(13,8,10,2,enemyUniform.h);
+enemy.rect(14,6,5,2,enemyUniform.a);
+enemy.rect(13,32,5,2,enemyUniform.h);
 enemy.save('enemy-infantry.png');
 
 // Side view for the battle cutaway; both formations face the centre.
@@ -197,28 +212,31 @@ const profile = [
   '...obbbo...obbbo', '..obbbbo...obbbboo', '..oooooo...ooooooo',
 ];
 for (const [name,palette] of [['combat-ally',uniform],['combat-foe',enemyUniform]]) {
-  const figure = new Pixels(28,25);
-  figure.sprite(0,0,profile,palette);
+  const figure = new Pixels(56,50);
+  figure.sprite(0,0,profile,palette,2);
+  figure.rect(12,4,9,2,palette.a);
+  figure.rect(42,28,10,1,palette.h);
+  figure.rect(11,32,3,5,palette.h);
   figure.save(name + '.png');
 }
 
 // Keep the established map tiles independent of edits to the battle panorama.
 seed = 779578159;
-const forestTile = new Pixels(40, 40);
-forestTile.rect(0, 0, 40, 40, '799b5b');
-for (let i = 0; i < 92; i++) {
-  forestTile.rect(random(40), random(40), 1 + random(3), 1, i % 2 ? '9daf68' : '64894e');
+const forestTile = new Pixels(64, 64);
+forestTile.rect(0, 0, 64, 64, '68874f');
+for (let i = 0; i < 175; i++) {
+  forestTile.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '95ad64' : '506f47');
 }
-for (const [x, y] of [[-1,0],[11,-1],[25,1],[3,9],[17,8],[28,11],[9,20],[21,20],[0,25],[30,25]]) {
-  forestTile.rect(x + 1, y + 12, 11, 2, '557b4c');
-  forestTile.sprite(x, y, fir, {t:'315442', l:'81ad65', m:'537d4c', w:'766340'});
+for (const [x, y] of [[-3,-4],[13,-6],[36,-4],[50,-3],[6,8],[28,9],[46,12],[-4,24],[17,25],[36,26],[51,31],[4,39],[22,40],[40,41]]) {
+  forestTile.ellipse(x + 13, y + 26, 13, 4, '405f42');
+  forestTile.sprite(x, y, fir, {t:'254d41', l:'94c875', m:'527f52', w:'796043'},2);
 }
 forestTile.save('terrain-forest.png');
 
-const mountainTile = new Pixels(40, 40);
-mountainTile.rect(0, 0, 40, 40, '9da56f');
-for (let i = 0; i < 85; i++) {
-  mountainTile.rect(random(40), random(40), 1 + random(3), 1, i % 2 ? 'b5bc84' : '818f65');
+const mountainTile = new Pixels(64, 64);
+mountainTile.rect(0, 0, 64, 64, '869269');
+for (let i = 0; i < 170; i++) {
+  mountainTile.rect(random(64), random(64), 1 + random(3), 1, i % 2 ? 'a7ae80' : '697a60');
 }
 const peak = [
   '..........tt..........', '.........tllt.........', '.........tlst.........',
@@ -228,35 +246,43 @@ const peak = [
   '..tllrllrssdsdddddtt..', '..tllrrrrssddssddddd..', '.tllrlrrsdsdddsddddtt.',
   'tllrllrsdsdddssddddddt', 'ttrrlrrssdddddddddddtt', '.ttrrrssdddttttttttt..',
 ];
-const stoneColors = {t:'566759', l:'c3c6ac', h:'e4e5c8', r:'a5ac9e', s:'929e96', d:'707d7c'};
-for (const [x, y] of [[-1,5],[15,1],[8,17],[23,19]]) {
-  mountainTile.sprite(x, y, peak, stoneColors);
+const stoneColors = {t:'4c605f', l:'d3d3bb', h:'f7e8c6', r:'aab8ac', s:'8c9e9e', d:'617785'};
+for (const [x, y, scale] of [[-7,8,2],[25,1,2],[16,24,2],[0,43,1],[40,39,1],[31,47,1]]) {
+  mountainTile.ellipse(x+11*scale,y+17*scale,12*scale,3*scale,'5c7164');
+  mountainTile.sprite(x, y, peak, stoneColors, scale);
 }
 mountainTile.save('terrain-mountain.png');
 
 const vista = new Pixels(360, 168);
 for (const [top, end, color] of [
-  [0, 15, '364867'], [15, 27, '56627d'], [27, 40, '867589'], [40, 52, 'bc8588'],
-  [52, 63, 'df9c89'], [63, 80, 'f0b391'], [80, 168, 'f5c99b'],
+  [0, 15, '213451'], [15, 27, '374868'], [27, 40, '656181'], [40, 52, '977383'],
+  [52, 63, 'cd8983'], [63, 80, 'edaa86'], [80, 168, 'f8c591'],
 ]) {
   vista.rect(0, top, 360, end - top, color);
 }
+for (const [x, y] of [[22,9],[43,16],[81,13],[116,8],[127,25],[189,12],[204,28],[246,11],[283,15],[306,24],[341,8]]) {
+  vista.rect(x, y, 2, 1, 'e5cda9');
+}
+vista.ellipse(184, 63, 46, 24, 'f4b987');
+vista.ellipse(184, 61, 34, 23, 'ffd697');
 for (let y = 36; y <= 79; y++) {
   const halfWidth = Math.floor(Math.sqrt(Math.max(0, 22 ** 2 - (y - 58) ** 2)));
   vista.rect(184 - halfWidth, y, 2 * halfWidth + 1, 1, y < 63 ? 'ffe4a8' : 'f6cb95');
 }
 for (const [x, y, width] of [[10,33,50],[62,22,48],[104,49,30],[144,17,49],[228,28,43],[270,48,60],[322,20,32]]) {
-  vista.rect(x, y, width, 2, 'c7a0a0');
-  vista.rect(x + 4, y - 2, width - 10, 2, 'dcae9e');
-  vista.rect(x + 12, y - 4, width - 20, 2, 'e1b4a2');
+  vista.rect(x, y + 4, width + 7, 1, 'b88e91');
+  vista.rect(x, y, width, 3, 'b19099');
+  vista.rect(x + 4, y - 3, width - 10, 4, 'dca397');
+  vista.rect(x + 12, y - 5, width - 20, 2, 'e5b197');
 }
 for (let x = 0; x < 360; x++) {
   const ridge = 73 + Math.round(7 * Math.sin(x / 18) + 8 * Math.cos(x / 39) + 2 * Math.sin(x / 6));
   const near = 92 + Math.round(6 * Math.sin(x / 21 + 2) + 4 * Math.cos(x / 11));
-  vista.rect(x, ridge, 1, 108 - ridge, '897985');
-  vista.rect(x, ridge + 2, 1, 2, 'a08a8c');
-  vista.rect(x, near, 1, 117 - near, '526a67');
-  vista.rect(x, near, 1, 1, '7c8b76');
+  vista.rect(x, ridge, 1, 108 - ridge, '6d7188');
+  vista.rect(x, ridge, 1, 2, 'a28e9a');
+  vista.rect(x, ridge + 9, 1, 3, '787c90');
+  vista.rect(x, near, 1, 117 - near, '3d6267');
+  vista.rect(x, near, 1, 1, '618481');
 }
 for (let x = -4; x < 360; x += 6 + random(7)) {
   const y = 85 + random(12);
@@ -266,12 +292,12 @@ for (let x = 0; x < 360; x++) {
   const hill = 109 + Math.round(3 * Math.sin(x / 17));
   const track = 126 + Math.round(2 * Math.sin(x / 27));
   const foreground = 156 + Math.round(4 * Math.cos(x / 23));
-  vista.rect(x, hill, 1, 168 - hill, '9a9a64');
-  vista.rect(x, hill, 1, 2, 'bcc185');
-  vista.rect(x, track, 1, 18, 'c5a779');
-  vista.rect(x, track, 1, 2, 'dbc08e');
-  vista.rect(x, track + 16, 1, 3, 'a18360');
-  vista.rect(x, foreground, 1, 168 - foreground, '6b7955');
+  vista.rect(x, hill, 1, 168 - hill, '879863');
+  vista.rect(x, hill, 1, 2, 'bad099');
+  vista.rect(x, track, 1, 18, 'b99873');
+  vista.rect(x, track, 1, 2, 'dec097');
+  vista.rect(x, track + 16, 1, 3, '806b5e');
+  vista.rect(x, foreground, 1, 168 - foreground, '536f56');
 }
 for (let i = 0; i < 1200; i++) {
   const x = random(360);
