@@ -118,10 +118,13 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'impact';
     combatAudio.play('impact', hit.attacker === 'player' ? .55 : -.55);
     const next = scene.strikes[scene.nextStrike];
-    scene.timer = setTimeout(next ? () => beginStrike(next.attacker) : showResult, motion.matches ? 460 : 900);
+    scene.timer = setTimeout(() => {
+      if (next) beginStrike(next.attacker);
+      else showResult(true);
+    }, motion.matches ? 460 : 900);
   }
 
-  function showResult() {
+  function showResult(autoReturn) {
     clearTimeout(scene.timer);
     combatAudio.stop();
     scene.strikes ??= scene.resolve();
@@ -145,7 +148,7 @@ const combatScreen = (() => {
       finaleTitle.textContent = title;
       finale.hidden = false;
       music.setScene(verdict);
-    } else {
+    } else if (autoReturn) {
       scene.timer = setTimeout(close, 2200);
     }
   }
@@ -166,9 +169,20 @@ const combatScreen = (() => {
   function advanceScene() {
     if (!scene) return;
     if (dialog.dataset.phase === 'result') close();
-    else showResult();
+    else showResult(false);
   }
-  advance.addEventListener('click', advanceScene);
+  advance.addEventListener('click', (event) => {
+    if (!scene) return;
+    if (event.detail > 0) {
+      // Some touch browsers report each tap as a single click.
+      if (scene.skipClickTime !== null && (event.detail > 1 || event.timeStamp - scene.skipClickTime < 300)) return;
+      if (dialog.dataset.phase !== 'result') scene.skipClickTime = event.timeStamp;
+    }
+    advanceScene();
+  });
+  dialog.addEventListener('keydown', (event) => {
+    if (event.repeat && event.key === 'Escape') event.preventDefault();
+  });
   advance.addEventListener('keydown', (event) => {
     if (event.repeat && (event.key === ' ' || event.key === 'Enter')) event.preventDefault();
   });
@@ -187,7 +201,7 @@ const combatScreen = (() => {
     open(map, attacker, resolve, onReturn) {
       if (scene) return;
       combatAudio.unlock();
-      scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null};
+      scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
       dialog.classList.toggle('platoon', map.isBattle);
       const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
       for (const [side, team, position] of [['player', 'ally', map], ['enemy', 'foe', enemyPosition]]) {

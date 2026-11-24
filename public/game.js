@@ -53,7 +53,8 @@ function render() {
   state.classList.toggle('spent', spent);
   state.classList.toggle('attack-ready', !waiting && game.canAttack);
   const end = document.getElementById('end');
-  end.disabled = waiting;
+  if (waiting) end.setAttribute('aria-disabled', 'true');
+  else end.removeAttribute('aria-disabled');
   end.hidden = Boolean(game.result);
   const replay = document.getElementById('replay');
   replay.hidden = game.isBattle ? !game.result : Boolean(game.enemy);
