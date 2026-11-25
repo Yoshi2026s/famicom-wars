@@ -23,6 +23,10 @@ const crossingTerrain = [
   'ppfsrsppfp',
   'fppprsfppp',
 ];
+const crossingHeadquarters = Object.freeze({
+  friendly: Object.freeze({x: 0, y: 6}),
+  enemy: Object.freeze({x: 9, y: 5}),
+});
 const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1});
 const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1});
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3});
@@ -48,6 +52,7 @@ class TrainingMap {
   selected = false;
   enemyTurn = null;
   enemyActions = [];
+  capturedBy = null;
 
   constructor(mode = 'training') {
     this.mode = mode;
@@ -68,6 +73,7 @@ class TrainingMap {
   }
 
   get isCrossing() { return this.mode === 'crossing'; }
+  get headquarters() { return this.isCrossing ? crossingHeadquarters : null; }
   get width() { return this.isCrossing ? crossingTerrain[0].length : TrainingMap.size; }
   get height() { return this.isCrossing ? crossingTerrain.length : TrainingMap.size; }
   get x() { return this.activeUnit.x; }
@@ -92,9 +98,26 @@ class TrainingMap {
   }
 
   get result() {
+    if (this.capturedBy === 'friendly') return 'victory';
+    if (this.capturedBy === 'enemy') return 'defeat';
     if (this.isBattle && this.friendlyUnits.every(unit => unit.hp === 0)) return 'defeat';
     if (this.isBattle && this.enemyUnits.every(unit => unit.hp === 0)) return 'victory';
     return null;
+  }
+
+  headquartersAt(x, y) {
+    if (!this.headquarters) return null;
+    for (const [side, position] of Object.entries(this.headquarters)) {
+      if (x === position.x && y === position.y) return side;
+    }
+    return null;
+  }
+
+  #captureHeadquarters(unit, side) {
+    const owner = this.headquartersAt(unit.x, unit.y);
+    if (!owner || owner === side || unit.type.id !== infantry.id) return false;
+    this.capturedBy = side;
+    return true;
   }
 
   isEnemyAt(x, y) {
@@ -119,7 +142,7 @@ class TrainingMap {
   }
 
   canUnitAttack(unit, enemy) {
-    return !this.enemyTurn && unit.hp > 0 && !unit.attacked && (enemy
+    return !this.enemyTurn && !this.result && unit.hp > 0 && !unit.attacked && (enemy
       ? enemy.hp > 0 && inRange(unit.type, unit, enemy)
       : this.enemyUnits.some(target => target.hp > 0 && inRange(unit.type, unit, target)));
   }
@@ -187,6 +210,7 @@ class TrainingMap {
       this.y = y;
       this.selected = false;
       this.activeUnit.moved = true;
+      this.#captureHeadquarters(this.activeUnit, 'friendly');
     }
   }
 
@@ -245,9 +269,10 @@ class TrainingMap {
     phase.action = null;
     const {enemy, friendly, from, to} = action;
     Object.assign(enemy, to);
-    const strikes = friendly ? this.#exchange('enemy', friendly, enemy) : [];
+    const captured = this.#captureHeadquarters(enemy, 'enemy');
+    const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
     this.#restoreActiveUnit();
-    this.enemyActions.push({enemy: enemy.type.name, friendly: friendly?.type.name, from, to});
+    this.enemyActions.push({enemy: enemy.type.name, friendly: friendly?.type.name, from, to, captured});
     return strikes;
   }
 
@@ -291,6 +316,11 @@ class TrainingMap {
     const {type} = enemy;
     const living = this.friendlyUnits.filter(unit => unit.hp > 0);
     const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
+    const home = this.headquarters?.friendly;
+    if (home && type.id === infantry.id) {
+      const route = routes.get(`${home.x},${home.y}`);
+      if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, friendly: null};
+    }
     const targetAt = position => living.find(unit => inRange(type, position, unit));
     let goal = null;
     for (const route of routes.values()) {

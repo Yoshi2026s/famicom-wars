@@ -305,6 +305,29 @@ for (let i = 0; i < 150; i++) {
 }
 crossingPlains.save('terrain-crossing-plains.png');
 
+for (const [side, roof, light, flag] of [
+  ['friendly', '36778a', '8fcec8', '6edac8'],
+  ['enemy', '974c38', 'e1a36d', 'f09066'],
+]) {
+  const base = new Pixels(64, 64);
+  base.ellipse(32, 52, 26, 8, '55694c');
+  base.rect(8, 47, 48, 8, 'a59472');
+  base.rect(12, 28, 40, 23, '303638');
+  base.rect(15, 30, 34, 18, 'c9b995');
+  base.rect(15, 38, 34, 10, '958562');
+  base.rect(28, 36, 10, 13, '493e33');
+  base.rect(19, 33, 5, 5, light);
+  base.rect(42, 33, 5, 5, light);
+  base.rect(9, 24, 46, 7, '303638');
+  base.rect(13, 20, 38, 7, roof);
+  base.rect(18, 17, 29, 6, roof);
+  base.rect(19, 17, 26, 2, light);
+  base.rect(31, 6, 3, 17, 'e1d9aa');
+  base.rect(34, 7, 15, 8, flag);
+  base.rect(34, 13, 12, 2, roof);
+  base.save(`headquarters-${side}.png`);
+}
+
 for (const name of ['river', 'bridge']) {
   const tile = new Pixels(64, 64);
   tile.rect(0, 0, 64, 64, '386c81');

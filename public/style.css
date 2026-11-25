@@ -86,17 +86,20 @@ h2 { font-size: 16px; font-weight: 850; }
 .board[data-mode="crossing"] { background-image: none; }
 .board::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 17px #22372a59; }
 .tile { position: relative; padding: 0; min-width: 0; min-height: 0; border: 0; border-right: 1px solid #35583755; border-bottom: 1px solid #35583755; background: transparent; color: inherit; border-radius: 0; }
-.tile { background-image: linear-gradient(var(--tile-tint, transparent), var(--tile-tint, transparent)), var(--terrain-image, none); background-size: 100% 100%; }
+.tile { background-image: linear-gradient(var(--tile-tint, transparent), var(--tile-tint, transparent)), var(--base-image, none), var(--terrain-image, none); background-size: 100% 100%; }
 .tile[data-terrain="forest"], .forest-key { --terrain-image: url("./assets/terrain-forest.png?v=highland"); }
 .tile[data-terrain="mountain"], .mountain-key { --terrain-image: url("./assets/terrain-mountain.png?v=highland"); }
 .board[data-mode="crossing"] [data-terrain="plains"] { --terrain-image: url("./assets/terrain-crossing-plains.png"); }
 .tile[data-terrain="river"], .river-key { --terrain-image: url("./assets/terrain-river.png"); }
 .tile[data-terrain="bridge"], .bridge-key { --terrain-image: url("./assets/terrain-bridge.png"); }
 .tile[data-terrain="marsh"], .marsh-key { --terrain-image: url("./assets/terrain-marsh.png"); }
+.tile[data-base="friendly"], .friendly-base-key { --base-image: url("./assets/headquarters-friendly.png"); --base-color: #234e60; }
+.tile[data-base="enemy"], .enemy-base-key { --base-image: url("./assets/headquarters-enemy.png"); --base-color: #723b2a; }
 .terrain-label { position: absolute; z-index: 2; top: 3%; left: 4%; padding: 0 3px; color: #fff9dc; background: #233e31; border: 1px solid #fff9dc; font-size: clamp(10px, 1vw, 13px); font-weight: bold; line-height: 1.35; pointer-events: none; }
 [data-terrain="mountain"] .terrain-label { background: #374355; }
 [data-terrain="river"] .terrain-label { background: #244456; }
 [data-terrain="bridge"] .terrain-label { background: #553a29; }
+[data-base] .terrain-label { background: var(--base-color); }
 .board[data-mode="crossing"] .tile.enemy .terrain-label { top: auto; bottom: 3%; }
 .tile.last-column { border-right: 0; }
 .tile.last-row { border-bottom: 0; }
@@ -112,10 +115,15 @@ h2 { font-size: 16px; font-weight: 850; }
 .tile.selected { box-shadow: inset 0 0 0 3px #ffe18a, inset 0 0 0 5px #6e4e2c; --tile-tint: #ffe07c42; }
 .tile.reachable { --tile-tint: #b9f0dc65; box-shadow: inset 0 0 0 1px #1e5346, inset 0 0 0 2px #cce5b889; }
 .tile.reachable::after, .range-key::after { content: ""; display: block; position: absolute; width: 13%; aspect-ratio: 1; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid #e6ffda; background: #296d50; }
+.tile.capture-target, .tile.captured-base { --tile-tint: #f4ce764f; box-shadow: inset 0 0 0 2px #fff0b1, inset 0 0 0 4px #694622; }
+.tile.capture-target::after { content: "占領"; top: auto; bottom: 4%; width: auto; aspect-ratio: auto; padding: 1px 4px; transform: translateX(-50%); border-color: #fff0b1; background: #573a1d; color: #fff9dc; font-size: 10px; font-weight: bold; white-space: nowrap; }
 .tile:focus-visible { z-index: 2; outline-offset: -4px; }
 @media (hover: hover) { .tile:is(.occupied,.reachable,.target):hover { box-shadow: inset 0 0 0 3px #ffec89; } .help:hover { color: var(--gold); } }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px; background: #f5eedb; border-top: 1px solid #323a37; padding: 10px 18px; }
 .legend span { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: bold; }
+.base-legend { border-color: #a9a596; padding-block: 6px; }
+.base-legend i { width: 19px; height: 19px; background: #9ba47c var(--base-image) center / cover; image-rendering: pixelated; border: 1px solid var(--base-color); border-radius: 2px; }
+.base-legend b { font-family: Consolas, monospace; color: #463b2f; }
 .terrain-legend { background: #e8e4d2; border-top-color: #b0aa96; font-size: 12px; }
 .terrain-legend i { width: 16px; height: 16px; background: var(--terrain-image) center / cover; image-rendering: pixelated; border: 1px solid #627459; }
 .friendly-key, .enemy-key, .range-key { width: 13px; height: 13px; display: inline-block; }
@@ -145,6 +153,7 @@ dd span { font-family: sans-serif; font-size: 12px; }
 .orders .end[aria-disabled="true"] { background: #eee4ca; border-color: #b0aa92; color: #5d604f; cursor: wait; }
 .orders .replay.primary { background: var(--gold); border-color: #92651d; font-size: 16px; }
 .orders p { font-size: 14px; line-height: 1.65; padding: 10px 0 16px; }
+.orders .crossing-objective { padding: 7px 0 0; color: #53442b; font-weight: bold; }
 .orders .enemy-range { color: #633a2c; font-size: 12px; font-weight: bold; padding: 7px 0 0; }
 .end { display: flex; justify-content: space-between; align-items: center; min-height: 48px; width: 100%; padding: 8px 18px; border: 1px solid #92651d; border-bottom-width: 3px; border-radius: 5px; background: var(--gold); color: #2f361f; font-weight: 850; font-size: 16px; }
 .end:hover { background: #ffd578; }

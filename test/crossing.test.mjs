@@ -253,3 +253,80 @@ test('最後の味方が撃破された時点で、残りの敵は行動しな�
   assert.deepEqual(game.enemyActions.map(action => action.enemy), ['歩兵']);
   assert.deepEqual([enemyScout.x, enemyScout.y, enemySupport.x, enemySupport.y], [7, 5, 7, 2]);
 });
+
+test('歩兵が敵本拠地を移動先に選ぶと、敵が残っていてもその場で勝利する', () => {
+  const game = new TrainingMap('crossing');
+  const infantry = game.friendlyUnits[1];
+  Object.assign(infantry, {x: 8, y: 5});
+  assert.deepEqual(game.headquarters, {friendly: {x: 0, y: 6}, enemy: {x: 9, y: 5}});
+  assert.equal(game.headquartersAt(0, 6), 'friendly');
+  assert.equal(game.headquartersAt(9, 5), 'enemy');
+  game.choose(8, 5);
+  assert.equal(game.canMoveTo(9, 5), true);
+  game.choose(9, 5);
+  assert.equal(game.capturedBy, 'friendly');
+  assert.equal(game.result, 'victory');
+  assert.equal(game.canAttack, false);
+  assert.ok(game.enemyUnits.every(unit => unit.hp === 10));
+  game.choose(8, 5);
+  game.endTurn();
+  assert.deepEqual([infantry.x, infantry.y, game.turn], [9, 5, 1]);
+  assert.equal(new TrainingMap('crossing').capturedBy, null);
+  assert.equal(new TrainingMap('battle').headquartersAt(0, 6), null);
+});
+
+test('偵察車や支援車が敵本拠地に止まっても占領できず、歩兵は占有中の本拠地に入れない', () => {
+  for (const index of [0, 2]) {
+    const game = new TrainingMap('crossing');
+    const vehicle = game.friendlyUnits[index];
+    const infantry = game.friendlyUnits[1];
+    Object.assign(vehicle, {x: 8, y: 5});
+    Object.assign(infantry, {x: 9, y: 4});
+    game.choose(8, 5);
+    game.choose(9, 5);
+    assert.equal(game.friendlyAt(9, 5), vehicle);
+    assert.equal(game.result, null);
+    game.choose(9, 4);
+    assert.equal(game.canMoveTo(9, 5), false);
+  }
+  const game = new TrainingMap('crossing');
+  Object.assign(game.friendlyUnits[1], {x: 8, y: 5});
+  Object.assign(game.enemyUnits[1], {x: 9, y: 5, hp: 1});
+  game.choose(8, 5);
+  assert.equal(game.canMoveTo(9, 5), false);
+  assert.equal(game.choose(9, 5).length, 1);
+  assert.equal(game.capturedBy, null);
+  assert.equal(game.result, null);
+});
+
+test('敵の歩兵は空いた味方本拠地を占領し、残りの敵の行動を待たずに敗北する', () => {
+  const game = new TrainingMap('crossing');
+  const enemyInfantry = game.enemyUnits[0];
+  Object.assign(enemyInfantry, {x: 1, y: 5});
+  assert.equal(game.beginEnemyTurn(), true);
+  const action = game.prepareEnemyAction();
+  assert.deepEqual(action.to, game.headquarters.friendly);
+  assert.equal(action.friendly, null);
+  assert.deepEqual(game.resolveEnemyAction(action), []);
+  assert.equal(game.prepareEnemyAction(), null);
+  game.finishEnemyTurn();
+  assert.equal(game.result, 'defeat');
+  assert.equal(game.capturedBy, 'enemy');
+  assert.equal(game.turn, 1);
+  assert.ok(game.friendlyUnits.every(unit => unit.hp === 10));
+  assert.deepEqual(game.enemyActions.map(({enemy, captured}) => [enemy, captured]), [['歩兵', true]]);
+});
+
+test('味方本拠地を守る部隊がいる場合、敵歩兵は占領できない', () => {
+  const game = new TrainingMap('crossing');
+  const scout = game.friendlyUnits[0];
+  Object.assign(scout, game.headquarters.friendly);
+  Object.assign(game.enemyUnits[0], {x: 1, y: 6});
+  game.beginEnemyTurn();
+  const action = game.prepareEnemyAction();
+  assert.equal(action.friendly, scout);
+  assert.notDeepEqual(action.to, game.headquarters.friendly);
+  game.resolveEnemyAction(action);
+  assert.equal(game.result, null);
+  assert.equal(game.capturedBy, null);
+});
