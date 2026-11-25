@@ -61,7 +61,8 @@ h2 { font-size: 16px; font-weight: 850; }
 .battle-health span:last-child meter::-webkit-meter-optimum-value { background: #9b4b3c; }
 .battle-health b { font-family: Consolas, monospace; }
 .battle-health > span:last-child { margin-inline-start: auto; }
-.friendly-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px 9px; background: #eeeadc; }
+.friendly-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px 9px; background: #eeeadc; max-height: 156px; overflow-y: auto; }
+.friendly-roster > .defeated { order: 1; }
 .friendly-roster > * { display: flex; flex-wrap: wrap; align-content: center; align-items: baseline; gap: 0 6px; min-height: 48px; padding: 3px 6px; border: 1px solid #9ca99a; border-radius: 4px; background: var(--paper); color: var(--ink); text-align: left; }
 .friendly-roster button[aria-pressed="true"] { background: #d5e9e4; border-color: #21565b; box-shadow: inset 0 0 0 1px #21565b; }
 .friendly-roster button:disabled { opacity: .7; }
@@ -86,20 +87,22 @@ h2 { font-size: 16px; font-weight: 850; }
 .board[data-mode="crossing"] { background-image: none; }
 .board::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 17px #22372a59; }
 .tile { position: relative; padding: 0; min-width: 0; min-height: 0; border: 0; border-right: 1px solid #35583755; border-bottom: 1px solid #35583755; background: transparent; color: inherit; border-radius: 0; }
-.tile { background-image: linear-gradient(var(--tile-tint, transparent), var(--tile-tint, transparent)), var(--base-image, none), var(--terrain-image, none); background-size: 100% 100%; }
+.tile { background-image: linear-gradient(var(--tile-tint, transparent), var(--tile-tint, transparent)), var(--facility-image, none), var(--terrain-image, none); background-size: 100% 100%; }
 .tile[data-terrain="forest"], .forest-key { --terrain-image: url("./assets/terrain-forest.png?v=highland"); }
 .tile[data-terrain="mountain"], .mountain-key { --terrain-image: url("./assets/terrain-mountain.png?v=highland"); }
 .board[data-mode="crossing"] [data-terrain="plains"] { --terrain-image: url("./assets/terrain-crossing-plains.png"); }
 .tile[data-terrain="river"], .river-key { --terrain-image: url("./assets/terrain-river.png"); }
 .tile[data-terrain="bridge"], .bridge-key { --terrain-image: url("./assets/terrain-bridge.png"); }
 .tile[data-terrain="marsh"], .marsh-key { --terrain-image: url("./assets/terrain-marsh.png"); }
-.tile[data-base="friendly"], .friendly-base-key { --base-image: url("./assets/headquarters-friendly.png"); --base-color: #234e60; }
-.tile[data-base="enemy"], .enemy-base-key { --base-image: url("./assets/headquarters-enemy.png"); --base-color: #723b2a; }
+.tile[data-base="friendly"], .friendly-base-key { --facility-image: url("./assets/headquarters-friendly.png"); --facility-color: #234e60; }
+.tile[data-base="enemy"], .enemy-base-key { --facility-image: url("./assets/headquarters-enemy.png"); --facility-color: #723b2a; }
+.tile[data-factory="friendly"], .friendly-factory-key { --facility-image: url("./assets/factory-friendly.png"); --facility-color: #164454; }
+.tile[data-factory="enemy"], .enemy-factory-key { --facility-image: url("./assets/factory-enemy.png"); --facility-color: #703526; }
 .terrain-label { position: absolute; z-index: 2; top: 3%; left: 4%; padding: 0 3px; color: #fff9dc; background: #233e31; border: 1px solid #fff9dc; font-size: clamp(10px, 1vw, 13px); font-weight: bold; line-height: 1.35; pointer-events: none; }
 [data-terrain="mountain"] .terrain-label { background: #374355; }
 [data-terrain="river"] .terrain-label { background: #244456; }
 [data-terrain="bridge"] .terrain-label { background: #553a29; }
-[data-base] .terrain-label { background: var(--base-color); }
+:is([data-base], [data-factory]) .terrain-label { background: var(--facility-color); }
 .board[data-mode="crossing"] .tile.enemy .terrain-label { top: auto; bottom: 3%; }
 .tile.last-column { border-right: 0; }
 .tile.last-row { border-bottom: 0; }
@@ -122,7 +125,7 @@ h2 { font-size: 16px; font-weight: 850; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 16px; background: #f5eedb; border-top: 1px solid #323a37; padding: 10px 18px; }
 .legend span { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: bold; }
 .base-legend { border-color: #a9a596; padding-block: 6px; }
-.base-legend i { width: 19px; height: 19px; background: #9ba47c var(--base-image) center / cover; image-rendering: pixelated; border: 1px solid var(--base-color); border-radius: 2px; }
+.base-legend i { width: 19px; height: 19px; background: #9ba47c var(--facility-image) center / cover; image-rendering: pixelated; border: 1px solid var(--facility-color); border-radius: 2px; }
 .base-legend b { font-family: Consolas, monospace; color: #463b2f; }
 .terrain-legend { background: #e8e4d2; border-top-color: #b0aa96; font-size: 12px; }
 .terrain-legend i { width: 16px; height: 16px; background: var(--terrain-image) center / cover; image-rendering: pixelated; border: 1px solid #627459; }
@@ -150,10 +153,18 @@ dd span { font-family: sans-serif; font-size: 12px; }
 #unit-terrain { font-family: inherit; font-size: 18px; line-height: 1.7; }
 .orders { padding: 16px 18px 18px; }
 .enemy-report { margin-top: 9px; border-left: 3px solid #a9583f; padding: 5px 8px; background: #faebd8; color: #633a2c; font-size: 13px; line-height: 1.5; white-space: pre-line; }
+.orders:has(.production:not([hidden])) .enemy-report { max-height: 9em; overflow-y: auto; }
 .orders .end[aria-disabled="true"] { background: #eee4ca; border-color: #b0aa92; color: #5d604f; cursor: wait; }
 .orders .replay.primary { background: var(--gold); border-color: #92651d; font-size: 16px; }
 .orders p { font-size: 14px; line-height: 1.65; padding: 10px 0 16px; }
 .orders .crossing-objective { padding: 7px 0 0; color: #53442b; font-weight: bold; }
+.production { margin: 0 0 12px; padding: 9px; border: 1px solid #9ba99a; border-radius: 6px; background: #e7eee3; }
+.production h3 { font-size: 14px; }
+.production h3 b { margin-inline-start: 4px; font-family: Consolas, monospace; }
+.orders .production p { padding: 4px 0 7px; font-size: 12px; }
+.production-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.production-choices button { min-width: 48px; min-height: 48px; padding: 4px 2px; border: 1px solid #2d5a54; border-radius: 4px; background: #cfebe0; color: #203d37; font-size: 12px; font-weight: 800; }
+.production-choices button[aria-disabled="true"] { background: #eae9e0; color: #5c655e; border-color: #aeb6a8; cursor: default; }
 .orders .enemy-range { color: #633a2c; font-size: 12px; font-weight: bold; padding: 7px 0 0; }
 .end { display: flex; justify-content: space-between; align-items: center; min-height: 48px; width: 100%; padding: 8px 18px; border: 1px solid #92651d; border-bottom-width: 3px; border-radius: 5px; background: var(--gold); color: #2f361f; font-weight: 850; font-size: 16px; }
 .end:hover { background: #ffd578; }

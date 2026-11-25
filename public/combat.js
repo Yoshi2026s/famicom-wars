@@ -208,14 +208,15 @@ const combatScreen = (() => {
       combatAudio.unlock();
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
       dialog.classList.toggle('platoon', map.isBattle);
-      for (const [side, prefix, unit, position] of [['player', '味方', friendly.type, friendly], ['enemy', '敵', enemy.type, enemyPosition]]) {
+      for (const [side, prefix, unit, position] of [['player', '味方', friendly, friendly], ['enemy', '敵', enemy, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
         document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
         formations[side].dataset.terrain = terrain.id;
-        const sprite = side === 'player' && unit.id === 'support' ? 'friendly-support'
-          : side === 'enemy' && unit.id === 'scout' ? 'enemy-scout' : unit.id;
+        const {id} = unit.type;
+        const sprite = side === 'player' && id === 'support' ? 'friendly-support'
+          : side === 'enemy' && id === 'scout' ? 'enemy-scout' : id;
         formations[side].dataset.unit = sprite;
       }
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;

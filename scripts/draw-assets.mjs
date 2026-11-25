@@ -328,6 +328,20 @@ for (const [side, roof, light, flag] of [
   base.save(`headquarters-${side}.png`);
 }
 
+for (const [side, wall, bright] of [['friendly', '347485', '81bfba'], ['enemy', '954e3b', 'df9a6d']]) {
+  const factory = new Pixels(64, 64);
+  factory.ellipse(32, 52, 28, 7, '586d54');
+  factory.rect(5, 47, 54, 8, 'a29574');
+  factory.rect(42, 10, 11, 26, '2e3334');
+  factory.rect(45, 12, 6, 23, wall);
+  factory.rect(41, 8, 13, 5, 'c3b38e');
+  factory.sprite(4, 18, ['..............', '....xx..xx....', '...xwx.xwx....', '..xwwxxwwxx...', '.xwwwwwwwwwx..',
+    '.xxxxxxxxxxxxx', '.xwwwwwwwwwwwx', '.xwlwxhhhxwlwx', '.xwwwxhhhxwwwx', '.xwwwxhhhxwwwx', '.xxxxxxxxxxxxx'],
+  {x: '2e3334', w: wall, l: bright, h: '7f8277'}, 4);
+  factory.rect(29, 49, 12, 2, 'd0c6a9');
+  factory.save(`factory-${side}.png`);
+}
+
 for (const name of ['river', 'bridge']) {
   const tile = new Pixels(64, 64);
   tile.rect(0, 0, 64, 64, '386c81');

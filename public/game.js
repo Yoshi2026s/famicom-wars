@@ -7,8 +7,10 @@ const mapSurround = document.getElementById('map-surround');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
-let rosterEntries = [];
-let enemyRosterEntries = [];
+const rosterEntries = [];
+const enemyRosterEntries = [];
+const productionButtons = [...document.querySelectorAll('[data-produce]')];
+const productionStatus = document.getElementById('production-status');
 
 function columnName(x) {
   return String.fromCharCode(65 + x);
@@ -36,11 +38,11 @@ function waitingForEnemy() {
   return Boolean(game.enemyTurn) || pendingEnemyTurns.has(game);
 }
 
-function buildRoster(container, units, interactive) {
-  const entries = units.map(unit => {
+function extendRoster(container, entries, units, interactive) {
+  for (const unit of units.slice(entries.length)) {
     const card = document.createElement(interactive ? 'button' : 'div');
     const name = document.createElement('strong');
-    name.textContent = (interactive ? '' : '敵') + unit.type.name;
+    name.textContent = (interactive ? '' : '敵') + unit.name;
     const hp = document.createElement('span');
     const state = document.createElement('span');
     card.append(name, hp, state);
@@ -54,33 +56,52 @@ function buildRoster(container, units, interactive) {
         render();
       });
     }
-    return {unit, card, hp, state};
-  });
-  container.replaceChildren(...entries.map(entry => entry.card));
-  return entries;
+    entries.push({unit, card, hp, state});
+    container.append(card);
+  }
 }
 
 function unitState(unit) {
   if (!unit.hp) return '撃破';
   if (game.result) return '対戦終了';
+  if (unit.readyTurn > game.turn) return '次のターンから';
   if (unit.attacked) return '行動済み';
   if (unit.moved) return game.canUnitAttack(unit) ? '攻撃可能' : '移動済み';
   return '移動可能';
+}
+
+function renderProduction() {
+  const status = game.productionStatus;
+  const labels = {
+    ready: '1ターンに1部隊を生産できます。',
+    occupied: '工場が使用中です。マスが空くと生産できます。',
+    used: `${game.production.friendly?.unit}を生産しました。次のターンから操作できます。`,
+    waiting: '敵のターンです。',
+    unavailable: '対戦終了',
+  };
+  if (productionStatus.textContent !== labels[status]) productionStatus.textContent = labels[status];
+  for (const button of productionButtons) button.setAttribute('aria-disabled', String(status !== 'ready'));
 }
 
 function render() {
   const waiting = waitingForEnemy();
   const spent = !game.canMove && !game.canAttack;
   const lost = game.result === 'defeat';
-  const friendlyName = '味方' + game.playerUnit.name;
+  const friendlyName = '味方' + game.activeUnit.name;
   const movementTargets = waiting ? new Map() : game.movementTargets();
   const enemyBase = game.headquarters?.enemy;
   const captureReady = Boolean(enemyBase && game.playerUnit.id === 'infantry' && movementTargets.has(`${enemyBase.x},${enemyBase.y}`));
   const actingEnemy = game.enemyTurn?.action?.enemy;
+  if (game.isCrossing) {
+    extendRoster(roster, rosterEntries, game.friendlyUnits, true);
+    extendRoster(enemyRoster, enemyRosterEntries, game.enemyUnits, false);
+    renderProduction();
+  }
   for (const {unit, card, hp, state} of rosterEntries) {
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
     state.textContent = unitState(unit);
     card.disabled = !unit.hp || Boolean(game.result);
+    card.classList.toggle('defeated', !unit.hp);
     card.setAttribute('aria-disabled', String(waiting || card.disabled));
     card.setAttribute('aria-pressed', String(unit === game.activeUnit));
   }
@@ -91,16 +112,16 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, terrainLabel, image, base} = cell;
+    const {x, y, button, terrainLabel, image, base, factory} = cell;
     const terrain = game.terrainAt(x, y);
     button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
-    terrainLabel.textContent = captured ? '占領済' : base ? '本拠地' : terrain.name;
-    terrainLabel.hidden = !base && terrain.id === 'plains';
+    terrainLabel.textContent = captured ? '占領済' : base ? '本拠地' : factory ? '工場' : terrain.name;
+    terrainLabel.hidden = !base && !factory && terrain.id === 'plains';
     const friendly = game.friendlyAt(x, y);
     const occupied = Boolean(friendly);
     const active = friendly === game.activeUnit;
-    const tileSpent = occupied && (friendly.attacked || (friendly.moved && !game.canUnitAttack(friendly)));
+    const tileSpent = occupied && (friendly.readyTurn > game.turn || friendly.attacked || (friendly.moved && !game.canUnitAttack(friendly)));
     const enemy = game.enemyAt(x, y);
     const target = !waiting && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
@@ -115,8 +136,9 @@ function render() {
     button.classList.toggle('capture-target', captureTarget);
     button.classList.toggle('captured-base', captured);
     button.classList.toggle('spent', tileSpent);
-    button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方' + friendly.type.name : enemy ? '敵' + enemy.type.name : '',
+    button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
       base ? `${base === 'friendly' ? '味方' : '敵'}の本拠地` : '', captured ? '占領済み' : '',
+      factory ? `${factory === 'friendly' ? '味方' : '敵'}の工場` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       terrain.cost === Infinity ? '通行不可' : terrain.cost ? `消費移動力${terrain.cost}` : '',
       target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
@@ -126,8 +148,8 @@ function render() {
     image.hidden = !occupied && !enemy;
     if (occupied || enemy) showImage(image, unitImage((enemy ?? friendly).type, Boolean(enemy)));
   }
-  const {name, movement, minRange, maxRange} = game.playerUnit;
-  document.getElementById('unit-name').textContent = name;
+  const {movement, minRange, maxRange} = game.playerUnit;
+  document.getElementById('unit-name').textContent = game.activeUnit.name;
   document.getElementById('unit-movement').textContent = movement;
   document.getElementById('unit-range').textContent = minRange === maxRange ? maxRange : `${minRange}〜${maxRange}`;
   showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
@@ -164,21 +186,25 @@ function render() {
     }
   } else if (waiting) {
     state.textContent = '敵のターン';
-    message.textContent = actingEnemy ? `敵${actingEnemy.type.name}が行動します。` : '敵部隊が行動します。';
+    message.textContent = actingEnemy ? `敵${actingEnemy.name}が行動します。` : '敵部隊が行動します。';
+  } else if (game.activeUnit.readyTurn > game.turn) {
+    state.textContent = '生産直後';
+    message.textContent = `${friendlyName}は次のターンから操作できます。`;
   } else if (captureReady) {
     state.textContent = '占領可能';
     message.textContent = '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
   } else if (game.canAttack) {
     state.textContent = '攻撃可能';
     const targets = game.enemyUnits.filter(enemy => game.canUnitAttack(game.activeUnit, enemy));
-    const target = targets.length === 1 ? `${coordinate(targets[0].x, targets[0].y)} の敵${targets[0].type.name}` : '印のある敵';
+    const target = targets.length === 1 ? `${coordinate(targets[0].x, targets[0].y)} の敵${targets[0].name}` : '印のある敵';
     message.textContent = `${target}を選ぶと、その場で攻撃できます。`
       + (game.selected ? ' 移動するには印のあるマスを選びます。' : '');
   } else if (spent) {
     state.textContent = '行動済み';
     if (game.isCrossing) {
       const action = game.attacked ? '行動を終えました。' : `${position} に移動しました。`;
-      const another = game.friendlyUnits.some(unit => unit !== game.activeUnit && unit.hp && !unit.attacked && (!unit.moved || game.canUnitAttack(unit)));
+      const another = game.friendlyUnits.some(unit => unit !== game.activeUnit && unit.hp && unit.readyTurn <= game.turn
+        && !unit.attacked && (!unit.moved || game.canUnitAttack(unit)));
       message.textContent = `${friendlyName}は${action}${another ? '別の味方を選べます。' : 'ターンを終了できます。'}`;
     } else if (game.attacked && game.isBattle) message.textContent = '戦闘終了。味方HP ' + game.playerHP + '、敵HP ' + game.enemyHP + '。ターンを終了できます。';
     else message.textContent = game.attacked ? '敵歩兵を撃破しました！' : position + ' に移動しました。ターンを終了できます。';
@@ -194,8 +220,7 @@ function render() {
 function renderBattleStatus() {
   const report = document.getElementById('enemy-report');
   if (game.isCrossing) {
-    report.hidden = game.enemyActions.length === 0;
-    report.textContent = game.enemyActions.map(({enemy, friendly, from, to, captured}) => {
+    const lines = game.enemyActions.map(({enemy, friendly, from, to, captured}) => {
       const origin = coordinate(from.x, from.y);
       const destination = coordinate(to.x, to.y);
       if (origin === destination) {
@@ -203,7 +228,13 @@ function renderBattleStatus() {
       }
       const result = captured ? '、本拠地を占領' : friendly ? `、味方${friendly}を攻撃` : '';
       return `敵${enemy} ${origin} → ${destination}${result}`;
-    }).join('\n');
+    });
+    if (game.production.enemy) {
+      const {x, y} = game.factories.enemy;
+      lines.push(`敵は工場（${coordinate(x, y)}）で${game.production.enemy.unit}を生産`);
+    }
+    report.hidden = lines.length === 0;
+    report.textContent = lines.join('\n');
     return;
   }
   for (const [side, hp] of [['player', game.playerHP], ['enemy', game.enemyHP]]) {
@@ -240,7 +271,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '味方も敵も、空いている相手の本拠地を歩兵の移動先にすると、その場で勝利します。部隊をすべて撃破しても勝利です。各部隊は1ターンに移動と攻撃を1回ずつ行えます。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: '空いている敵の本拠地に歩兵を移動させるか、敵を全滅させると勝利です。双方とも空いている自陣の工場で、1ターンに1部隊を生産できます。生産した部隊は次のターンから行動できます。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;
@@ -250,19 +281,27 @@ function showMission() {
   document.getElementById('terrain-legend').hidden = !game.isBattle;
   document.getElementById('crossing-legend').hidden = !game.isCrossing;
   document.getElementById('base-legend').hidden = !game.headquarters;
+  document.getElementById('factory-legend').hidden = !game.factories;
+  document.getElementById('production-controls').hidden = !game.factories;
   document.getElementById('crossing-objective').hidden = !game.headquarters;
   if (game.headquarters) {
     for (const [side, {x, y}] of Object.entries(game.headquarters)) {
       document.getElementById(`${side}-base-coordinate`).textContent = coordinate(x, y);
     }
+    for (const [side, {x, y}] of Object.entries(game.factories)) {
+      document.getElementById(`${side}-factory-coordinate`).textContent = coordinate(x, y);
+    }
+    document.getElementById('production-title-coordinate').textContent = coordinate(game.factories.friendly.x, game.factories.friendly.y);
   }
   document.getElementById('enemy-range').hidden = !game.isCrossing;
   document.getElementById('map-scroll-note').hidden = !game.isCrossing;
   document.getElementById('friendly-legend').textContent = game.isCrossing ? '味方部隊' : '味方歩兵';
   document.getElementById('enemy-legend').textContent = game.isCrossing ? '敵部隊' : '敵歩兵';
   buildBoard();
-  rosterEntries = buildRoster(roster, game.isCrossing ? game.friendlyUnits : [], true);
-  enemyRosterEntries = buildRoster(enemyRoster, game.isCrossing ? game.enemyUnits : [], false);
+  rosterEntries.length = 0;
+  enemyRosterEntries.length = 0;
+  roster.replaceChildren();
+  enemyRoster.replaceChildren();
   setBoardTabStop(friendlyTile());
   render();
   mapSurround.scrollLeft = 0;
@@ -308,7 +347,9 @@ function addTile(x, y) {
   button.type = 'button';
   button.className = 'tile';
   const base = game.headquartersAt(x, y);
+  const factory = game.factoryAt(x, y);
   if (base) button.dataset.base = base;
+  if (factory) button.dataset.factory = factory;
   button.classList.toggle('last-column', x === game.width - 1);
   button.classList.toggle('last-row', y === game.height - 1);
   const terrainLabel = document.createElement('span');
@@ -340,7 +381,7 @@ function addTile(x, y) {
     const nextY = Math.max(0, Math.min(game.height - 1, y + dy));
     cells[nextY * game.width + nextX].button.focus();
   });
-  cells.push({x, y, button, terrainLabel, image, base});
+  cells.push({x, y, button, terrainLabel, image, base, factory});
   board.append(button);
 }
 
@@ -423,6 +464,11 @@ function finishTurn(ending) {
 document.getElementById('end').addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
 });
+for (const button of productionButtons) {
+  button.addEventListener('click', () => {
+    if (!combatScreen.active && game.produce(button.dataset.produce)) render();
+  });
+}
 document.getElementById('help').addEventListener('click', () => {
   if (!game.enemyTurn) document.getElementById('guide').showModal();
 });

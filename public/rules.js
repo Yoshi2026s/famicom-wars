@@ -27,9 +27,14 @@ const crossingHeadquarters = Object.freeze({
   friendly: Object.freeze({x: 0, y: 6}),
   enemy: Object.freeze({x: 9, y: 5}),
 });
+const crossingFactories = Object.freeze({
+  friendly: Object.freeze({x: 1, y: 5}),
+  enemy: Object.freeze({x: 8, y: 4}),
+});
 const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1});
 const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1});
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3});
+const productionTypes = [infantry, scout, support];
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function distanceBetween(from, to) {
@@ -41,8 +46,9 @@ function inRange(unit, from, to) {
   return distance >= unit.minRange && distance <= unit.maxRange;
 }
 
-function deploy(type, x, y, hp) {
-  return {type, x, y, hp, moved: false, attacked: false};
+function deploy(type, x, y, hp, number = 1, readyTurn = 1) {
+  const name = number === 1 ? type.name : `${type.name} ${number}`;
+  return {type, name, x, y, hp, readyTurn, moved: false, attacked: false};
 }
 
 class TrainingMap {
@@ -53,6 +59,7 @@ class TrainingMap {
   enemyTurn = null;
   enemyActions = [];
   capturedBy = null;
+  production = {friendly: null, enemy: null};
 
   constructor(mode = 'training') {
     this.mode = mode;
@@ -74,6 +81,7 @@ class TrainingMap {
 
   get isCrossing() { return this.mode === 'crossing'; }
   get headquarters() { return this.isCrossing ? crossingHeadquarters : null; }
+  get factories() { return this.isCrossing ? crossingFactories : null; }
   get width() { return this.isCrossing ? crossingTerrain[0].length : TrainingMap.size; }
   get height() { return this.isCrossing ? crossingTerrain.length : TrainingMap.size; }
   get x() { return this.activeUnit.x; }
@@ -106,11 +114,47 @@ class TrainingMap {
   }
 
   headquartersAt(x, y) {
-    if (!this.headquarters) return null;
-    for (const [side, position] of Object.entries(this.headquarters)) {
+    return this.#ownerAt(this.headquarters, x, y);
+  }
+
+  factoryAt(x, y) {
+    return this.#ownerAt(this.factories, x, y);
+  }
+
+  #ownerAt(sites, x, y) {
+    if (!sites) return null;
+    for (const [side, position] of Object.entries(sites)) {
       if (x === position.x && y === position.y) return side;
     }
     return null;
+  }
+
+  get productionStatus() {
+    if (!this.factories || this.result) return 'unavailable';
+    if (this.enemyTurn) return 'waiting';
+    return this.#factoryStatus('friendly');
+  }
+
+  #factoryStatus(side) {
+    if (this.production[side]?.turn === this.turn) return 'used';
+    const {x, y} = this.factories[side];
+    return this.friendlyAt(x, y) || this.enemyAt(x, y) ? 'occupied' : 'ready';
+  }
+
+  produce(typeId) {
+    const type = productionTypes.find(type => type.id === typeId);
+    if (!type || this.productionStatus !== 'ready') return null;
+    return this.#deployReinforcement('friendly', type);
+  }
+
+  #deployReinforcement(side, type) {
+    const units = side === 'friendly' ? this.friendlyUnits : this.enemyUnits;
+    const {x, y} = this.factories[side];
+    const number = units.filter(unit => unit.type.id === type.id).length + 1;
+    const unit = deploy(type, x, y, this.maxHP, number, this.turn + 1);
+    units.push(unit);
+    this.production[side] = {unit: unit.name, turn: this.turn};
+    return unit;
   }
 
   #captureHeadquarters(unit, side) {
@@ -142,13 +186,13 @@ class TrainingMap {
   }
 
   canUnitAttack(unit, enemy) {
-    return !this.enemyTurn && !this.result && unit.hp > 0 && !unit.attacked && (enemy
+    return !this.enemyTurn && !this.result && unit.hp > 0 && unit.readyTurn <= this.turn && !unit.attacked && (enemy
       ? enemy.hp > 0 && inRange(unit.type, unit, enemy)
       : this.enemyUnits.some(target => target.hp > 0 && inRange(unit.type, unit, target)));
   }
 
   get canMove() {
-    return !this.enemyTurn && !this.result && this.playerHP > 0 && !this.moved && !this.attacked;
+    return !this.enemyTurn && !this.result && this.playerHP > 0 && this.activeUnit.readyTurn <= this.turn && !this.moved && !this.attacked;
   }
 
   canMoveTo(x, y) {
@@ -248,6 +292,7 @@ class TrainingMap {
     if (!this.isCrossing || this.enemyTurn || this.result) return false;
     this.selected = false;
     this.enemyActions = [];
+    this.production.enemy = null;
     this.enemyTurn = {nextIndex: 0, action: null};
     return true;
   }
@@ -256,7 +301,7 @@ class TrainingMap {
     const phase = this.enemyTurn;
     if (!phase || this.result) return null;
     if (phase.action) return phase.action;
-    const index = this.enemyUnits.findIndex((unit, index) => index >= phase.nextIndex && unit.hp > 0);
+    const index = this.enemyUnits.findIndex((unit, index) => index >= phase.nextIndex && unit.hp > 0 && unit.readyTurn <= this.turn);
     if (index < 0) return null;
     phase.action = this.planEnemyAction(this.enemyUnits[index]);
     phase.nextIndex = index + 1;
@@ -272,12 +317,20 @@ class TrainingMap {
     const captured = this.#captureHeadquarters(enemy, 'enemy');
     const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
     this.#restoreActiveUnit();
-    this.enemyActions.push({enemy: enemy.type.name, friendly: friendly?.type.name, from, to, captured});
+    this.enemyActions.push({enemy: enemy.name, friendly: friendly?.name, from, to, captured});
     return strikes;
   }
 
   finishEnemyTurn() {
     if (!this.enemyTurn || this.prepareEnemyAction()) return;
+    if (!this.result && this.#factoryStatus('enemy') === 'ready') {
+      const counts = new Map(productionTypes.map(({id}) => [id, 0]));
+      for (const unit of this.enemyUnits) {
+        if (unit.hp > 0) counts.set(unit.type.id, counts.get(unit.type.id) + 1);
+      }
+      const type = productionTypes.reduce((fewest, next) => counts.get(next.id) < counts.get(fewest.id) ? next : fewest);
+      this.#deployReinforcement('enemy', type);
+    }
     this.enemyTurn = null;
     this.#startNextTurn();
   }
@@ -325,6 +378,18 @@ class TrainingMap {
     let goal = null;
     for (const route of routes.values()) {
       if (route.cost < (goal?.cost ?? Infinity) && targetAt(route)) goal = route;
+    }
+    if (!goal && this.factoryAt(from.x, from.y) === 'enemy') {
+      // Clear the factory for another unit when the route to combat is blocked.
+      let bestDistance = Infinity;
+      for (const route of routes.values()) {
+        if (!route.cost || route.cost > type.movement) continue;
+        const distance = Math.min(...living.map(unit => distanceBetween(route, unit)));
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          goal = route;
+        }
+      }
     }
     while (goal && goal.cost > type.movement) goal = goal.previous;
     const to = goal ? {x: goal.x, y: goal.y} : from;
