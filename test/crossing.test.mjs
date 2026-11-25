@@ -2,11 +2,22 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import TrainingMap from '../public/rules.js';
 
+function leaveEnemySupport(game, x, y) {
+  const [infantry, scout, support] = game.enemyUnits;
+  infantry.hp = 0;
+  scout.hp = 0;
+  Object.assign(support, {x, y});
+  return support;
+}
+
 test('新作戦は10×8で、川を避けて橋を渡り、湿地には移動力2を使う', () => {
   const game = new TrainingMap('crossing');
   assert.deepEqual([game.width, game.height, game.x, game.y], [10, 8, 1, 6]);
   assert.equal(game.playerUnit.id, 'scout');
-  assert.equal(game.enemyUnit.id, 'support');
+  assert.deepEqual(game.enemyUnits.map(unit => [unit.type.id, unit.x, unit.y]), [
+    ['infantry', 7, 1], ['scout', 7, 5], ['support', 7, 2],
+  ]);
+  leaveEnemySupport(game, 7, 2);
 
   game.choose(1, 6);
   const paths = game.movementTargets();
@@ -29,25 +40,25 @@ test('支援車は川・湿地を避けて橋を目指し、射程に入ると�
   const game = new TrainingMap('crossing');
   game.x = 1;
   game.y = 4;
-  game.enemy = {x: 5, y: 4};
+  const support = leaveEnemySupport(game, 5, 4);
   const before = structuredClone(game);
-  assert.deepEqual(game.planEnemyTurn(), {turn: 1, from: {x: 5, y: 4}, to: {x: 5, y: 5}, hit: false, targetId: null});
+  assert.deepEqual(game.planEnemyAction(support), {enemy: support, from: {x: 5, y: 4}, to: {x: 5, y: 5}, friendly: null});
   assert.deepEqual(structuredClone(game), before);
   game.endTurn();
   game.endTurn();
   assert.deepEqual(game.enemy, {x: 4, y: 5});
   const strikes = game.endTurn();
-  assert.deepEqual(game.enemyAction.to, {x: 3, y: 5});
+  assert.deepEqual(game.enemyActions[0].to, {x: 3, y: 5});
   assert.deepEqual(strikes.map(hit => hit.attacker), ['enemy']);
-  assert.equal(game.planEnemyTurn().hit, true);
-  assert.deepEqual(game.planEnemyTurn().to, game.enemy);
+  assert.equal(game.planEnemyAction(support).friendly, game.activeUnit);
+  assert.deepEqual(game.planEnemyAction(support).to, game.enemy);
 });
 
 test('偵察車の隣接攻撃と支援車の遠距離攻撃はどちらも射程外から反撃されない', () => {
   const game = new TrainingMap('crossing');
   game.x = 3;
   game.y = 4; // D5 marsh.
-  game.enemy = {x: 3, y: 5};
+  leaveEnemySupport(game, 3, 5);
   assert.deepEqual(game.choose(3, 5), [
     {attacker: 'player', damage: 3, terrain: '草原', mitigation: 0, playerHP: 10, enemyHP: 7},
   ]);
@@ -88,7 +99,7 @@ test('味方の支援車は移動後に一度だけ攻撃でき、別の部隊�
   const game = new TrainingMap('crossing');
   const [scout, , support] = game.friendlyUnits;
   Object.assign(support, {x: 3, y: 5});
-  game.enemy = {x: 6, y: 5};
+  leaveEnemySupport(game, 6, 5);
   game.choose(support.x, support.y);
   game.choose(4, 5);
   assert.equal(support.moved, true);
@@ -104,8 +115,8 @@ test('敵の攻撃と反撃は操作中の部隊ではなく交戦する部隊�
   const game = new TrainingMap('crossing');
   const [scout, infantry, support] = game.friendlyUnits;
   Object.assign(support, {x: 3, y: 4});
-  game.enemy = {x: 5, y: 4};
-  assert.equal(game.planEnemyTurn().targetId, 'support');
+  const enemy = leaveEnemySupport(game, 5, 4);
+  assert.equal(game.planEnemyAction(enemy).friendly, support);
   assert.deepEqual(game.endTurn(), [
     {attacker: 'enemy', damage: 2, terrain: '湿地', mitigation: 1, playerHP: 8, enemyHP: 10},
     {attacker: 'player', damage: 3, terrain: '草原', mitigation: 0, playerHP: 8, enemyHP: 7},
@@ -118,7 +129,7 @@ test('撃破された味方は盤面を空け、残った部隊を操作でき�
   const game = new TrainingMap('crossing');
   const [scout, infantry, support] = game.friendlyUnits;
   Object.assign(scout, {x: 3, y: 4, hp: 1});
-  game.enemy = {x: 5, y: 4};
+  leaveEnemySupport(game, 5, 4);
   game.endTurn();
   assert.equal(game.friendlyAt(3, 4), undefined);
   assert.equal(game.activeUnit, infantry);
@@ -130,5 +141,115 @@ test('撃破された味方は盤面を空け、残った部隊を操作でき�
   Object.assign(support, {x: 3, y: 4, hp: 1});
   game.endTurn();
   assert.equal(game.result, 'defeat');
-  assert.equal(game.planEnemyTurn(), null);
+  assert.equal(game.beginEnemyTurn(), false);
+});
+
+test('敵3部隊は自分の移動力と射程で1回ずつ行動し、すべて終わってから次のターンに進む', () => {
+  const game = new TrainingMap('crossing');
+  const [scout, , support] = game.friendlyUnits;
+  const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
+  Object.assign(scout, {x: 3, y: 5, moved: true});
+  Object.assign(support, {x: 2, y: 6});
+  Object.assign(enemyInfantry, {x: 6, y: 1});
+  Object.assign(enemySupport, {x: 6, y: 4});
+
+  assert.equal(game.beginEnemyTurn(), true);
+  assert.equal(game.beginEnemyTurn(), false);
+  game.choose(3, 5);
+  assert.equal(game.canMove, false);
+  assert.equal(game.endTurn(), undefined);
+  game.finishEnemyTurn();
+  assert.equal(game.turn, 1);
+  const first = game.prepareEnemyAction();
+  assert.equal(game.prepareEnemyAction(), first);
+  assert.deepEqual([first.enemy, first.to, first.friendly.type.id], [enemyInfantry, {x: 4, y: 1}, 'infantry']);
+  assert.deepEqual(game.resolveEnemyAction(first).map(hit => hit.attacker), ['enemy', 'player']);
+  assert.deepEqual(game.resolveEnemyAction(first), []);
+
+  const second = game.prepareEnemyAction();
+  assert.deepEqual([second.enemy, second.to, second.friendly], [enemyScout, {x: 4, y: 5}, scout]);
+  assert.deepEqual(game.resolveEnemyAction(second).map(hit => hit.attacker), ['enemy', 'player']);
+  const third = game.prepareEnemyAction();
+  assert.deepEqual([third.enemy, third.to, third.friendly], [enemySupport, {x: 6, y: 5}, scout]);
+  assert.deepEqual(game.resolveEnemyAction(third).map(hit => hit.attacker), ['enemy']);
+
+  assert.equal(game.prepareEnemyAction(), null);
+  assert.equal(game.turn, 1);
+  assert.equal(scout.moved, true);
+  game.finishEnemyTurn();
+  game.finishEnemyTurn();
+  assert.equal(game.turn, 2);
+  assert.equal(scout.moved, false);
+  assert.equal(game.enemyTurn, null);
+  assert.deepEqual(game.enemyActions.map(action => action.enemy), ['歩兵', '偵察車', '支援車']);
+});
+
+test('先の敵に撃破された味方を除外し、空いたマスを使って次の敵が行動する', () => {
+  const game = new TrainingMap('crossing');
+  const [scout, infantry] = game.friendlyUnits;
+  const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
+  Object.assign(scout, {x: 7, y: 4, hp: 1});
+  Object.assign(infantry, {x: 8, y: 4});
+  Object.assign(enemyInfantry, {x: 7, y: 3});
+  Object.assign(enemyScout, {x: 6, y: 4});
+  Object.assign(enemySupport, {x: 6, y: 5});
+  game.beginEnemyTurn();
+  const first = game.prepareEnemyAction();
+  assert.equal(first.friendly, scout);
+  game.resolveEnemyAction(first);
+  assert.equal(scout.hp, 0);
+  assert.equal(game.result, null);
+  const second = game.prepareEnemyAction();
+  assert.equal(second.friendly, infantry);
+  assert.deepEqual(second.to, {x: 7, y: 4});
+  game.resolveEnemyAction(second);
+  assert.ok(infantry.hp < 10);
+});
+
+test('射程外の敵を攻撃できず、敵を1体倒しても最後の敵を撃破するまで勝利にならない', () => {
+  const game = new TrainingMap('crossing');
+  const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
+  Object.assign(enemyInfantry, {x: 1, y: 5, hp: 1});
+  assert.equal(game.canAttack, true);
+  assert.equal(game.canUnitAttack(game.activeUnit, enemyScout), false);
+  assert.equal(game.choose(enemyScout.x, enemyScout.y), undefined);
+  assert.equal(enemyScout.hp, 10);
+  assert.equal(game.choose(enemyInfantry.x, enemyInfantry.y).length, 1);
+  assert.equal(game.result, null);
+  assert.equal(game.enemyAt(1, 5), undefined);
+  assert.equal(game.beginEnemyTurn(), true);
+  const action = game.prepareEnemyAction();
+  assert.equal(action.enemy, enemyScout);
+  game.resolveEnemyAction(action);
+  assert.equal(game.prepareEnemyAction().enemy, enemySupport);
+});
+
+test('敵の偵察車が橋へ向かうとき、先にいる部隊のマスを通れない', () => {
+  const game = new TrainingMap('crossing');
+  const [scout] = game.friendlyUnits;
+  const [, enemyScout, enemySupport] = game.enemyUnits;
+  Object.assign(scout, {x: 3, y: 5});
+  const unblocked = game.planEnemyAction(enemyScout);
+  assert.deepEqual(unblocked.to, {x: 4, y: 5});
+  assert.equal(unblocked.friendly, scout);
+  Object.assign(enemySupport, {x: 4, y: 5});
+  const blocked = game.planEnemyAction(enemyScout);
+  assert.notDeepEqual(blocked.to, {x: 4, y: 5});
+  assert.notEqual(blocked.friendly, scout);
+});
+
+test('最後の味方が撃破された時点で、残りの敵は行動しない', () => {
+  const game = new TrainingMap('crossing');
+  const [scout, infantry, support] = game.friendlyUnits;
+  const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
+  Object.assign(enemyInfantry, {x: 1, y: 5});
+  scout.hp = 1;
+  infantry.hp = 0;
+  support.hp = 0;
+  game.endTurn();
+  assert.equal(game.result, 'defeat');
+  assert.equal(game.turn, 1);
+  assert.equal(game.enemyTurn, null);
+  assert.deepEqual(game.enemyActions.map(action => action.enemy), ['歩兵']);
+  assert.deepEqual([enemyScout.x, enemyScout.y, enemySupport.x, enemySupport.y], [7, 5, 7, 2]);
 });

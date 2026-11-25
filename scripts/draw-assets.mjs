@@ -356,12 +356,13 @@ seed = scenerySeed;
 
 const vehiclePalettes = {
   scout: {body: '3d8f99', light: '93dfcf', shade: '285c70', glass: 'b3e6e1'},
+  'enemy-scout': {body: 'a85848', light: 'efb477', shade: '6e3933', glass: 'ead09b'},
   support: {body: 'ad5e4e', light: 'edab72', shade: '773d42', glass: 'f1c39c'},
   'friendly-support': {body: '3c719a', light: 'a3d7ed', shade: '294c72', glass: 'b9eddf'},
 };
 
 function drawVehicle(image, top, name, pose) {
-  const scoutVehicle = name === 'scout';
+  const scoutVehicle = name === 'scout' || name === 'enemy-scout';
   const {body, light, shade, glass} = vehiclePalettes[name];
   const shift = pose === 3 || pose === 4 ? -2 : 0;
   const y = top + (pose === 5 ? 2 : 0);
