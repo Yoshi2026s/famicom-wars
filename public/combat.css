@@ -93,6 +93,7 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 }
 .formation[data-terrain="forest"] { --cover-image: url("./assets/volley-cover-forest.png"); }
 .formation[data-terrain="mountain"] { --cover-image: url("./assets/volley-cover-mountain.png"); }
+.formation[data-terrain="marsh"] { --cover-image: url("./assets/volley-cover-marsh.png"); }
 .fighter {
   position: absolute; left: 47%; bottom: 12%; width: 39%; max-width: 134px; aspect-ratio: 8/7;
   background: url("./assets/volley-ally.png") 50% 0 / 100% 600% no-repeat;
@@ -100,6 +101,8 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 }
 .fighter::before { content: ""; position: absolute; inset: 90% 11% 0 3%; background: #291f32a6; border-radius: 50%; filter: blur(2px); z-index: -1; }
 .foe .fighter { background-image: url("./assets/volley-foe.png"); }
+.formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png"); }
+.formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png"); }
 .platoon .fighter {
   left: calc(74% - var(--column) * 17% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);
