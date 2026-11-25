@@ -45,6 +45,7 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
     }
     const count = game.enemyUnits.length;
     const productionTurn = game.turn;
+    const budget = game.funds.enemy;
     game.finishEnemyTurn();
     game.finishEnemyTurn();
     const unit = game.enemyUnits.at(-1);
@@ -53,7 +54,8 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
     assert.equal(unit.type.id, expected);
     assert.equal(unit.readyTurn, game.turn);
     assert.equal(game.turn, productionTurn + 1);
-    assert.deepEqual(game.production.enemy, {unit: unit.name, turn: productionTurn});
+    assert.deepEqual(game.production.enemy, {unit: unit.name, turn: productionTurn, cost: game.productionCost(expected)});
+    assert.equal(game.funds.enemy, budget - game.production.enemy.cost + game.incomeFor('enemy'));
     assert.ok(!actors.includes(unit.name));
     if (previous) assert.equal(actors.filter(name => name === previous).length, 1);
     previous = unit.name;

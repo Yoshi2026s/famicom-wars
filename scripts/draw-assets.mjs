@@ -342,6 +342,25 @@ for (const [side, wall, bright] of [['friendly', '347485', '81bfba'], ['enemy', 
   factory.save(`factory-${side}.png`);
 }
 
+for (const [side, roof, light] of [
+  ['friendly', '3b8292', '8ccabe'], ['enemy', 'a3553e', 'eaa976'], ['neutral', '84724d', 'cfba7b'],
+]) {
+  const city = new Pixels(64, 64);
+  city.ellipse(32, 51, 28, 8, '52664d');
+  city.rect(7, 44, 50, 9, 'b4a783');
+  for (const [x, y, width] of [[6, 26, 17], [22, 17, 21], [43, 25, 15]]) {
+    city.rect(x, y, width, 48 - y, '39393a');
+    city.rect(x + 2, y + 5, width - 4, 41 - y, 'cebd99');
+    city.rect(x - 1, y, width + 2, 5, roof);
+    city.rect(x + 1, y - 3, width - 2, 4, roof);
+    city.rect(x + 3, y - 3, width - 6, 2, light);
+    city.rect(x + 4, y + 9, 4, 4, '666357');
+    city.rect(x + width - 8, y + 9, 4, 4, '666357');
+    city.rect(x + Math.floor(width / 2) - 2, 41, 5, 7, '544b41');
+  }
+  city.save(`city-${side}.png`);
+}
+
 for (const name of ['river', 'bridge']) {
   const tile = new Pixels(64, 64);
   tile.rect(0, 0, 64, 64, '386c81');
