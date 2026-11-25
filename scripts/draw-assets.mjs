@@ -357,6 +357,7 @@ seed = scenerySeed;
 const vehiclePalettes = {
   scout: {body: '3d8f99', light: '93dfcf', shade: '285c70', glass: 'b3e6e1'},
   support: {body: 'ad5e4e', light: 'edab72', shade: '773d42', glass: 'f1c39c'},
+  'friendly-support': {body: '3c719a', light: 'a3d7ed', shade: '294c72', glass: 'b9eddf'},
 };
 
 function drawVehicle(image, top, name, pose) {

@@ -103,7 +103,8 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 .foe .fighter { background-image: url("./assets/volley-foe.png"); }
 .formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png"); }
 .formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png"); }
-.platoon .fighter {
+.formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png"); }
+.platoon .formation[data-unit="infantry"] .fighter {
   left: calc(74% - var(--column) * 17% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);
   width: 23%; max-width: min(86px, 16dvh); z-index: calc(2 - var(--rank));
