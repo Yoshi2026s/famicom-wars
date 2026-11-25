@@ -295,6 +295,120 @@ for (const [x, y, scale] of [[-7,8,2],[25,1,2],[16,24,2],[0,43,1],[40,39,1],[31,
 }
 mountainTile.save('terrain-mountain.png');
 
+// Keep the original scenery's seeded texture independent of the crossing tiles.
+const scenerySeed = seed;
+seed = 29350613;
+const crossingPlains = new Pixels(64, 64);
+crossingPlains.rect(0, 0, 64, 64, '859c63');
+for (let i = 0; i < 150; i++) {
+  crossingPlains.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '98aa70' : '718e5a');
+}
+crossingPlains.save('terrain-crossing-plains.png');
+
+for (const name of ['river', 'bridge']) {
+  const tile = new Pixels(64, 64);
+  tile.rect(0, 0, 64, 64, '386c81');
+  tile.rect(15, 0, 34, 64, '3f7b8c');
+  for (let i = 0; i < 130; i++) {
+    tile.rect(random(64), random(64), 2 + random(11), 1, i % 2 ? '609ba3' : '2f627a');
+  }
+  if (name === 'bridge') {
+    tile.rect(0, 18, 64, 31, '40312c');
+    tile.rect(0, 21, 64, 23, 'b18a59');
+    for (let x = 0; x < 64; x += 8) {
+      tile.rect(x, 21, 1, 24, '725139');
+      tile.rect(x + 1, 24, 5, 2, 'c9a977');
+      tile.rect(x + 2, 39, 4, 1, '997443');
+    }
+    for (const y of [17, 44]) {
+      tile.rect(0, y, 64, 3, 'e3bf82');
+      for (const x of [4, 27, 56]) tile.rect(x, y - 3, 4, 9, '70513b');
+    }
+  }
+  tile.save(`terrain-${name}.png`);
+}
+
+function reeds(image, x, y, scale = 1) {
+  image.sprite(x, y, ['...ll.......', '...ll....l..', '.l..l....l..', '.l..ml...ml.',
+    '.m..ml..lm..', '..ml.mm.mm..', '..mm.mm.mm..', '...mmmmmm...', '..ddddddddd.'],
+  {l: 'c2b377', m: '647f50', d: '3d5d47'}, scale);
+}
+
+const marshTile = new Pixels(64, 64);
+marshTile.rect(0, 0, 64, 64, '648169');
+for (const [x, y, w, h] of [[10,8,18,5], [47,21,19,8], [17,39,21,6], [54,57,24,6]]) {
+  marshTile.ellipse(x, y, w, h, '4a797d');
+  marshTile.rect(x - 5, y, 15, 1, '77a2a0');
+}
+for (const [x, y] of [[10,3],[36,4],[1,24],[26,23],[43,31],[13,44],[41,49]]) {
+  reeds(marshTile, x, y, 2);
+}
+marshTile.save('terrain-marsh.png');
+
+const marshCover = new Pixels(140, 76);
+marshCover.ellipse(57, 67, 59, 6, '54787b');
+marshCover.rect(12, 66, 60, 1, '89aaa0');
+for (const [x, y, scale] of [[4,37,3], [28,26,4], [72,31,4], [107,45,3]]) {
+  reeds(marshCover, x, y, scale);
+}
+marshCover.save('volley-cover-marsh.png');
+seed = scenerySeed;
+
+const vehiclePalettes = {
+  scout: {body: '3d8f99', light: '93dfcf', shade: '285c70', glass: 'b3e6e1'},
+  support: {body: 'ad5e4e', light: 'edab72', shade: '773d42', glass: 'f1c39c'},
+};
+
+function drawVehicle(image, top, name, pose) {
+  const scoutVehicle = name === 'scout';
+  const {body, light, shade, glass} = vehiclePalettes[name];
+  const shift = pose === 3 || pose === 4 ? -2 : 0;
+  const y = top + (pose === 5 ? 2 : 0);
+  const paint = (left, row, width, height, color) => image.rect(left + shift, y + row, width, height, color);
+  const edge = '202b37';
+  // Wheels and chassis.
+  paint(5, 35, 53, 10, edge);
+  paint(10, 44, 43, 4, '192630');
+  for (const x of [11, 23, 35, 47]) {
+    paint(x, 39, 8, 9, scoutVehicle ? '273345' : '3c3337');
+    paint(x + 2, 41, 4, 4, shade);
+    paint(x + 3, 42, 2, 2, light);
+  }
+  paint(6, 28, 52, 9, edge);
+  paint(9, 26, 43, 9, body);
+  paint(8, 28, 49, 2, light);
+  paint(10, 35, 45, 4, shade);
+  paint(55, 30, 4, 3, 'ffe4a1');
+  if (scoutVehicle) {
+    paint(18, 19, 23, 9, edge);
+    paint(22, 17, 12, 4, light);
+    paint(25, 20, 12, 5, glass);
+    paint(15, 10, 2, 15, edge);
+    paint(13, 9, 5, 2, light);
+    paint(39, pose === 1 || pose === 2 ? 21 : 23, 16, 4, shade);
+  } else {
+    const rise = pose === 1 || pose === 2 ? 3 : 0;
+    paint(15, 17, 30, 11, edge);
+    paint(17, 19, 25, 7, body);
+    paint(18, 19, 16, 2, light);
+    paint(38, 22, 9, 4, glass);
+    paint(26, 12 - rise, 25, 6, shade);
+    paint(40, 11 - rise, 15, 2, light);
+    paint(49, 10 - rise, 6, 7, edge);
+  }
+  if (pose === 2) paint(54, scoutVehicle ? 20 : 8, 7, 5, 'ffe4a1');
+  if (pose === 4) paint(27, 28, 9, 2, 'fff5c1');
+}
+
+for (const name of Object.keys(vehiclePalettes)) {
+  const icon = new Pixels(64, 56);
+  drawVehicle(icon, 0, name, 0);
+  icon.save(`${name}.png`);
+  const atlas = new Pixels(64, 56 * poses.length);
+  for (const index of poses.keys()) drawVehicle(atlas, index * 56, name, index);
+  atlas.save(`volley-${name}.png`);
+}
+
 const vista = new Pixels(360, 168);
 for (const [top, end, color] of [
   [0, 15, '213451'], [15, 27, '374868'], [27, 40, '656181'], [40, 52, '977383'],

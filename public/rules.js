@@ -2,6 +2,9 @@ const terrainTypes = {
   p: Object.freeze({id: 'plains', name: '草原', defense: 0}),
   f: Object.freeze({id: 'forest', name: '森', defense: 1}),
   m: Object.freeze({id: 'mountain', name: '山', defense: 2}),
+  r: Object.freeze({id: 'river', name: '川', defense: 0, cost: Infinity}),
+  b: Object.freeze({id: 'bridge', name: '橋', defense: 0}),
+  s: Object.freeze({id: 'marsh', name: '湿地', defense: 1, cost: 2}),
 };
 const battleTerrain = [
   'fppmf',
@@ -10,6 +13,29 @@ const battleTerrain = [
   'mpppm',
   'pffpp',
 ];
+const crossingTerrain = [
+  'pfmffrfmfp',
+  'ppfppbffpp',
+  'fppsrrpfmp',
+  'mfpsrpsspp',
+  'pppsrppfpp',
+  'fpspbppfmp',
+  'ppfsrsppfp',
+  'fppprsfppp',
+];
+const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1});
+const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1});
+const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3});
+const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+function distanceBetween(from, to) {
+  return Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+}
+
+function inRange(unit, from, to) {
+  const distance = distanceBetween(from, to);
+  return distance >= unit.minRange && distance <= unit.maxRange;
+}
 
 class TrainingMap {
   static size = 5;
@@ -23,17 +49,28 @@ class TrainingMap {
   attacked = false;
 
   constructor(mode = 'training') {
-    this.isBattle = mode === 'battle';
+    this.mode = mode;
+    this.isBattle = mode === 'battle' || this.isCrossing;
     const startingHP = this.isBattle ? this.maxHP : 1;
     this.playerHP = startingHP;
     this.enemyHP = startingHP;
     this.enemyAction = null;
-    if (this.isBattle) {
+    if (this.isCrossing) {
+      this.x = 1;
+      this.y = 6;
+      this.enemy = {x: 7, y: 2};
+    } else if (this.isBattle) {
       this.x = 1;
       this.y = 3;
       this.enemy = {x: 3, y: 1};
     }
   }
+
+  get isCrossing() { return this.mode === 'crossing'; }
+  get width() { return this.isCrossing ? crossingTerrain[0].length : TrainingMap.size; }
+  get height() { return this.isCrossing ? crossingTerrain.length : TrainingMap.size; }
+  get playerUnit() { return this.isCrossing ? scout : infantry; }
+  get enemyUnit() { return this.isCrossing ? support : infantry; }
 
   get maxHP() {
     return 10;
@@ -50,12 +87,13 @@ class TrainingMap {
   }
 
   terrainAt(x, y) {
-    return terrainTypes[this.isBattle ? battleTerrain[y]?.[x] ?? 'p' : 'p'];
+    const layout = this.isCrossing ? crossingTerrain : this.isBattle ? battleTerrain : null;
+    return terrainTypes[layout?.[y]?.[x] ?? 'p'];
   }
 
   get canAttack() {
     return this.playerHP > 0 && !this.attacked && this.enemy !== null
-      && Math.abs(this.x - this.enemy.x) + Math.abs(this.y - this.enemy.y) === 1;
+      && inRange(this.playerUnit, this, this.enemy);
   }
 
   get canMove() {
@@ -63,13 +101,36 @@ class TrainingMap {
   }
 
   canMoveTo(x, y) {
-    const distance = Math.abs(this.x - x) + Math.abs(this.y - y);
-    return this.selected && this.canMove && Number.isInteger(x) && Number.isInteger(y)
-      && x >= 0 && y >= 0 && x < TrainingMap.size && y < TrainingMap.size
-      && distance > 0 && distance <= TrainingMap.movement
-      && !this.isEnemyAt(x, y)
-      // A two-step straight move has one possible intermediate square.
-      && !(distance === 2 && this.isEnemyAt((this.x + x) / 2, (this.y + y) / 2));
+    return Number.isInteger(x) && Number.isInteger(y) && this.movementTargets().has(`${x},${y}`);
+  }
+
+  movementTargets() {
+    if (!this.selected || !this.canMove) return new Map();
+    const routes = this.#routes({x: this.x, y: this.y}, this.enemy, this.playerUnit.movement);
+    routes.delete(`${this.x},${this.y}`);
+    return routes;
+  }
+
+  #routes(from, blocked, budget, stepLimit = budget) {
+    const start = {...from, cost: 0, first: from};
+    const routes = new Map([[`${from.x},${from.y}`, start]]);
+    const queue = [start];
+    for (const route of queue) {
+      for (const [dx, dy] of directions) {
+        const x = route.x + dx;
+        const y = route.y + dy;
+        if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
+        if (x === blocked?.x && y === blocked?.y) continue;
+        const stepCost = this.terrainAt(x, y).cost ?? 1;
+        const cost = route.cost + stepCost;
+        const key = `${x},${y}`;
+        if (stepCost === Infinity || stepCost > stepLimit || cost > budget || cost >= (routes.get(key)?.cost ?? Infinity)) continue;
+        const next = {x, y, cost, first: route.cost ? route.first : {x, y}};
+        routes.set(key, next);
+        queue.push(next);
+      }
+    }
+    return routes;
   }
 
   choose(x, y) {
@@ -107,7 +168,10 @@ class TrainingMap {
   #exchange(attacker) {
     const strikes = [this.#strike(attacker)];
     const defender = attacker === 'player' ? 'enemy' : 'player';
-    if (this.playerHP > 0 && this.enemyHP > 0) strikes.push(this.#strike(defender));
+    const counterUnit = defender === 'player' ? this.playerUnit : this.enemyUnit;
+    if (this.playerHP > 0 && this.enemy && inRange(counterUnit, this, this.enemy)) {
+      strikes.push(this.#strike(defender));
+    }
     return strikes;
   }
 
@@ -133,6 +197,15 @@ class TrainingMap {
   planEnemyTurn() {
     if (!this.isBattle || this.result) return null;
     const from = {...this.enemy};
+    if (this.isCrossing) {
+      const routes = this.#routes(from, this, Infinity, this.enemyUnit.movement);
+      let target = null;
+      for (const route of routes.values()) {
+        if (inRange(this.enemyUnit, route, this) && route.cost < (target?.cost ?? Infinity)) target = route;
+      }
+      const to = target?.first ?? from;
+      return {turn: this.turn, from, to, hit: inRange(this.enemyUnit, to, this)};
+    }
     const to = {...from};
     const dx = this.x - from.x;
     const dy = this.y - from.y;

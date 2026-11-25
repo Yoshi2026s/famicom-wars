@@ -10,6 +10,7 @@ const combatScreen = (() => {
   const volley = camera.querySelector('.combat-volley');
   const impactEffects = camera.querySelector('.combat-hit');
   const formations = {player: camera.querySelector('.ally'), enemy: camera.querySelector('.foe')};
+  const teamNames = {};
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let scene = null;
 
@@ -25,11 +26,12 @@ const combatScreen = (() => {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
       document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = formations[side];
-      for (const fighter of [...formation.children].slice(hp)) {
+      const count = scene.map.isCrossing ? Number(hp > 0) : hp;
+      for (const fighter of [...formation.children].slice(count)) {
         if (animateLoss && !motion.matches) fighter.classList.add('retreating');
         else fighter.remove();
       }
-      while (formation.childElementCount < hp) {
+      while (formation.childElementCount < count) {
         const fighter = document.createElement('span');
         fighter.className = 'fighter';
         const slot = formation.childElementCount;
@@ -54,7 +56,7 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'aim';
     const first = scene.nextStrike === 0;
     stage.textContent = first ? '先攻' : '反撃';
-    const team = attacker === 'player' ? '味方歩兵' : '敵歩兵';
+    const team = teamNames[attacker];
     status.textContent = first ? `${team}が構えた。` : `${team}が反撃の構え。`;
     scene.timer = setTimeout(startVolley, motion.matches ? 90 : 360);
   }
@@ -90,7 +92,7 @@ const combatScreen = (() => {
       }
     }
     dialog.dataset.phase = 'attack';
-    const team = fromPlayer ? '味方歩兵' : '敵歩兵';
+    const team = teamNames[dialog.dataset.attacker];
     status.textContent = `${team}の${scene.nextStrike === 0 ? '攻撃' : '反撃'}！`;
     if (motion.matches) combatAudio.play('shot', fromPlayer ? -.62 : .62);
     scene.timer = setTimeout(showImpact, motion.matches ? 160 : lastShot + 350);
@@ -104,7 +106,7 @@ const combatScreen = (() => {
     scene.strikes ??= scene.resolve();
     const hit = scene.strikes[scene.nextStrike++];
     showForces(hit, true);
-    const target = hit.attacker === 'player' ? '敵歩兵' : '味方歩兵';
+    const target = teamNames[hit.attacker === 'player' ? 'enemy' : 'player'];
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
     const impact = remaining
       ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
@@ -133,8 +135,8 @@ const combatScreen = (() => {
     showForces(outcome);
     const verdict = scene.map.result ?? (outcome.enemyHP === 0 ? 'victory' : null);
     const title = verdict === 'victory' ? '勝利' : '敗北';
-    const result = verdict === 'victory' ? '勝利。敵歩兵を撃破しました。'
-      : verdict === 'defeat' ? '敗北。味方歩兵が全滅しました。' : '戦闘終了。';
+    const result = verdict === 'victory' ? `勝利。${teamNames.enemy}を撃破しました。`
+      : verdict === 'defeat' ? `敗北。${teamNames.player}が撃破されました。` : '戦闘終了。';
     const report = scene.strikes.map((hit, index) => {
       const action = index === 0 ? '先攻' : '反撃';
       const defense = defenseMessage(hit);
@@ -202,12 +204,15 @@ const combatScreen = (() => {
       if (scene) return;
       combatAudio.unlock();
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
-      dialog.classList.toggle('platoon', map.isBattle);
+      dialog.classList.toggle('platoon', map.isBattle && !map.isCrossing);
       const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
-      for (const [side, team, position] of [['player', 'ally', map], ['enemy', 'foe', enemyPosition]]) {
+      for (const [side, prefix, unit, position] of [['player', '味方', map.playerUnit, map], ['enemy', '敵', map.enemyUnit, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
+        teamNames[side] = prefix + unit.name;
+        document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
         document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
-        dialog.querySelector('.formation.' + team).dataset.terrain = terrain.id;
+        formations[side].dataset.terrain = terrain.id;
+        formations[side].dataset.unit = unit.id;
       }
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
