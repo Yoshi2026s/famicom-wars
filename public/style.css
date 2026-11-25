@@ -60,6 +60,14 @@ h2 { font-size: 16px; font-weight: 850; }
 .battle-health meter::-webkit-meter-optimum-value { background: #33736b; }
 .battle-health span:last-child meter::-webkit-meter-optimum-value { background: #9b4b3c; }
 .battle-health b { font-family: Consolas, monospace; }
+.battle-health > span:last-child { margin-inline-start: auto; }
+.friendly-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px 9px; background: #eeeadc; }
+.friendly-roster button { display: flex; flex-wrap: wrap; align-content: center; align-items: baseline; gap: 0 6px; min-height: 48px; padding: 3px 6px; border: 1px solid #9ca99a; border-radius: 4px; background: var(--paper); color: var(--ink); text-align: left; }
+.friendly-roster button[aria-pressed="true"] { background: #d5e9e4; border-color: #21565b; box-shadow: inset 0 0 0 1px #21565b; }
+.friendly-roster button:disabled { opacity: .7; }
+.friendly-roster strong { font-size: 13px; }
+.friendly-roster span { font-size: 11px; white-space: nowrap; }
+.friendly-roster span:last-child { width: 100%; color: #3f5955; }
 .map-surround { padding: 2px 17px 14px 4px; --columns: 5; --rows: 5; }
 .map-surround[data-mode="crossing"] { overflow-x: auto; }
 .map-surround[data-mode="crossing"] .chart { min-width: calc(var(--columns) * 48px + 24px); }
@@ -94,6 +102,7 @@ h2 { font-size: 16px; font-weight: 850; }
 .tile.target { --tile-tint: #f8ab775e; box-shadow: inset 0 0 0 2px #ffeead, inset 0 0 0 4px #893a32; }
 .tile.target::after { content: "攻撃"; }
 .tile.spent img { filter: saturate(.45); }
+.tile.active-unit:not(.selected) { box-shadow: inset 0 0 0 2px #d0ffff, inset 0 0 0 3px #245466; }
 .tile.selected { box-shadow: inset 0 0 0 3px #ffe18a, inset 0 0 0 5px #6e4e2c; --tile-tint: #ffe07c42; }
 .tile.reachable { --tile-tint: #b9f0dc65; box-shadow: inset 0 0 0 1px #1e5346, inset 0 0 0 2px #cce5b889; }
 .tile.reachable::after, .range-key::after { content: ""; display: block; position: absolute; width: 13%; aspect-ratio: 1; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid #e6ffda; background: #296d50; }

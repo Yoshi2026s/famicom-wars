@@ -26,7 +26,7 @@ const combatScreen = (() => {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
       document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = formations[side];
-      const count = scene.map.isCrossing ? Number(hp > 0) : hp;
+      const count = formation.dataset.unit === 'infantry' ? hp : Number(hp > 0);
       for (const fighter of [...formation.children].slice(count)) {
         if (animateLoss && !motion.matches) fighter.classList.add('retreating');
         else fighter.remove();
@@ -135,8 +135,9 @@ const combatScreen = (() => {
     showForces(outcome);
     const verdict = scene.map.result ?? (outcome.enemyHP === 0 ? 'victory' : null);
     const title = verdict === 'victory' ? '勝利' : '敗北';
+    const defeated = scene.map.isCrossing ? '味方部隊が全滅しました。' : `${teamNames.player}が撃破されました。`;
     const result = verdict === 'victory' ? `勝利。${teamNames.enemy}を撃破しました。`
-      : verdict === 'defeat' ? `敗北。${teamNames.player}が撃破されました。` : '戦闘終了。';
+      : verdict === 'defeat' ? `敗北。${defeated}` : '戦闘終了。';
     const report = scene.strikes.map((hit, index) => {
       const action = index === 0 ? '先攻' : '反撃';
       const defense = defenseMessage(hit);
@@ -200,23 +201,22 @@ const combatScreen = (() => {
 
   return {
     get active() { return scene !== null; },
-    open(map, attacker, resolve, onReturn) {
+    open({map, attacker, friendly, enemyPosition, resolve, onReturn}) {
       if (scene) return;
       combatAudio.unlock();
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
-      dialog.classList.toggle('platoon', map.isBattle && !map.isCrossing);
-      const enemyPosition = attacker === 'enemy' ? map.planEnemyTurn().to : map.enemy;
-      for (const [side, prefix, unit, position] of [['player', '味方', map.playerUnit, map], ['enemy', '敵', map.enemyUnit, enemyPosition]]) {
+      dialog.classList.toggle('platoon', map.isBattle);
+      for (const [side, prefix, unit, position] of [['player', '味方', friendly.type, friendly], ['enemy', '敵', map.enemyUnit, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
         document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
         formations[side].dataset.terrain = terrain.id;
-        formations[side].dataset.unit = unit.id;
+        formations[side].dataset.unit = side === 'player' && unit.id === 'support' ? 'friendly-support' : unit.id;
       }
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
       advance.textContent = '演出をスキップ';
-      showForces(map);
+      showForces({playerHP: friendly.hp, enemyHP: map.enemyHP});
       delete dialog.dataset.outcome;
       finale.hidden = true;
       dialog.dataset.attacker = attacker;
