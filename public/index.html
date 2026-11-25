@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=crossing-rivals">
+    <link rel="stylesheet" href="./style.css?v=crossing-bases">
     <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=crossing-rivals"></script>
+    <script defer src="./rules.js?v=crossing-bases"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=finale"></script>
     <script defer src="./combat.js?v=crossing-rivals"></script>
-    <script defer src="./game.js?v=crossing-rivals"></script>
+    <script defer src="./game.js?v=crossing-bases"></script>
   </head>
   <body>
     <header class="masthead">
@@ -45,6 +45,10 @@
           </div>
           <div class="friendly-roster enemy-roster" id="enemy-roster" role="group" aria-label="敵部隊の状況" hidden></div>
           <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択" hidden></div>
+          <div class="legend base-legend" id="base-legend" hidden>
+            <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地 <b id="friendly-base-coordinate"></b></span>
+            <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地 <b id="enemy-base-coordinate"></b></span>
+          </div>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">
             <div class="chart">
@@ -68,6 +72,7 @@
           </section>
           <section class="orders" aria-labelledby="orders-title">
             <h2 id="orders-title">行動指示</h2>
+            <p class="crossing-objective" id="crossing-objective" hidden>歩兵で敵本拠地を占領するか、敵部隊を全滅させると勝利です。</p>
             <p class="enemy-range" id="enemy-range" hidden>敵支援車の射程は2〜3マス</p>
             <div id="enemy-report" class="enemy-report" hidden></div>
             <p id="message" role="status" aria-live="polite" aria-atomic="true">盤面の歩兵を選んでください。</p>
