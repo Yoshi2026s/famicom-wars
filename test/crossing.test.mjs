@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import TrainingMap from '../public/rules.js';
+import BattleMap from '../public/rules.js';
 
 function leaveEnemySupport(game, x, y) {
   const [infantry, scout, support] = game.enemyUnits;
@@ -10,8 +10,8 @@ function leaveEnemySupport(game, x, y) {
   return support;
 }
 
-test('水辺の攻防は14×10で、川を避けて橋を渡り、湿地には移動力2を使う', () => {
-  const game = new TrainingMap('crossing');
+test('はじまりの草原は14×10で、川を避けて橋を渡り、湿地には移動力2を使う', () => {
+  const game = new BattleMap();
   assert.deepEqual([game.width, game.height, game.x, game.y], [14, 10, 1, 6]);
   assert.equal(game.playerUnit.id, 'scout');
   assert.deepEqual(game.enemyUnits.map(unit => [unit.type.id, unit.x, unit.y]), [
@@ -37,7 +37,7 @@ test('水辺の攻防は14×10で、川を避けて橋を渡り、湿地には�
 });
 
 test('南に延びた川にはE9の橋があり、東へ渡って追加されたエリアに進める', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   game.x = 3;
   game.y = 8;
   game.choose(3, 8);
@@ -51,7 +51,7 @@ test('南に延びた川にはE9の橋があり、東へ渡って追加された
 });
 
 test('支援車は川・湿地を避けて橋を目指し、射程に入るとその場で攻撃する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   game.x = 1;
   game.y = 4;
   const support = leaveEnemySupport(game, 5, 4);
@@ -69,7 +69,7 @@ test('支援車は川・湿地を避けて橋を目指し、射程に入ると�
 });
 
 test('偵察車の隣接攻撃と支援車の遠距離攻撃はどちらも射程外から反撃されない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   game.x = 3;
   game.y = 4; // D5 marsh.
   leaveEnemySupport(game, 3, 5);
@@ -83,7 +83,7 @@ test('偵察車の隣接攻撃と支援車の遠距離攻撃はどちらも射�
 });
 
 test('味方3部隊は同じターンに1回ずつ移動し、味方のマスを通らず、次のターンに再び動ける', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, infantry, support] = game.friendlyUnits;
   assert.deepEqual(game.friendlyUnits.map(unit => [unit.type.id, unit.x, unit.y]), [
     ['scout', 1, 6], ['infantry', 3, 1], ['support', 2, 1],
@@ -110,7 +110,7 @@ test('味方3部隊は同じターンに1回ずつ移動し、味方のマスを
 });
 
 test('味方の支援車は移動後に一度だけ攻撃でき、別の部隊は続けて行動できる', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, , support] = game.friendlyUnits;
   Object.assign(support, {x: 3, y: 5});
   leaveEnemySupport(game, 6, 5);
@@ -126,7 +126,7 @@ test('味方の支援車は移動後に一度だけ攻撃でき、別の部隊�
 });
 
 test('敵の攻撃と反撃は操作中の部隊ではなく交戦する部隊の射程・HPを使う', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, infantry, support] = game.friendlyUnits;
   Object.assign(support, {x: 3, y: 4});
   const enemy = leaveEnemySupport(game, 5, 4);
@@ -140,7 +140,7 @@ test('敵の攻撃と反撃は操作中の部隊ではなく交戦する部隊�
 });
 
 test('撃破された味方は盤面を空け、残った部隊を操作でき、全滅で敗北する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, infantry, support] = game.friendlyUnits;
   Object.assign(scout, {x: 3, y: 4, hp: 1});
   leaveEnemySupport(game, 5, 4);
@@ -159,7 +159,7 @@ test('撃破された味方は盤面を空け、残った部隊を操作でき�
 });
 
 test('敵3部隊は自分の移動力と射程で1回ずつ行動し、すべて終わってから次のターンに進む', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, , support] = game.friendlyUnits;
   const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
   Object.assign(scout, {x: 3, y: 5, moved: true});
@@ -199,7 +199,7 @@ test('敵3部隊は自分の移動力と射程で1回ずつ行動し、すべて
 });
 
 test('先の敵に撃破された味方を除外し、空いたマスを使って次の敵が行動する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, infantry] = game.friendlyUnits;
   const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
   Object.assign(scout, {x: 7, y: 4, hp: 1});
@@ -221,7 +221,7 @@ test('先の敵に撃破された味方を除外し、空いたマスを使っ�
 });
 
 test('射程外の敵を攻撃できず、敵を1体倒しても最後の敵を撃破するまで勝利にならない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
   Object.assign(enemyInfantry, {x: 1, y: 5, hp: 1});
   assert.equal(game.canAttack, true);
@@ -239,7 +239,7 @@ test('射程外の敵を攻撃できず、敵を1体倒しても最後の敵を�
 });
 
 test('敵の偵察車が橋へ向かうとき、先にいる部隊のマスを通れない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout] = game.friendlyUnits;
   const [, enemyScout, enemySupport] = game.enemyUnits;
   Object.assign(scout, {x: 3, y: 5});
@@ -253,7 +253,7 @@ test('敵の偵察車が橋へ向かうとき、先にいる部隊のマスを�
 });
 
 test('最後の味方が撃破された時点で、残りの敵は行動しない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [scout, infantry, support] = game.friendlyUnits;
   const [enemyInfantry, enemyScout, enemySupport] = game.enemyUnits;
   Object.assign(enemyInfantry, {x: 1, y: 5});
@@ -269,7 +269,7 @@ test('最後の味方が撃破された時点で、残りの敵は行動しな�
 });
 
 test('歩兵が敵本拠地を移動先に選ぶと、敵が残っていてもその場で勝利する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const infantry = game.friendlyUnits[1];
   Object.assign(infantry, {x: 12, y: 7});
   assert.deepEqual(game.headquarters, {friendly: {x: 0, y: 6}, enemy: {x: 13, y: 7}});
@@ -285,13 +285,12 @@ test('歩兵が敵本拠地を移動先に選ぶと、敵が残っていても�
   game.choose(12, 7);
   game.endTurn();
   assert.deepEqual([infantry.x, infantry.y, game.turn], [13, 7, 1]);
-  assert.equal(new TrainingMap('crossing').capturedBy, null);
-  assert.equal(new TrainingMap('battle').headquartersAt(0, 6), null);
+  assert.equal(new BattleMap().capturedBy, null);
 });
 
 test('偵察車や支援車が敵本拠地に止まっても占領できず、歩兵は占有中の本拠地に入れない', () => {
   for (const index of [0, 2]) {
-    const game = new TrainingMap('crossing');
+    const game = new BattleMap();
     const vehicle = game.friendlyUnits[index];
     const infantry = game.friendlyUnits[1];
     Object.assign(vehicle, {x: 12, y: 7});
@@ -303,7 +302,7 @@ test('偵察車や支援車が敵本拠地に止まっても占領できず、�
     game.choose(13, 6);
     assert.equal(game.canMoveTo(13, 7), false);
   }
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   Object.assign(game.friendlyUnits[1], {x: 12, y: 7});
   Object.assign(game.enemyUnits[1], {x: 13, y: 7, hp: 1});
   game.choose(12, 7);
@@ -314,7 +313,7 @@ test('偵察車や支援車が敵本拠地に止まっても占領できず、�
 });
 
 test('敵の歩兵は空いた味方本拠地を占領し、残りの敵の行動を待たずに敗北する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const enemyInfantry = game.enemyUnits[0];
   Object.assign(enemyInfantry, {x: 1, y: 5});
   assert.equal(game.beginEnemyTurn(), true);
@@ -332,7 +331,7 @@ test('敵の歩兵は空いた味方本拠地を占領し、残りの敵の行�
 });
 
 test('味方本拠地を守る部隊がいる場合、敵歩兵は占領できない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const scout = game.friendlyUnits[0];
   Object.assign(scout, game.headquarters.friendly);
   Object.assign(game.friendlyUnits[1], {x: 1, y: 5});

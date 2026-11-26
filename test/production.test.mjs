@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import TrainingMap from '../public/rules.js';
+import BattleMap from '../public/rules.js';
 
 test('味方は工場で3種から1部隊ずつ生産でき、次のターンに移動できる', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const factory = game.factoryAt(1, 5);
   assert.equal(factory.owner, 'friendly');
   assert.equal(game.factoryAt(8, 4).owner, 'enemy');
@@ -33,7 +33,7 @@ test('味方は工場で3種から1部隊ずつ生産でき、次のターンに
 });
 
 test('敵も空いている工場で毎ターン1部隊を補充し、その部隊は次の敵ターンから行動する', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const home = game.factoryAt(1, 5);
   game.funds.enemy = 8000;
   let previous;
@@ -66,7 +66,7 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
 });
 
 test('相手の部隊が工場マスを占有している間は生産できない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const [, enemy] = game.enemyUnits;
   const factory = game.factoryAt(1, 5);
   Object.assign(enemy, {x: factory.x, y: factory.y});
@@ -81,8 +81,8 @@ test('相手の部隊が工場マスを占有している間は生産できな�
   assert.equal(game.enemyUnits.length, 3);
 });
 
-test('増援の歩兵も次のターンに本拠地を占領でき、決着後や他の作戦では生産できない', () => {
-  const game = new TrainingMap('crossing');
+test('増援の歩兵も次のターンに本拠地を占領でき、決着後は生産できない', () => {
+  const game = new BattleMap();
   const factory = game.factoryAt(1, 5);
   const infantry = game.produce('infantry', factory);
   game.endTurn();
@@ -93,13 +93,11 @@ test('増援の歩兵も次のターンに本拠地を占領でき、決着後�
   assert.equal(game.result, 'victory');
   assert.equal(game.produce('support', factory), null);
   assert.equal(game.friendlyUnits.length, 4);
-  for (const mode of ['training', 'battle']) {
-    assert.equal(new TrainingMap(mode).produce('scout'), null);
-  }
+  assert.equal(new BattleMap().produce('scout'), null);
 });
 
 test('歩兵が占領した工場はマスを空けると生産でき、工場ごとの回数と陣営の資金を使う', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const home = game.factoryAt(1, 5);
   const target = game.factoryAt(8, 4);
   const infantry = game.friendlyUnits[1];
@@ -130,11 +128,11 @@ test('歩兵が占領した工場はマスを空けると生産でき、工場�
   const reinforcement = game.produce('infantry', home);
   assert.equal(game.friendlyAt(1, 5), reinforcement);
   assert.equal(game.funds.friendly, turnBudget - 3500);
-  assert.equal(new TrainingMap('crossing').factoryAt(8, 4).owner, 'enemy');
+  assert.equal(new BattleMap().factoryAt(8, 4).owner, 'enemy');
 });
 
 test('車両は工場を占領できず、敵の工場を指定しても生産や支払いは発生しない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const target = game.factoryAt(8, 4);
   Object.assign(game.friendlyUnits[0], {x: 8, y: 3});
   game.choose(8, 3);
@@ -146,7 +144,7 @@ test('車両は工場を占領できず、敵の工場を指定しても生産�
 });
 
 test('敵歩兵に占領された工場も、敵の部隊がマスを空けると生産に使われる', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const home = game.factoryAt(1, 5);
   Object.assign(game.enemyUnits[0], {x: 1, y: 4});
   game.endTurn();
@@ -168,7 +166,7 @@ test('敵歩兵に占領された工場も、敵の部隊がマスを空ける�
 });
 
 test('敵も2工場を所有すると、空いている両工場から同じターンに生産できる', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   game.factoryAt(1, 5).owner = 'enemy';
   game.funds.enemy = 6000;
   const budget = game.funds.enemy;
@@ -180,7 +178,7 @@ test('敵も2工場を所有すると、空いている両工場から同じタ�
 });
 
 test('両工場で生産した戦車は次のターンから、移動力3・射程1と攻撃力補正を使う', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const friendlyTank = game.produce('tank', game.factoryAt(1, 5));
   assert.equal(game.funds.friendly, 500);
   game.choose(1, 5);

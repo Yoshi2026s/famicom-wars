@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import TrainingMap from '../public/rules.js';
+import BattleMap from '../public/rules.js';
 import {createCrossingSave, crossingSaveKey} from '../public/crossing-save.js';
 
 function openSave(storage) {
   const save = createCrossingSave(() => storage);
-  const game = save.load(TrainingMap.fromCrossingSnapshot);
+  const game = save.load(BattleMap.fromCrossingSnapshot);
   return {save, game};
 }
 
@@ -17,7 +17,7 @@ function finishEnemyPhase(game) {
 test('自動保存は施設の所有状況、資金、部隊のHP・行動済み・出撃待ちを再開後も保つ', () => {
   const storage = new Map();
   const area = {getItem: key => storage.get(key) ?? null, setItem: storage.set.bind(storage)};
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const {save} = openSave(area);
   game.choose(3, 1);
   game.choose(4, 1);
@@ -47,7 +47,7 @@ test('自動保存は施設の所有状況、資金、部隊のHP・行動済み
 });
 
 test('敵の行動を予約したところで閉じても、確定済みの戦闘やターン収入を繰り返さない', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   game.choose(3, 1);
   game.choose(4, 1);
   game.beginEnemyTurn();
@@ -55,7 +55,7 @@ test('敵の行動を予約したところで閉じても、確定済みの戦�
   assert.ok(game.prepareEnemyAction());
   const snapshot = JSON.parse(JSON.stringify(game.crossingSnapshot()));
   assert.equal(snapshot.nextEnemy, 1);
-  const resumed = TrainingMap.fromCrossingSnapshot(snapshot);
+  const resumed = BattleMap.fromCrossingSnapshot(snapshot);
   assert.equal(resumed.friendlyAt(4, 1).hp, game.friendlyAt(4, 1).hp);
   assert.equal(resumed.enemyActions.length, 1);
   finishEnemyPhase(game);
@@ -67,11 +67,11 @@ test('敵の行動を予約したところで閉じても、確定済みの戦�
 });
 
 test('占領した工場の所有状況を復元したあと、自軍のユニットを生産できる', () => {
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   Object.assign(game.friendlyUnits[1], {x: 8, y: 3});
   game.choose(8, 3);
   game.choose(8, 4);
-  const resumed = TrainingMap.fromCrossingSnapshot(JSON.parse(JSON.stringify(game.crossingSnapshot())));
+  const resumed = BattleMap.fromCrossingSnapshot(JSON.parse(JSON.stringify(game.crossingSnapshot())));
   const factory = resumed.factoryAt(8, 4);
   assert.equal(factory.owner, 'friendly');
   assert.equal(resumed.productionStatus(factory), 'occupied');
@@ -84,7 +84,7 @@ test('決着と再戦を続けて保存すると、再戦後の初期状態が�
   let stored = null;
   const area = {getItem: () => stored, setItem: (_key, value) => { stored = value; }};
   const {save} = openSave(area);
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   Object.assign(game.friendlyUnits[1], {x: 12, y: 7});
   game.choose(12, 7);
   game.choose(13, 7);
@@ -92,7 +92,7 @@ test('決着と再戦を続けて保存すると、再戦後の初期状態が�
   save.write(game.crossingSnapshot());
   const finished = openSave(area);
   assert.equal(finished.game.result, 'victory');
-  finished.save.write(new TrainingMap('crossing').crossingSnapshot());
+  finished.save.write(new BattleMap().crossingSnapshot());
   const restarted = openSave(area).game;
   assert.equal(restarted.result, null);
   assert.equal(restarted.turn, 1);
@@ -100,7 +100,7 @@ test('決着と再戦を続けて保存すると、再戦後の初期状態が�
 });
 
 test('壊れた保存や未対応の保存形式を上書きしない', () => {
-  const snapshot = new TrainingMap('crossing').crossingSnapshot();
+  const snapshot = new BattleMap().crossingSnapshot();
   for (const text of ['{', JSON.stringify({version: 2, state: snapshot}),
     JSON.stringify({version: 1, state: {...snapshot, activeUnit: 99}})]) {
     const area = {getItem: () => text, setItem: () => assert.fail('既存の保存を上書きした')};
@@ -116,7 +116,7 @@ test('保存の例外と書き込み未反映を表示でき、復旧後の書�
   let store = value => { stored = value; };
   const area = {getItem: () => stored, setItem: (_key, value) => store(value)};
   const {save} = openSave(area);
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   assert.equal(save.write(game.crossingSnapshot()), true);
   const checkpoint = stored;
   game.produce('tank', game.factoryAt(1, 5));
@@ -136,7 +136,7 @@ test('保存の例外と書き込み未反映を表示でき、復旧後の書�
 test('古いタブの対戦で、別のタブが保存した進行を上書きしない', () => {
   const storage = new Map();
   const area = {getItem: key => storage.get(key) ?? null, setItem: storage.set.bind(storage)};
-  const game = new TrainingMap('crossing');
+  const game = new BattleMap();
   const first = openSave(area).save;
   first.write(game.crossingSnapshot());
   const stale = openSave(area);

@@ -13,9 +13,6 @@ main[data-mobile-field] {
   padding-top: 4px;
 }
 main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: calc(var(--mobile-actions-height) + 6px); }
-[data-mobile-field] .mission-toolbar { margin-bottom: 4px; }
-[data-mobile-field] .missions { width: 100%; }
-[data-mobile-field] .missions a { flex: 1; min-width: 0; padding-inline: 2px; white-space: nowrap; }
 [data-mobile-field] .intro { margin-bottom: 5px; gap: 6px; }
 [data-mobile-field] h1 { font-size: clamp(19px, 6vw, 26px); }
 [data-mobile-field] .turn strong { font-size: 20px; }

@@ -6,14 +6,7 @@ const terrainTypes = {
   b: Object.freeze({id: 'bridge', name: '橋', defense: 0}),
   s: Object.freeze({id: 'marsh', name: '湿地', defense: 1, cost: 2}),
 };
-const battleTerrain = [
-  'fppmf',
-  'fpmpp',
-  'ppfpf',
-  'mpppm',
-  'pffpp',
-];
-const crossingTerrain = [
+const mainTerrain = [
   'pfmffrfmfpfppf',
   'ppfppbffppppmp',
   'fppsrrpfmppffp',
@@ -25,7 +18,7 @@ const crossingTerrain = [
   'fpmpbpspfmpspp',
   'ppffrppfppfppm',
 ];
-const crossingHeadquarters = Object.freeze({
+const mainHeadquarters = Object.freeze({
   friendly: Object.freeze({x: 0, y: 6}),
   enemy: Object.freeze({x: 13, y: 7}),
 });
@@ -61,44 +54,27 @@ function validEntries(entries, validate) {
   return Array.isArray(entries) && entries.every(entry => entry && validate(entry));
 }
 
-class TrainingMap {
-  static size = 5;
-  static movement = 2;
+class BattleMap {
   turn = 1;
   selected = false;
   enemyTurn = null;
   enemyActions = [];
   capturedBy = null;
-  factories = [];
   enemyProductions = [];
-  funds = {friendly: 0, enemy: 0};
-  cities = [];
   friendlyCapture = null;
   facilityHealing = [];
 
-  constructor(mode = 'training') {
-    this.mode = mode;
-    this.isBattle = mode === 'battle' || this.isCrossing;
-    const startingHP = this.isBattle ? this.maxHP : 1;
-    this.enemyAction = null;
-    if (this.isCrossing) {
-      this.friendlyUnits = [deploy(scout, 1, 6, startingHP), deploy(infantry, 3, 1, startingHP), deploy(support, 2, 1, startingHP)];
-      this.enemyUnits = [deploy(infantry, 7, 1, startingHP), deploy(scout, 7, 5, startingHP), deploy(support, 7, 2, startingHP)];
-      this.funds = {friendly: startingFunds, enemy: startingFunds};
-      this.factories = [
-        {x: 1, y: 5, owner: 'friendly', production: null}, {x: 8, y: 4, owner: 'enemy', production: null},
-      ];
-      this.cities = [
-        {x: 2, y: 3, owner: 'friendly'}, {x: 7, y: 4, owner: 'enemy'},
-        {x: 4, y: 1, owner: 'neutral'}, {x: 5, y: 5, owner: 'neutral'},
-      ];
-    } else if (this.isBattle) {
-      this.friendlyUnits = [deploy(infantry, 1, 3, startingHP)];
-      this.enemyUnits = [deploy(infantry, 3, 1, startingHP)];
-    } else {
-      this.friendlyUnits = [deploy(infantry, 2, 2, startingHP)];
-      this.enemyUnits = [deploy(infantry, 4, 1, startingHP)];
-    }
+  constructor() {
+    this.friendlyUnits = [deploy(scout, 1, 6, this.maxHP), deploy(infantry, 3, 1, this.maxHP), deploy(support, 2, 1, this.maxHP)];
+    this.enemyUnits = [deploy(infantry, 7, 1, this.maxHP), deploy(scout, 7, 5, this.maxHP), deploy(support, 7, 2, this.maxHP)];
+    this.funds = {friendly: startingFunds, enemy: startingFunds};
+    this.factories = [
+      {x: 1, y: 5, owner: 'friendly', production: null}, {x: 8, y: 4, owner: 'enemy', production: null},
+    ];
+    this.cities = [
+      {x: 2, y: 3, owner: 'friendly'}, {x: 7, y: 4, owner: 'enemy'},
+      {x: 4, y: 1, owner: 'neutral'}, {x: 5, y: 5, owner: 'neutral'},
+    ];
     this.activeUnit = this.friendlyUnits[0];
   }
 
@@ -123,7 +99,7 @@ class TrainingMap {
   }
 
   static fromCrossingSnapshot(saved) {
-    const game = new TrainingMap('crossing');
+    const game = new BattleMap();
     if (!saved || !integerBetween(saved.turn, 1, Number.MAX_SAFE_INTEGER - 1)) return null;
     const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
       enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
@@ -182,10 +158,9 @@ class TrainingMap {
     return game;
   }
 
-  get isCrossing() { return this.mode === 'crossing'; }
-  get headquarters() { return this.isCrossing ? crossingHeadquarters : null; }
-  get width() { return this.isCrossing ? crossingTerrain[0].length : TrainingMap.size; }
-  get height() { return this.isCrossing ? crossingTerrain.length : TrainingMap.size; }
+  get headquarters() { return mainHeadquarters; }
+  get width() { return mainTerrain[0].length; }
+  get height() { return mainTerrain.length; }
   get x() { return this.activeUnit.x; }
   set x(x) { this.activeUnit.x = x; }
   get y() { return this.activeUnit.y; }
@@ -199,9 +174,6 @@ class TrainingMap {
     const unit = this.enemyUnits.find(unit => unit.hp > 0);
     return unit ? {x: unit.x, y: unit.y} : null;
   }
-  set enemy({x, y}) { Object.assign(this.enemyUnits[0], {x, y}); }
-  get enemyHP() { return this.enemyUnits[0].hp; }
-  set enemyHP(hp) { this.enemyUnits[0].hp = hp; }
 
   get maxHP() {
     return 10;
@@ -210,13 +182,16 @@ class TrainingMap {
   get result() {
     if (this.capturedBy === 'friendly') return 'victory';
     if (this.capturedBy === 'enemy') return 'defeat';
-    if (this.isBattle && this.friendlyUnits.every(unit => unit.hp === 0)) return 'defeat';
-    if (this.isBattle && this.enemyUnits.every(unit => unit.hp === 0)) return 'victory';
+    if (this.friendlyUnits.every(unit => unit.hp === 0)) return 'defeat';
+    if (this.enemyUnits.every(unit => unit.hp === 0)) return 'victory';
     return null;
   }
 
   headquartersAt(x, y) {
-    return this.#ownerAt(this.headquarters, x, y);
+    for (const [side, position] of Object.entries(this.headquarters)) {
+      if (x === position.x && y === position.y) return side;
+    }
+    return null;
   }
 
   factoryAt(x, y) {
@@ -234,14 +209,6 @@ class TrainingMap {
 
   productionCost(typeId) {
     return productionTypes.find(type => type.id === typeId)?.cost;
-  }
-
-  #ownerAt(sites, x, y) {
-    if (!sites) return null;
-    for (const [side, position] of Object.entries(sites)) {
-      if (x === position.x && y === position.y) return side;
-    }
-    return null;
   }
 
   productionStatus(factory) {
@@ -292,10 +259,6 @@ class TrainingMap {
     return factory ? 'factory' : 'city';
   }
 
-  isEnemyAt(x, y) {
-    return Boolean(this.enemyAt(x, y));
-  }
-
   enemyAt(x, y) {
     return this.enemyUnits.find(unit => unit.hp > 0 && unit.x === x && unit.y === y);
   }
@@ -305,8 +268,7 @@ class TrainingMap {
   }
 
   terrainAt(x, y) {
-    const layout = this.isCrossing ? crossingTerrain : this.isBattle ? battleTerrain : null;
-    return terrainTypes[layout?.[y]?.[x] ?? 'p'];
+    return terrainTypes[mainTerrain[y]?.[x] ?? 'p'];
   }
 
   get canAttack() {
@@ -391,25 +353,13 @@ class TrainingMap {
   }
 
   endTurn() {
-    if (this.result || this.enemyTurn) return;
-    if (this.isCrossing) {
-      this.beginEnemyTurn();
-      const strikes = [];
-      for (let action; (action = this.prepareEnemyAction());) {
-        strikes.push(...this.resolveEnemyAction(action));
-      }
-      this.finishEnemyTurn();
-      return strikes.length ? strikes : undefined;
+    if (!this.beginEnemyTurn()) return;
+    const strikes = [];
+    for (let action; (action = this.prepareEnemyAction());) {
+      strikes.push(...this.resolveEnemyAction(action));
     }
-    this.selected = false;
-    let strikes;
-    if (this.isBattle) {
-      this.enemyAction = this.planEnemyTurn();
-      this.enemy = this.enemyAction.to;
-      if (this.enemyAction.hit) strikes = this.#exchange('enemy', this.activeUnit, this.enemyUnits[0]);
-    }
-    this.#startNextTurn();
-    return strikes;
+    this.finishEnemyTurn();
+    return strikes.length ? strikes : undefined;
   }
 
   #startNextTurn() {
@@ -419,7 +369,6 @@ class TrainingMap {
     }
     if (this.result) return;
     this.turn += 1;
-    if (!this.isCrossing) return;
     this.facilityHealing = [];
     for (const [side, units] of [['friendly', this.friendlyUnits], ['enemy', this.enemyUnits]]) {
       this.funds[side] += this.incomeFor(side);
@@ -436,7 +385,7 @@ class TrainingMap {
   }
 
   beginEnemyTurn() {
-    if (!this.isCrossing || this.enemyTurn || this.result) return false;
+    if (this.enemyTurn || this.result) return false;
     this.selected = false;
     this.enemyActions = [];
     this.enemyProductions = [];
@@ -538,8 +487,8 @@ class TrainingMap {
     const living = this.friendlyUnits.filter(unit => unit.hp > 0);
     const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
     const targetAt = position => living.find(unit => inRange(type, position, unit));
-    const home = this.headquarters?.friendly;
-    if (home && type.id === infantry.id) {
+    const home = this.headquarters.friendly;
+    if (type.id === infantry.id) {
       const route = routes.get(`${home.x},${home.y}`);
       if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, friendly: null};
       const destination = this.#captureRoute(this.factories, routes, type.movement)
@@ -569,20 +518,6 @@ class TrainingMap {
     const to = goal ? {x: goal.x, y: goal.y} : from;
     return {enemy, from, to, friendly: targetAt(to) ?? null};
   }
-
-  planEnemyTurn() {
-    if (!this.isBattle || this.isCrossing || this.result) return null;
-    const from = {...this.enemy};
-    const to = {...from};
-    const dx = this.x - from.x;
-    const dy = this.y - from.y;
-    if (Math.abs(dx) + Math.abs(dy) > 1) {
-      if (Math.abs(dx) >= Math.abs(dy)) to.x += Math.sign(dx);
-      else to.y += Math.sign(dy);
-    }
-    const hit = Math.abs(this.x - to.x) + Math.abs(this.y - to.y) === 1;
-    return {turn: this.turn, from, to, hit};
-  }
 }
 
-if (typeof module !== 'undefined') module.exports = TrainingMap;
+if (typeof module !== 'undefined') module.exports = BattleMap;
