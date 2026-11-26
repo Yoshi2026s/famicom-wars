@@ -12,7 +12,25 @@ test('トップページを配信し、公開範囲外のファイルを返さ�
   const base = `http://127.0.0.1:${server.address().port}`;
   const page = await fetch(base);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /ファミコンウォーズ/);
+  const html = await page.text();
+  assert.match(html, /ファミコンウォーズ/);
+  assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
+  assert.match(html, /rel="apple-touch-icon" sizes="180x180" href="\.\/assets\/home-icon-180\.png"/);
+
+  const manifestResponse = await fetch(base + '/manifest.webmanifest');
+  assert.equal(manifestResponse.status, 200);
+  assert.match(manifestResponse.headers.get('content-type'), /^application\/manifest\+json/);
+  const manifest = await manifestResponse.json();
+  assert.equal(new URL(manifest.start_url, manifestResponse.url).href, base + '/');
+  assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512']);
+  for (const {src, sizes} of [...manifest.icons, {src: './assets/home-icon-180.png', sizes: '180x180'}]) {
+    const response = await fetch(new URL(src, manifestResponse.url));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    const png = Buffer.from(await response.arrayBuffer());
+    assert.equal(png.toString('hex', 0, 8), '89504e470d0a1a0a');
+    assert.equal(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, sizes);
+  }
 
   const outside = await fetch(base + '/..%2fREADME.md');
   assert.equal(outside.status, 404);
