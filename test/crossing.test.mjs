@@ -321,6 +321,7 @@ test('味方本拠地を守る部隊がいる場合、敵歩兵は占領でき�
   const game = new TrainingMap('crossing');
   const scout = game.friendlyUnits[0];
   Object.assign(scout, game.headquarters.friendly);
+  Object.assign(game.friendlyUnits[1], {x: 1, y: 5});
   Object.assign(game.enemyUnits[0], {x: 1, y: 6});
   game.beginEnemyTurn();
   const action = game.prepareEnemyAction();

@@ -4,40 +4,42 @@ import TrainingMap from '../public/rules.js';
 
 test('味方は工場で3種から1部隊ずつ生産でき、次のターンに移動できる', () => {
   const game = new TrainingMap('crossing');
-  assert.equal(game.factoryAt(1, 5), 'friendly');
-  assert.equal(game.factoryAt(8, 4), 'enemy');
-  assert.equal(game.productionStatus, 'ready');
-  assert.equal(game.produce('unknown'), null);
+  const factory = game.factoryAt(1, 5);
+  assert.equal(factory.owner, 'friendly');
+  assert.equal(game.factoryAt(8, 4).owner, 'enemy');
+  assert.equal(game.productionStatus(factory), 'ready');
+  assert.equal(game.produce('unknown', factory), null);
   for (const [id, name, next] of [['infantry', '歩兵 2', [1, 3]], ['scout', '偵察車 2', [0, 2]], ['support', '支援車 2', null]]) {
-    const unit = game.produce(id);
+    const unit = game.produce(id, factory);
     assert.deepEqual([unit.name, unit.type.id, unit.hp, unit.readyTurn], [name, id, 10, game.turn + 1]);
     assert.equal(game.friendlyAt(1, 5), unit);
-    assert.equal(game.productionStatus, 'used');
-    assert.equal(game.produce(id), null);
+    assert.equal(game.productionStatus(factory), 'used');
+    assert.equal(game.produce(id, factory), null);
     game.choose(1, 5);
     assert.equal(game.activeUnit, unit);
     assert.equal(game.canMove, false);
     assert.equal(game.canAttack, false);
     if (!next) continue;
     game.endTurn();
-    assert.equal(game.productionStatus, 'occupied');
-    assert.equal(game.produce(id), null);
+    assert.equal(game.productionStatus(factory), 'occupied');
+    assert.equal(game.produce(id, factory), null);
     game.choose(1, 5);
     assert.equal(game.canMoveTo(...next), true);
     game.choose(...next);
     assert.equal(game.friendlyAt(...next), unit);
-    assert.equal(game.productionStatus, 'ready');
+    assert.equal(game.productionStatus(factory), 'ready');
   }
   assert.equal(game.friendlyUnits.length, 6);
 });
 
 test('敵も空いている工場で毎ターン1部隊を補充し、その部隊は次の敵ターンから行動する', () => {
   const game = new TrainingMap('crossing');
+  const home = game.factoryAt(1, 5);
   let previous;
   for (const expected of ['infantry', 'scout', 'support']) {
     assert.equal(game.beginEnemyTurn(), true);
-    assert.equal(game.productionStatus, 'waiting');
-    assert.equal(game.produce('infantry'), null);
+    assert.equal(game.productionStatus(home), 'waiting');
+    assert.equal(game.produce('infantry', home), null);
     const actors = [];
     for (let action; (action = game.prepareEnemyAction());) {
       actors.push(action.enemy.name);
@@ -54,8 +56,8 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
     assert.equal(unit.type.id, expected);
     assert.equal(unit.readyTurn, game.turn);
     assert.equal(game.turn, productionTurn + 1);
-    assert.deepEqual(game.production.enemy, {unit: unit.name, turn: productionTurn, cost: game.productionCost(expected)});
-    assert.equal(game.funds.enemy, budget - game.production.enemy.cost + game.incomeFor('enemy'));
+    assert.deepEqual(game.enemyProductions, [{x: 8, y: 4, unit: unit.name, turn: productionTurn, cost: game.productionCost(expected)}]);
+    assert.equal(game.funds.enemy, budget - game.enemyProductions[0].cost + game.incomeFor('enemy'));
     assert.ok(!actors.includes(unit.name));
     if (previous) assert.equal(actors.filter(name => name === previous).length, 1);
     previous = unit.name;
@@ -64,31 +66,110 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
 
 test('相手の部隊が工場マスを占有している間は生産できない', () => {
   const game = new TrainingMap('crossing');
-  const [enemy] = game.enemyUnits;
-  Object.assign(enemy, game.factories.friendly);
-  assert.equal(game.productionStatus, 'occupied');
-  assert.equal(game.produce('infantry'), null);
+  const [, enemy] = game.enemyUnits;
+  const factory = game.factoryAt(1, 5);
+  Object.assign(enemy, {x: factory.x, y: factory.y});
+  assert.equal(game.productionStatus(factory), 'occupied');
+  assert.equal(game.produce('infantry', factory), null);
 
   const ally = game.friendlyUnits[2];
-  Object.assign(ally, game.factories.enemy);
+  Object.assign(ally, {x: 8, y: 4});
   game.endTurn();
   assert.equal(game.friendlyAt(8, 4), ally);
-  assert.equal(game.production.enemy, null);
+  assert.deepEqual(game.enemyProductions, []);
   assert.equal(game.enemyUnits.length, 3);
 });
 
 test('増援の歩兵も次のターンに本拠地を占領でき、決着後や他の作戦では生産できない', () => {
   const game = new TrainingMap('crossing');
-  const infantry = game.produce('infantry');
+  const factory = game.factoryAt(1, 5);
+  const infantry = game.produce('infantry', factory);
   game.endTurn();
   Object.assign(infantry, {x: 8, y: 5});
   game.choose(8, 5);
   game.choose(9, 5);
   assert.equal(game.activeUnit, infantry);
   assert.equal(game.result, 'victory');
-  assert.equal(game.produce('support'), null);
+  assert.equal(game.produce('support', factory), null);
   assert.equal(game.friendlyUnits.length, 4);
   for (const mode of ['training', 'battle']) {
     assert.equal(new TrainingMap(mode).produce('scout'), null);
   }
+});
+
+test('歩兵が占領した工場はマスを空けると生産でき、工場ごとの回数と陣営の資金を使う', () => {
+  const game = new TrainingMap('crossing');
+  const home = game.factoryAt(1, 5);
+  const target = game.factoryAt(8, 4);
+  const infantry = game.friendlyUnits[1];
+  Object.assign(infantry, {x: 8, y: 3});
+  const budget = game.funds.friendly;
+  game.choose(8, 3);
+  game.choose(8, 4);
+  assert.equal(target.owner, 'friendly');
+  assert.equal(game.friendlyCapture.facility, 'factory');
+  assert.equal(game.result, null);
+  assert.equal(game.funds.friendly, budget);
+  assert.equal(game.incomeFor('friendly'), 1000);
+  assert.equal(game.productionStatus(target), 'occupied');
+  assert.equal(game.produce('infantry', target), null);
+
+  game.endTurn();
+  assert.deepEqual(game.enemyProductions, []);
+  game.choose(8, 4);
+  game.choose(9, 4);
+  const turnBudget = game.funds.friendly;
+  const scout = game.produce('scout', target);
+  assert.equal(game.friendlyAt(8, 4), scout);
+  assert.equal(scout.readyTurn, game.turn + 1);
+  assert.equal(game.productionStatus(target), 'used');
+  assert.equal(game.produce('scout', target), null);
+  const reinforcement = game.produce('infantry', home);
+  assert.equal(game.friendlyAt(1, 5), reinforcement);
+  assert.equal(game.funds.friendly, turnBudget - 3500);
+  assert.equal(new TrainingMap('crossing').factoryAt(8, 4).owner, 'enemy');
+});
+
+test('車両は工場を占領できず、敵の工場を指定しても生産や支払いは発生しない', () => {
+  const game = new TrainingMap('crossing');
+  const target = game.factoryAt(8, 4);
+  Object.assign(game.friendlyUnits[0], {x: 8, y: 3});
+  game.choose(8, 3);
+  game.choose(8, 4);
+  assert.equal(game.friendlyAt(8, 4).type.id, 'scout');
+  assert.equal(target.owner, 'enemy');
+  assert.equal(game.produce('infantry', target), null);
+  assert.equal(game.funds.friendly, 4500);
+});
+
+test('敵歩兵に占領された工場も、敵の部隊がマスを空けると生産に使われる', () => {
+  const game = new TrainingMap('crossing');
+  const home = game.factoryAt(1, 5);
+  Object.assign(game.enemyUnits[0], {x: 1, y: 4});
+  game.endTurn();
+  assert.equal(home.owner, 'enemy');
+  assert.ok(game.enemyActions.some(action => action.factoryCaptured));
+  assert.equal(game.productionStatus(home), 'unavailable');
+  assert.equal(game.produce('infantry', home), null);
+  assert.ok(!game.enemyProductions.some(({x, y}) => x === 1 && y === 5));
+
+  // Defend headquarters so the occupying enemy can move out without ending the battle.
+  Object.assign(game.friendlyUnits[0], {x: 0, y: 6});
+  const budget = game.funds.enemy;
+  game.endTurn();
+  assert.equal(game.result, null);
+  assert.ok(game.enemyProductions.some(({x, y}) => x === 1 && y === 5));
+  const spent = game.enemyProductions.reduce((sum, {cost}) => sum + cost, 0);
+  assert.equal(game.funds.enemy, budget - spent + game.incomeFor('enemy'));
+});
+
+test('敵も2工場を所有すると、空いている両工場から同じターンに生産できる', () => {
+  const game = new TrainingMap('crossing');
+  game.factoryAt(1, 5).owner = 'enemy';
+  const budget = game.funds.enemy;
+  game.endTurn();
+  assert.deepEqual(game.enemyProductions.map(({x, y, cost}) => [x, y, cost]), [[1, 5, 1000], [8, 4, 2500]]);
+  assert.equal(game.enemyAt(1, 5).type.id, 'infantry');
+  assert.equal(game.enemyAt(8, 4).type.id, 'scout');
+  assert.equal(game.funds.enemy, budget - 3500 + game.incomeFor('enemy'));
 });

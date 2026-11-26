@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=crossing-city-recovery">
+    <link rel="stylesheet" href="./style.css?v=crossing-factory-capture">
     <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=crossing-city-recovery"></script>
+    <script defer src="./rules.js?v=crossing-factory-capture"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=finale"></script>
     <script defer src="./combat.js?v=crossing-factories"></script>
-    <script defer src="./game.js?v=crossing-city-recovery"></script>
+    <script defer src="./game.js?v=crossing-factory-capture"></script>
   </head>
   <body>
     <header class="masthead">
@@ -49,10 +49,7 @@
             <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地 <b id="friendly-base-coordinate"></b></span>
             <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地 <b id="enemy-base-coordinate"></b></span>
           </div>
-          <div class="legend base-legend" id="factory-legend" hidden>
-            <span><i class="friendly-factory-key" aria-hidden="true"></i>味方工場 <b id="friendly-factory-coordinate"></b></span>
-            <span><i class="enemy-factory-key" aria-hidden="true"></i>敵工場 <b id="enemy-factory-coordinate"></b></span>
-          </div>
+          <div class="legend base-legend" id="factory-legend" hidden></div>
           <section class="city-economy" id="city-economy" aria-label="資金と都市" hidden>
             <div class="economy-balances">
               <div><span>味方資金</span> <strong id="friendly-funds"></strong><small>次の収入 +<b id="friendly-income"></b></small></div>
@@ -93,6 +90,7 @@
                 <h3 id="production-title">味方工場 <b id="production-title-coordinate"></b></h3>
                 <span>資金 <b id="production-funds"></b></span>
               </div>
+              <div class="factory-picker" id="factory-picker" role="group" aria-label="生産する工場" hidden></div>
               <p id="production-status" role="status" aria-atomic="true"></p>
               <div class="production-choices">
                 <button type="button" data-produce="infantry" aria-disabled="true">歩兵を生産<small></small></button>
