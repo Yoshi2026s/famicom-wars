@@ -597,5 +597,9 @@ window.addEventListener('hashchange', () => {
   document.getElementById('mission-title').focus({preventScroll: true});
   window.scrollTo(0, 0);
 });
-new ResizeObserver(updateMapScrollNote).observe(mapSurround);
 showMission();
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(updateMapScrollNote).observe(mapSurround);
+} else {
+  window.addEventListener('resize', updateMapScrollNote);
+}
