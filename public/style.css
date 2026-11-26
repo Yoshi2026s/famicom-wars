@@ -140,6 +140,8 @@ h2 { font-size: 16px; font-weight: 850; }
 .city-list > b { white-space: nowrap; }
 .city-overview { display: flex; flex-wrap: wrap; gap: 3px; }
 .city-overview span { padding: 1px 4px; border: 1px solid #c1bba9; border-radius: 3px; background: #fffaed; color: var(--facility-color); white-space: nowrap; font-weight: bold; }
+.city-healing { margin-top: 5px; color: #244d3a; font-size: 12px; font-weight: bold; }
+.city-healing:empty { margin-top: 0; }
 .terrain-legend { background: #e8e4d2; border-top-color: #b0aa96; font-size: 12px; }
 .terrain-legend i { width: 16px; height: 16px; background: var(--terrain-image) center / cover; image-rendering: pixelated; border: 1px solid #627459; }
 .friendly-key, .enemy-key, .range-key { width: 13px; height: 13px; display: inline-block; }

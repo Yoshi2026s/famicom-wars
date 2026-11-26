@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=crossing-cities">
+    <link rel="stylesheet" href="./style.css?v=crossing-city-recovery">
     <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=crossing-cities"></script>
+    <script defer src="./rules.js?v=crossing-city-recovery"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=finale"></script>
     <script defer src="./combat.js?v=crossing-factories"></script>
-    <script defer src="./game.js?v=crossing-cities"></script>
+    <script defer src="./game.js?v=crossing-city-recovery"></script>
   </head>
   <body>
     <header class="masthead">
@@ -59,6 +59,7 @@
               <div><span>敵資金</span> <strong id="enemy-funds"></strong><small>次の収入 +<b id="enemy-income"></b></small></div>
             </div>
             <div class="city-list"><b>都市</b> <div class="city-overview" id="city-overview"></div></div>
+            <p class="city-healing" id="city-healing" role="status" aria-atomic="true"></p>
           </section>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">

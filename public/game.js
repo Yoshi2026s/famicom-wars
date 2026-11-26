@@ -103,6 +103,10 @@ function renderEconomy() {
     label.dataset.city = city.owner;
     label.textContent = `${coordinate(city.x, city.y)} ${owner}`;
   }
+  const healing = document.getElementById('city-healing');
+  const restored = game.cityHealing.map(({side, unit, amount}) => `${cityOwners[side]}${unit} +${amount} HP`);
+  const report = !game.enemyTurn && !game.result && restored.length ? `都市で回復　${restored.join('、')}` : '';
+  if (healing.textContent !== report) healing.textContent = report;
 }
 
 function render() {
@@ -304,7 +308,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '歩兵で都市を占領すると、次のターンから収入が入ります。工場では資金を使って1ターンに1部隊を生産できます。生産した部隊は次のターンから操作できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: '歩兵で都市を占領すると、次のターンから収入が入ります。ターン開始時、自軍の都市にいる部隊はHPを2回復します（最大10）。工場では資金を使って1ターンに1部隊を生産でき、次のターンから操作できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;

@@ -19,6 +19,8 @@ test('歩兵で占領した都市は次のターンから収入になり、タ�
   assert.equal(game.turn, 2);
   assert.equal(game.funds.friendly, 6500);
   assert.equal(city.owner, 'friendly');
+  assert.equal(game.friendlyAt(4, 1).hp, 6);
+  assert.deepEqual(game.cityHealing, [{side: 'friendly', unit: '歩兵', amount: 2}]);
 });
 
 test('車両は中立都市を占領できず、都市の地形と双方の収入は維持される', () => {
@@ -69,12 +71,36 @@ test('決着時は収入と補充を停止し、再戦では所有者と初期�
   game.choose(3, 1);
   game.choose(4, 1);
   assert.equal(city.owner, 'friendly');
+  game.friendlyUnits[1].hp = 6;
   Object.assign(game.enemyUnits[0], {x: 1, y: 5});
   game.endTurn();
   assert.equal(game.result, 'defeat');
   assert.deepEqual(game.funds, {friendly: 4500, enemy: 4500});
   assert.equal(game.production.enemy, null);
+  assert.equal(game.friendlyUnits[1].hp, 6);
+  assert.deepEqual(game.cityHealing, []);
   const replay = new TrainingMap('crossing');
   assert.equal(replay.cityAt(4, 1).owner, 'neutral');
   assert.deepEqual(replay.funds, {friendly: 4500, enemy: 4500});
+});
+
+test('ターン開始時は所有都市にいる両陣営の生存部隊だけが最大HPまで回復する', () => {
+  const game = new TrainingMap('crossing');
+  game.beginEnemyTurn();
+  for (let action; (action = game.prepareEnemyAction());) game.resolveEnemyAction(action);
+  const [scout, infantry, support] = game.friendlyUnits;
+  const [destroyed, enemyScout] = game.enemyUnits;
+  Object.assign(scout, {x: 2, y: 3, hp: 6});
+  Object.assign(infantry, {x: 5, y: 5, hp: 5});
+  Object.assign(support, {x: 4, y: 1, hp: 8});
+  game.cityAt(4, 1).owner = 'enemy';
+  Object.assign(destroyed, {x: 7, y: 4, hp: 0});
+  Object.assign(enemyScout, {x: 7, y: 4, hp: 9});
+  game.finishEnemyTurn();
+  game.finishEnemyTurn();
+  assert.deepEqual([scout.hp, infantry.hp, support.hp, destroyed.hp, enemyScout.hp], [8, 5, 8, 0, 10]);
+  assert.deepEqual(game.cityHealing, [
+    {side: 'friendly', unit: '偵察車', amount: 2},
+    {side: 'enemy', unit: '偵察車', amount: 1},
+  ]);
 });
