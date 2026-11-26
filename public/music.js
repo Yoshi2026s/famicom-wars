@@ -9,7 +9,7 @@ const music = (() => {
   const sources = {...tracks};
   const requested = new Set();
   let mapPosition = 0;
-  let enabled = false;
+  let enabled = true;
   let unavailable = false;
   let interacted = false;
   let orientationBlocked = false;
@@ -17,7 +17,7 @@ const music = (() => {
   let loadedScene;
   player.volume = .45;
   try {
-    enabled = localStorage.getItem(setting) === 'on';
+    enabled = localStorage.getItem(setting) !== 'off';
   } catch {
     // The controls still work when storage is unavailable.
   }
@@ -104,7 +104,7 @@ const music = (() => {
   document.addEventListener('visibilitychange', updatePlayback);
   window.addEventListener('storage', (event) => {
     if (event.key !== setting && event.key !== null) return;
-    enabled = event.newValue === 'on';
+    enabled = event.newValue !== 'off';
     updateButtons();
     updatePlayback();
   });

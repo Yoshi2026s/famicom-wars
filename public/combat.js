@@ -200,7 +200,6 @@ const combatScreen = (() => {
     get active() { return scene !== null; },
     open({map, attacker, friendly, enemy, enemyPosition, resolve, onReturn}) {
       if (scene) return;
-      combatAudio.unlock();
       scene = {map, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
       for (const [side, prefix, unit, position] of [['player', '味方', friendly, friendly], ['enemy', '敵', enemy, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
@@ -213,7 +212,7 @@ const combatScreen = (() => {
           : side === 'enemy' && (id === 'scout' || id === 'tank') ? `enemy-${id}` : id;
         formations[side].dataset.unit = sprite;
       }
-      document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;
+      document.getElementById('combat-turn').textContent = `ターン ${map.turn} · ${attacker === 'enemy' ? '敵の手番' : '味方の手番'}`;
       advance.textContent = '演出をスキップ';
       showForces({playerHP: friendly.hp, enemyHP: enemy.hp});
       delete dialog.dataset.outcome;
