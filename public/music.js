@@ -3,18 +3,21 @@ const music = (() => {
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
   const tracks = {
-    map: './assets/bgm-map.mp3?v=highland', battle: './assets/bgm-battle.mp3?v=volley',
-    victory: './assets/bgm-victory.mp3?v=finale', defeat: './assets/bgm-defeat.mp3?v=finale',
+    map: './assets/bgm-map.mp3?v=turn-score', battle: './assets/bgm-battle.mp3?v=turn-score',
+    'enemy-map': './assets/bgm-enemy-map.mp3?v=turn-score',
+    'enemy-battle': './assets/bgm-enemy-battle.mp3?v=turn-score',
+    victory: './assets/bgm-victory.mp3?v=turn-score', defeat: './assets/bgm-defeat.mp3?v=turn-score',
   };
   const sources = {...tracks};
-  const requested = new Set();
+  const downloads = new Map();
   let mapPosition = 0;
   let enabled = true;
   let unavailable = false;
   let interacted = false;
   let orientationBlocked = false;
+  let turn = 'friendly';
   let scene = 'map';
-  let loadedScene;
+  let loadedTrack;
   player.volume = .45;
   try {
     enabled = localStorage.getItem(setting) !== 'off';
@@ -36,16 +39,20 @@ const music = (() => {
       player.pause();
       return;
     }
-    if (loadedScene !== scene) {
+    const track = turn === 'enemy' && (scene === 'map' || scene === 'battle') ? `enemy-${scene}` : scene;
+    if (loadedTrack !== track) {
       player.loop = scene === 'map' || scene === 'battle';
-      player.src = sources[scene];
-      player.currentTime = scene === 'map' ? mapPosition : 0;
-      loadedScene = scene;
+      player.src = sources[track];
+      if (scene === 'map' && mapPosition > 0) player.currentTime = mapPosition;
+      loadedTrack = track;
       start();
     } else if (player.paused && !player.ended) {
       start();
     }
-    if (scene === 'map') prefetch('battle');
+    if (scene === 'map') {
+      prefetch(turn === 'enemy' ? 'enemy-battle' : 'battle');
+      prefetch(turn === 'enemy' ? 'map' : 'enemy-map');
+    }
     if (scene === 'battle') {
       prefetch('victory');
       prefetch('defeat');
@@ -53,9 +60,9 @@ const music = (() => {
   }
 
   function prefetch(track) {
-    if (requested.has(track) || location.protocol === 'file:') return;
-    requested.add(track);
-    fetch(tracks[track])
+    if (location.protocol === 'file:') return;
+    if (downloads.has(track)) return downloads.get(track);
+    const download = fetch(tracks[track])
       .then((response) => {
         if (!response.ok) throw new Error('Track is unavailable');
         return response.blob();
@@ -64,17 +71,27 @@ const music = (() => {
       .catch(() => {
         // The player can still request the original URL when the scene opens.
       });
+    downloads.set(track, download);
+    return download;
   }
 
   function start() {
-    const requestedScene = loadedScene;
+    const requestedTrack = loadedTrack;
     const requestedSource = player.src;
-    player.play().catch((error) => {
-      if (requestedScene !== loadedScene || requestedSource !== player.src || error.name !== 'NotSupportedError') return;
-      if (requestedSource === sources[requestedScene] && requestedSource.startsWith('blob:')) {
-        sources[requestedScene] = tracks[requestedScene];
+    player.play().catch(async (error) => {
+      if (requestedTrack !== loadedTrack || requestedSource !== player.src || error.name !== 'NotSupportedError') return;
+      if (requestedSource === sources[requestedTrack] && requestedSource.startsWith('blob:')) {
+        sources[requestedTrack] = tracks[requestedTrack];
         URL.revokeObjectURL(requestedSource);
-        loadedScene = undefined;
+        loadedTrack = undefined;
+        updatePlayback();
+        return;
+      }
+      await prefetch(requestedTrack);
+      if (requestedTrack !== loadedTrack || requestedSource !== player.src) return;
+      // A full download can recover when the browser rejects a partial media response.
+      if (sources[requestedTrack].startsWith('blob:')) {
+        loadedTrack = undefined;
         updatePlayback();
         return;
       }
@@ -114,10 +131,16 @@ const music = (() => {
       orientationBlocked = blocked;
       updatePlayback();
     },
+    setTurn(side) {
+      if (turn === side) return;
+      turn = side;
+      mapPosition = 0;
+      if (loadedTrack === (turn === 'enemy' ? 'enemy-map' : 'map')) player.currentTime = 0;
+      updatePlayback();
+    },
     setScene(nextScene) {
-      if (scene !== nextScene && loadedScene === scene) {
-        if (scene === 'map') mapPosition = player.currentTime;
-        loadedScene = undefined;
+      if (scene === 'map' && nextScene !== 'map' && loadedTrack === (turn === 'enemy' ? 'enemy-map' : 'map')) {
+        mapPosition = player.currentTime;
       }
       scene = nextScene;
       updatePlayback();

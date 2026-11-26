@@ -459,7 +459,8 @@ function showMap() {
   closeFieldDialogs();
   renderSaveStatus();
   setMobileFieldLayout();
-  music.setScene('map');
+  music.setTurn(game.enemyTurn ? 'enemy' : 'friendly');
+  music.setScene(game.result ?? 'map');
   for (const [side, {x, y}] of Object.entries(game.headquarters)) {
     document.getElementById(`${side}-base-coordinate`).textContent = coordinate(x, y);
   }
@@ -655,6 +656,7 @@ endTurn.addEventListener('click', (event) => {
   if (event.detail > 1 || inputBlocked() || !game.beginEnemyTurn()) return;
   playerScrollTop = window.scrollY;
   saveProgress();
+  music.setTurn('enemy');
   runEnemyTurn();
 });
 
@@ -784,6 +786,7 @@ function runEnemyTurn(restoreFocus = true) {
   }
   game.finishEnemyTurn();
   saveProgress();
+  if (!game.result) music.setTurn('friendly');
   enemyPreview.hidden = true;
   fieldTools.hidden = !mobileField;
   highlightEnemyRoute([]);

@@ -162,7 +162,7 @@ const combatScreen = (() => {
     combatAudio.stop();
     removeRetreatingFighters();
     dialog.close();
-    music.setScene('map');
+    if (!completed.map.result) music.setScene('map');
     completed.onReturn(restoreFocus);
   }
 

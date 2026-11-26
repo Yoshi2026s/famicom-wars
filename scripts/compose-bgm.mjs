@@ -1,80 +1,83 @@
-// Original stereo scores rendered to the published MP3 files.
+// Original stereo arrangements for the field, engagements and results.
 import {writeFileSync} from 'node:fs';
 import {Mp3Encoder} from '@breezystack/lamejs';
 
-const sampleRate = 24000;
+const sampleRate = 44100;
 const tau = 2 * Math.PI;
 const chords = {
-  D: [38, 54, 57, 62], A: [33, 52, 57, 61], Bm: [35, 54, 59, 62],
-  G: [31, 55, 59, 62], Em: [40, 55, 59, 64], Fsharp: [42, 54, 58, 61],
-  F: [41, 53, 57, 60], C: [36, 55, 60, 64],
-  Am: [33, 57, 60, 64], B7: [35, 57, 59, 63],
+  D: [38, 54, 57, 61, 64], A: [33, 52, 57, 59, 61], Bm: [35, 54, 57, 62, 66],
+  G: [43, 54, 59, 62, 67], Em: [40, 55, 59, 62, 66], Fsm: [42, 54, 57, 61, 64],
+  C: [36, 55, 60, 64, 67], Dm: [38, 53, 57, 60, 64], Bb: [34, 53, 57, 62, 65],
+  Gm: [43, 55, 58, 62, 65], A7: [33, 55, 57, 61, 64], A7b9: [33, 55, 58, 61, 64],
+  F: [41, 53, 57, 60, 64], Eb: [39, 55, 58, 62, 65], Dsus: [38, 55, 57, 62, 64],
 };
-const mapScore = {
-  bpm: 106,
-  harmony: ['D','A','Bm','G','D','Em','G','A','Bm','Fsharp','G','D','Em','Bm','G','A',
-    'D','G','Bm','A','Em','G','D','A'],
-  melody: [
-    [[.5,1,69],[1.5,.5,71],[2,1.75,74]], [[0,1,76],[1,.5,74],[1.5,1,73],[3,1,69]],
-    [[0,1.5,71],[2,.75,74],[3,.75,78]], [[0,1.5,76],[2,1.75,74]],
-    [[0,.75,69],[1,.75,74],[2,1.75,81]], [[0,1,79],[1,.75,78],[2,1.5,76]],
-    [[0,1.25,74],[1.5,.75,71],[2.5,1.25,67]], [[0,1.75,69],[2,1.5,73]],
-    [[0,1.5,78],[2,.75,81],[3,.75,83]], [[0,1,85],[1,2.5,82]],
-    [[0,1.5,83],[2,.75,81],[3,.75,79]], [[0,2,78],[2.5,1.25,74]],
-    [[0,1,76],[1,.5,78],[1.5,.75,79],[2.5,1.25,83]], [[0,1.75,86],[2,.75,85],[3,.75,81]],
-    [[0,1.25,83],[1.5,.75,79],[2.5,1.25,74]], [[0,1.5,76],[2,1.5,73]],
-    [[0,1,74],[1,.5,78],[1.5,.5,81],[2,1.75,86]], [[0,1,83],[1,.75,81],[2,1.75,79]],
-    [[0,1.25,78],[1.5,.75,74],[2.5,1.25,71]], [[0,1,73],[1,.75,76],[2,1.5,81]],
-    [[0,1,79],[1,.5,76],[1.5,.5,74],[2,1.75,71]], [[0,1.5,74],[2,.75,71],[3,.75,67]],
-    [[0,2.4,69],[2.5,1.25,74]], [[0,1.5,73],[2,1.6,69]],
-  ],
-};
-const battleScore = {
-  bpm: 156,
-  harmony: ['Em','C','Am','B7','Em','G','D','B7','C','G','Am','Em','F','Am','Em','B7',
-    'Em','C','D','B7','Em','Am','C','B7'],
-  melody: [
-    [[0,.58,76],[.75,.2,76],[1,.32,79],[1.5,.37,83],[2,1.18,88],[3.5,.34,86]],
-    [[0,.65,84],[.75,.2,83],[1,1.35,79],[2.75,.37,76],[3.25,.57,79]],
-    [[0,.65,81],[.75,.42,84],[1.25,.5,88],[2,.7,91],[3,.7,88]],
-    [[0,.8,87],[1,.46,83],[1.5,.42,81],[2,1.64,75]],
-    [[0,.58,76],[.75,.2,76],[1,.32,79],[1.5,.37,83],[2,1.18,91],[3.5,.34,88]],
-    [[0,.7,86],[1,.45,83],[1.5,.42,79],[2,1.55,83]],
-    [[0,.65,81],[.75,.5,86],[1.5,.43,88],[2,1.38,90]],
-    [[0,.78,87],[1,.49,83],[1.5,.42,81],[2,1.55,78]],
-    [[.25,1.28,84],[1.75,.5,83],[2.5,1.25,79]], [[0,1.17,81],[1.5,.5,79],[2,1.7,74]],
-    [[0,1.25,76],[1.5,.5,79],[2,1.65,81]], [[0,1.1,83],[1.5,.46,79],[2,1.6,76]],
-    [[0,1.1,77],[1.5,.45,81],[2,1.5,84]], [[0,1.1,88],[1.5,.5,84],[2,1.5,81]],
-    [[0,1.1,79],[1.5,.45,83],[2,1.55,88]], [[0,.65,90],[1,.55,88],[2,1.5,87]],
-    [[0,.6,88],[.75,.2,88],[1,.32,91],[1.5,.4,95],[2,1.18,91],[3.5,.34,88]],
-    [[0,.78,84],[1,.48,88],[1.5,.45,91],[2,1.64,88]], [[0,.75,90],[1,.44,88],[1.5,.45,86],[2,1.6,81]],
-    [[0,.71,83],[1,.42,87],[1.5,.45,90],[2,1.62,87]], [[0,.74,88],[1,.43,91],[1.5,.43,95],[2,1.55,93]],
-    [[0,.7,91],[1,.55,88],[2,1.6,84]], [[0,.8,83],[1,.5,84],[2,1.53,88]],
-    [[0,.7,87],[1,.43,83],[1.5,.43,81],[2,1.58,75]],
-  ],
-};
+
+const meadow = [
+  [[0,.66,74],[.75,.4,78],[1.25,.57,81],[2,1.32,83],[3.5,.38,81]],
+  [[0,1,85],[1.25,.55,83],[2,.78,81],[3,.70,76]],
+  [[0,.68,78],[.75,.41,81],[1.25,.57,83],[2,1.28,86],[3.5,.36,85]],
+  [[0,1.12,83],[1.5,.53,79],[2.25,1.37,78]],
+  [[0,1.08,81],[1.25,.42,86],[1.75,.46,88],[2.5,1.23,90]],
+  [[0,.70,88],[.75,.41,86],[1.25,.56,83],[2,1.65,79]],
+  [[.25,.84,81],[1.25,.41,83],[1.75,.47,86],[2.5,1.03,90],[3.6,.32,86]],
+  [[0,1.1,85],[1.25,.48,81],[2,1.33,76],[3.5,.36,73]],
+];
+const valley = [
+  [[0,1.16,62],[1.5,.48,65],[2.25,1.24,64],[3.75,.20,60]],
+  [[0,1.35,58],[1.75,.45,60],[2.5,1.16,62]],
+  [[0,.62,64],[.75,.39,67],[1.25,.55,70],[2,1.37,69],[3.6,.29,65]],
+  [[0,.94,64],[1.25,.65,61],[2.25,1.28,57]],
+  [[0,1.12,62],[1.5,.38,64],[2,.70,65],[3,.56,69],[3.62,.28,72]],
+  [[0,1.44,70],[1.75,.52,69],[2.5,1.14,65]],
+  [[0,.67,67],[.75,.4,70],[1.25,.52,74],[2,1.19,77],[3.5,.42,74]],
+  [[0,.91,73],[1,.5,70],[1.75,.40,67],[2.5,1.16,64]],
+];
+
+const friendlyPhrase = ['D','A','Bm','G','D','Em','G','A'];
+const enemyPhrase = ['Dm','Bb','Gm','A7','Dm','Bb','Gm','A7b9'];
+const scores = [
+  {
+    name: 'bgm-map', bpm: 116, melody: meadow, reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A', ...friendlyPhrase],
+    lead: ['flute','harp','horn'], bass: [0,1.5,2,3.25], drums: [0,2.5], offbeats: [1,3], drive: .65,
+  },
+  {
+    name: 'bgm-enemy-map', bpm: 96, melody: valley, reply: [69, 65, 70, 61, 72, 69, 74, 67],
+    harmony: [...enemyPhrase, 'F','Bb','Gm','A7','Dm','Eb','Gm','A7b9','Dm','Bb','Gm','A7b9'],
+    lead: ['reed','cello','horn'], bass: [0,.75,1.5,2.5,3], drums: [0,1.5,2.5], offbeats: [1,3.5], drive: .85, enemy: true,
+  },
+  {
+    name: 'bgm-battle', bpm: 142, melody: meadow, reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    harmony: ['D','A','Bm','G','Dsus','Em','G','A','D','A','Bm','G','D','C','G','A'],
+    lead: ['horn','flute','horn'], bass: [0,.75,1.5,2,2.75,3.5], drums: [0,1.5,2,3.25], offbeats: [1,3], drive: 1.05, battle: true,
+  },
+  {
+    name: 'bgm-enemy-battle', bpm: 151, melody: valley, reply: [69, 65, 70, 61, 72, 69, 74, 67],
+    harmony: [...enemyPhrase, 'F','Bb','Gm','A7','Dm','Eb','Gm','A7b9','Dm','Bb','Gm','A7b9'],
+    lead: ['cello','horn','reed'], bass: [0,.5,1.5,2,2.75,3.25,3.5], drums: [0,.75,2,2.75,3.5], offbeats: [1,3], drive: 1.23, enemy: true, battle: true,
+  },
+];
 
 const instruments = {
-  piano: {attack: .008, wave: (phase, t) =>
-    (Math.sin(phase + Math.sin(phase * 2.01) * .72 * Math.exp(-3.2 * t)) + .16 * Math.sin(phase * 3))
-    * Math.exp(-1.25 * t)},
-  flute: {attack: .075, wave: (phase, t) =>
-    Math.sin(phase + .25 * Math.sin(tau * 5.1 * t)) + .19 * Math.sin(phase * 2) + .06 * Math.sin(phase * 3)},
-  strings: {attack: .14, wave: (phase, t) =>
-    .56 * Math.sin(phase * .998) + .36 * Math.sin(phase * 1.002)
-    + .21 * Math.sin(phase * 2 + .45 * Math.sin(tau * 4.3 * t)) + .12 * Math.sin(phase * 3)},
-  brass: {attack: .018, wave: (phase, t) =>
-    Math.sin(phase) + .34 * Math.sin(2 * phase) + .20 * Math.sin(3 * phase)
-    + .14 * Math.sin(phase * 4) * Math.exp(-3 * t)},
-  horn: {attack: .013, wave: (phase, t) =>
-    Math.sin(phase + .25 * Math.sin(2 * phase)) + .33 * Math.sin(phase * 1.003)
-    + .18 * Math.sin(3 * phase) * Math.exp(-3.6 * t)},
-  pulse: {attack: .007, wave: (phase, t) =>
-    (Math.sin(phase + .51 * Math.sin(phase * 2)) + .22 * Math.sin(phase * 2.004)) * Math.exp(-5.5 * t)},
-  bass: {attack: .022, wave: (phase) => .9 * Math.sin(phase) + .27 * Math.sin(2 * phase)},
+  harp: {attack:.006, release:.22, wave:(p,t) =>
+    (Math.sin(p + .87 * Math.exp(-4.1*t) * Math.sin(p*2.002)) + .14*Math.sin(3*p) + .09*Math.sin(5*p)) * Math.exp(-2.5*t)},
+  flute: {attack:.042, release:.18, wave:(p,t) =>
+    .77*Math.sin(p + .23*Math.sin(tau*5.2*t)) + .20*Math.sin(p*2) + .052*Math.sin(p*3) + .025*Math.sin(p*5)},
+  strings: {attack:.074, release:.23, wave:(p,t) =>
+    .42*Math.sin(p*.997) + .40*Math.sin(p*1.003) + .21*Math.sin(2*p + .23*Math.sin(tau*5.5*t)) + .11*Math.sin(3*p) + .048*Math.sin(4*p)},
+  cello: {attack:.028, release:.14, wave:(p,t) =>
+    .66*Math.sin(p) + .35*Math.sin(2*p+.15*Math.sin(tau*4.5*t)) + .20*Math.sin(3*p) + .096*Math.sin(5*p)*Math.exp(-2*t)},
+  horn: {attack:.023, release:.17, wave:(p,t) =>
+    .72*Math.sin(p*.999) + .28*Math.sin(p*1.002) + .30*Math.sin(2*p) + .22*Math.sin(3*p)*Math.exp(-.95*t) + .11*Math.sin(4*p)*Math.exp(-2.5*t)},
+  reed: {attack:.032, release:.15, wave:(p,t) =>
+    .79*Math.sin(p + .21*Math.sin(tau*4.1*t)) + .31*Math.sin(3*p) + .11*Math.sin(5*p) + .048*Math.sin(7*p)},
+  bass: {attack:.019, release:.11, wave:(p,t) =>
+    .69*Math.sin(p) + .38*Math.sin(2*p) + .13*Math.sin(3*p)*Math.exp(-3*t) + .10*Math.sin(4*p)*Math.exp(-4*t)},
+  bell: {attack:.005, release:.27, wave:(p,t) =>
+    (.61*Math.sin(p) + .24*Math.sin(2.004*p) + .13*Math.sin(2.76*p) + .12*Math.sin(4.1*p)*Math.exp(-5*t))*Math.exp(-5*t)},
 };
 
-function synthesizer(bpm, beats) {
+function synthesizer(bpm, beats, loop) {
   const beat = 60 / bpm;
   const length = Math.round(beats * beat * sampleRate);
   const left = new Float32Array(length);
@@ -83,9 +86,10 @@ function synthesizer(bpm, beats) {
 
   function add(start, duration, pan, signal) {
     const offset = Math.round(start * beat * sampleRate);
-    const frames = Math.round(duration * sampleRate);
+    const frames = Math.min(Math.round(duration * sampleRate), loop ? length : length - offset);
     const balance = (pan + 1) * Math.PI / 4;
-    const l = Math.cos(balance), r = Math.sin(balance);
+    const l = Math.cos(balance);
+    const r = Math.sin(balance);
     for (let i = 0; i < frames; i++) {
       const sample = signal(i / sampleRate);
       const at = (offset + i) % length;
@@ -94,118 +98,136 @@ function synthesizer(bpm, beats) {
     }
   }
 
-  function note(start, beats, pitch, gain, name, pan = 0) {
-    const {attack, wave} = instruments[name];
-    const duration = beats * beat + .09;
+  function note(start, beats, pitch, gain, voice, pan = 0) {
+    const {attack, release, wave} = instruments[voice];
+    const duration = beats * beat + release;
     const radians = tau * 440 * 2 ** ((pitch - 69) / 12);
-    add(start, duration, pan, (t) => {
-      const envelope = Math.min(1, t / attack, (duration - t) / .10);
+    add(start, duration, pan, t => {
+      const envelope = Math.min(1, t / attack, (duration - t) / release);
       return gain * envelope * wave(radians * t, t);
     });
   }
 
   function percussion(start, kind, gain, pan = 0) {
-    const duration = kind === 'kick' ? .36 : kind === 'snare' ? .24 : kind === 'tom' ? .34 : .095;
-    let last = 0;
-    add(start, duration, pan, (t) => {
+    const duration = {kick:.39, snare:.29, tom:.52, brush:.17}[kind];
+    let low = 0;
+    add(start, duration, pan, t => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const noise = seed / 2 ** 31 - 1;
-      const high = noise - last * .72;
-      last = noise;
-      const kick = Math.sin(tau * (46 * t + 3.6 * (1 - Math.exp(-t * 21))));
-      const snare = .68 * noise + .32 * Math.sin(tau * 165 * t) * Math.exp(-24 * t);
-      const tom = .81 * Math.sin(tau * (93 * t + 2.2 * (1 - Math.exp(-t * 34)))) + .19 * noise;
-      const waveform = kind === 'kick' ? kick : kind === 'snare' ? snare : kind === 'tom' ? tom : high;
-      return gain * waveform * Math.min(1, t / .003) * (1 - t / duration) ** 3;
+      low += .17 * (noise - low);
+      const bright = noise - low;
+      const kick = Math.sin(tau * (52*t + 3.2*(1 - Math.exp(-t*29)))) * Math.exp(-7*t);
+      const skin = Math.sin(tau * (98*t + 2.3*(1 - Math.exp(-t*22)))) + .31*Math.sin(tau*161*t);
+      const waveform = {
+        kick: kick + .22*bright*Math.exp(-60*t),
+        snare: .57*bright + .29*low + .28*Math.sin(tau*174*t)*Math.exp(-18*t),
+        tom: .78*skin + .14*bright*Math.exp(-16*t),
+        brush: .59*bright + .09*Math.sin(tau*7310*t),
+      }[kind];
+      return gain * waveform * Math.min(1, t / .004) * (1 - t / duration) ** 2.7;
     });
   }
+
   return {channels: [left, right], note, percussion};
 }
 
-function arrange({bpm, harmony, melody}, battle) {
-  const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4);
+function arrange(score) {
+  const {bpm, harmony, melody, reply, lead, bass, drums, offbeats, drive, battle, enemy} = score;
+  const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4, true);
 
   for (const [bar, chord] of harmony.entries()) {
     const [root, ...tones] = chords[chord];
     const start = bar * 4;
-    const bridge = bar >= 8 && bar < 16;
-    const finale = bar >= 16;
+    const phrase = bar % 8;
+    const bridge = bar >= 8 && bar < harmony.length - 4;
+    const reprise = bar >= harmony.length - 4;
+    const voice = lead[bridge ? 1 : reprise ? 2 : 0];
 
-    if (battle) {
-      const rhythm = bridge ? [0, .75, 1.5, 2.5, 3.5] : [0, .5, .75, 1.5, 2, 2.75, 3.25, 3.5];
-      tones.forEach((pitch, voice) => note(start, 4, pitch, bridge ? .072 : .036, 'strings', (voice - 1) * .76));
-      for (const [i, step] of rhythm.entries()) {
-        note(start + step, .32, root + (i % 4 === 3 ? 12 : 0), .145, 'bass');
-        note(start + step, .28, tones[i % tones.length] + 12, bridge ? .042 : .083, 'pulse', i % 2 ? -.63 : .57);
-      }
-      for (const [offset, duration, pitch] of melody[bar]) {
-        note(start + offset, duration, pitch, bridge ? .15 : .173, bridge ? 'strings' : 'horn', -.16);
-        note(start + offset + .135, duration * .76, pitch - 12, bridge || finale ? .069 : .045, 'brass', .45);
-        if (finale) note(start + offset + .38, duration * .62, pitch, .044, 'piano', .77);
-      }
-      for (const step of (bridge ? [0, 2.5] : [0, 1.5, 2, 3.5])) percussion(start + step, 'kick', .23);
-      for (const step of [1, 3]) percussion(start + step, 'snare', bridge ? .070 : .14, -.18);
-      for (const step of (bar % 4 === 3 ? [2.75, 3.25, 3.5, 3.75] : [0, 2])) {
-        percussion(start + step, 'tom', bridge ? .058 : .132, step < 2 ? -.34 : .35);
-      }
-      for (let i = 0; i < 8; i++) percussion(start + i * .5, 'hat', i % 2 ? .047 : .025, i % 2 ? .48 : -.42);
-      if (bar % 4 === 0) {
-        tones.forEach((pitch, voice) => note(start, .68, pitch, .076, 'brass', (voice - 1) * .57));
-      }
-      continue;
+    for (const [i, pitch] of tones.entries()) {
+      note(start, 3.85, pitch + (i === 3 ? 12 : 0), bridge ? .049 : .038, 'strings', (i - 1.5) * .39);
+    }
+    for (const [i, step] of bass.entries()) {
+      const octave = i === bass.length - 1 && !enemy ? 12 : 0;
+      note(start + step, (bass[i + 1] ?? 4) - step - .12, root + octave, .115 * drive, 'bass');
+    }
+    for (const [i, step] of [0,.5,1,1.5,2,2.5,3,3.5].entries()) {
+      const pitch = tones[(enemy ? [0,2,1,2,0,3,1,2] : [0,1,3,2,1,2,3,1])[i]];
+      const pan = i % 2 ? .56 : -.56;
+      note(start + step, .30, pitch + (enemy ? 0 : 12),
+        (i % 2 ? .035 : .059) * (bridge ? 1.27 : 1), enemy ? 'cello' : 'harp', pan);
+      if (i % 2 || battle) percussion(start + step, 'brush', (i % 2 ? .068 : .04) * drive, pan);
     }
 
-    tones.forEach((pitch, i) => note(start, 4.02, pitch, .048, 'strings', (i - 1) * .68));
-    for (const [i, step] of [0,1.5,2.75].entries()) {
-      note(start + step, .86, root + (i % 3 === 2 ? 12 : 0), .074, 'bass');
-    }
-    for (let i = 0; i < 8; i++) {
-      const pitch = tones[(i + (bridge ? bar : 0)) % tones.length] + 12;
-      note(start + i * .5, .42, pitch, .062, 'piano', i % 2 ? -.61 : .49);
-      if (finale) percussion(start + i * .5, 'hat', i % 2 ? .036 : .020, i % 2 ? .42 : -.24);
-    }
-    for (const [offset, duration, pitch] of melody[bar]) {
-      const lead = bridge || finale ? 'flute' : 'piano';
-      note(start + offset, duration, pitch, lead === 'flute' ? .142 : .158, lead, -.13);
-      note(start + offset + .375, duration * .72, pitch, .028, 'piano', .66);
-      if (finale) {
-        note(start + offset, Math.min(duration, .85), pitch - 12, .053, 'strings', .36);
+    for (const [offset, duration, pitch] of melody[phrase]) {
+      const lift = enemy ? (battle && reprise ? 12 : 0) : (bridge ? -12 : 0);
+      note(start + offset, duration, pitch + lift, voice === 'harp' ? .205 : .176, voice, -.17);
+      if (battle || reprise || (bar % 4 === 0 && offset < 2.05)) {
+        note(start + offset + .014, duration * .82, pitch + lift + (enemy ? 12 : -12), .055,
+          enemy ? 'reed' : 'horn', .38);
       }
     }
+    if (phrase % 2) {
+      note(start + 1.75, .65, reply[phrase] - (enemy ? 0 : 12), .064, enemy ? 'cello' : 'flute', .61);
+      note(start + 2.75, .73, tones[2] + (enemy ? 0 : 12), .049, enemy ? 'horn' : 'bell', .45);
+    }
 
-    for (const step of [0, 2.5]) {
-      percussion(start + step, 'kick', .108);
+    for (const step of drums) percussion(start + step, 'kick', (bridge ? .153 : .202) * drive);
+    for (const step of offbeats) percussion(start + step, 'snare', (battle || enemy ? .159 : .094) * drive, -.25);
+    if (phrase % 4 === 3 || (enemy && phrase === 0)) {
+      for (const [step, pan] of [[.02,-.17],[.76,.26],[1.50,.48]]) {
+        percussion(start + (phrase === 0 ? 0 : 2.25) + step, 'tom', .114 * drive, pan);
+      }
     }
-    for (const step of [1, 3]) {
-      percussion(start + step, 'snare', .041, -.14);
-    }
+    if (!enemy && phrase % 4 === 0) note(start + .1, .55, tones[2] + 24, .062, 'bell', .42);
   }
   return channels;
 }
 
-function arrangeFinale({bpm, beats, melody, harmony, accents, lead}) {
-  const {channels, note, percussion} = synthesizer(bpm, beats);
+function arrangeFinale({bpm, beats, melody, harmony, accents, lead, reply}) {
+  const {channels, note, percussion} = synthesizer(bpm, beats, false);
   for (const [start, length, pitches] of harmony) {
     const [root, ...voices] = pitches;
-    note(start, length, root, .100, 'bass');
-    voices.forEach((pitch, index) => note(start, length, pitch, .072, 'strings', (index - 1) * .68));
+    note(start, length, root, .13, 'bass');
+    voices.forEach((pitch, i) => {
+      note(start, length, pitch, .065, 'strings', (i - 1.5) * .43);
+      note(start + .10 + i*.15, length * .66, pitch + 12, .045, 'harp', .50 - i*.24);
+    });
   }
   for (const [start, length, pitch] of melody) {
-    note(start, length, pitch, .20, lead, -.13);
-    note(start + .12, length * .83, pitch - 12, .055, 'piano', .53);
+    note(start, length, pitch, .207, lead, -.19);
+    note(start + .055, length * .88, pitch - 12, .087, reply, .33);
   }
   for (const [start, gain] of accents) percussion(start, 'tom', gain);
   return channels;
 }
 
-function encode(channels) {
-  const [left, right] = channels;
-  const roomLength = Math.round(.089 * sampleRate);
-  const master = (sample, room, i) =>
-    Math.round(Math.tanh(1.46 * (sample + .13 * room[(i + room.length - roomLength) % room.length])) * 27800);
-  const pcmLeft = Int16Array.from(left, (sample, i) => master(sample, right, i));
-  const pcmRight = Int16Array.from(right, (sample, i) => master(sample, left, i));
-  const encoder = new Mp3Encoder(2, sampleRate, 64);
+function encode([left, right], loop) {
+  const room = [[.031,.11],[.061,.088],[.104,.062],[.157,.038],[.214,.024]]
+    .map(([delay, gain]) => [Math.round(delay * sampleRate), gain]);
+  let power = 0;
+  let peak = 0;
+  for (let i = 0; i < left.length; i++) {
+    power += left[i] ** 2 + right[i] ** 2;
+    peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
+  }
+  const rms = Math.sqrt(power / (2 * left.length));
+  const level = Math.min(.135 / rms, .91 / peak, 2.4);
+  const fadeLength = Math.round(.010 * sampleRate);
+  function master(dry, other) {
+    return Int16Array.from(dry, (sample, i) => {
+      let wet = 0;
+      for (const [delay, gain] of room) {
+        const j = i - delay;
+        if (j >= 0) wet += gain * other[j];
+        else if (loop) wet += gain * other[j + dry.length];
+      }
+      const fade = Math.min(1, i / fadeLength, (dry.length - 1 - i) / fadeLength);
+      return Math.round(Math.tanh((sample + wet) * level) * fade * 30100);
+    });
+  }
+  const pcmLeft = master(left, right);
+  const pcmRight = master(right, left);
+  const encoder = new Mp3Encoder(2, sampleRate, 112);
   const frames = [];
   for (let i = 0; i < left.length; i += 1152) {
     frames.push(Buffer.from(encoder.encodeBuffer(pcmLeft.subarray(i, i + 1152), pcmRight.subarray(i, i + 1152))));
@@ -214,24 +236,25 @@ function encode(channels) {
   return Buffer.concat(frames);
 }
 
-for (const [name, score, battle] of [['bgm-map', mapScore, false], ['bgm-battle', battleScore, true]]) {
-  writeFileSync(new URL('../public/assets/' + name + '.mp3', import.meta.url), encode(arrange(score, battle)));
+for (const score of scores) {
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(arrange(score), true));
 }
 
 const victory = {
-  bpm: 118, beats: 10.75, lead: 'horn',
-  melody: [[0,.36,67],[.5,.36,72],[1,.43,76],[1.5,1.24,79],[3,.52,76],[3.75,.52,79],[4.5,.76,84],[5.5,.58,83],[6.25,3.25,84]],
-  harmony: [[0,2.78,[48,55,60,64]],[3,1.38,[45,57,60,64]],[4.5,.88,[41,60,65,69]],
-    [5.5,.65,[43,55,62,71]],[6.25,3.65,[48,55,64,72]]],
-  accents: [[0,.18],[1.5,.12],[4.5,.12],[6.25,.18]],
+  bpm: 124, beats: 12, lead: 'horn', reply: 'flute',
+  melody: [[0,.48,74],[.6,.54,78],[1.25,.57,81],[2,1.45,86],[3.75,.49,83],[4.35,.54,86],
+    [5,1.09,90],[6.25,.53,88],[7,3.7,86]],
+  harmony: [[0,1.90,[38,54,57,62,66]],[2,1.65,[35,54,57,62,66]],[3.75,1.23,[43,55,62,67,71]],
+    [5,1.20,[40,55,59,64,67]],[6.25,.72,[33,55,57,61,64]],[7,3.9,[38,54,57,62,69]]],
+  accents: [[0,.21],[1.25,.091],[2,.20],[5,.13],[7,.22]],
 };
 const defeat = {
-  bpm: 76, beats: 8.25, lead: 'flute',
-  melody: [[0,.85,76],[1,.75,74],[2,.9,72],[3,.62,69],[3.75,.8,68],[4.75,2.68,69]],
-  harmony: [[0,1.84,[45,57,60,64]],[2,.93,[41,53,60,65]],[3,1.58,[40,52,59,68]],
-    [4.75,2.75,[45,52,57,60]]],
-  accents: [[0,.072],[4.75,.045]],
+  bpm: 76, beats: 10, lead: 'reed', reply: 'cello',
+  melody: [[0,1.06,74],[1.25,.68,72],[2.15,1.04,69],[3.45,.81,65],[4.55,.66,64],[5.4,3.04,62]],
+  harmony: [[0,2,[38,53,57,62,65]],[2.15,1.2,[34,53,57,62,65]],[3.45,1,[43,55,58,62,65]],
+    [4.55,.82,[33,55,57,61,64]],[5.4,3.15,[38,53,57,60,62]]],
+  accents: [[0,.11],[5.4,.068]],
 };
 for (const [name, score] of [['victory', victory], ['defeat', defeat]]) {
-  writeFileSync(new URL('../public/assets/bgm-' + name + '.mp3', import.meta.url), encode(arrangeFinale(score)));
+  writeFileSync(new URL('../public/assets/bgm-' + name + '.mp3', import.meta.url), encode(arrangeFinale(score), false));
 }
