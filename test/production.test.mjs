@@ -116,6 +116,8 @@ test('歩兵が占領した工場はマスを空けると生産でき、工場�
 
   game.endTurn();
   assert.deepEqual(game.enemyProductions, []);
+  assert.equal(infantry.hp, 6);
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'factory'}]);
   game.choose(8, 4);
   game.choose(9, 4);
   const turnBudget = game.funds.friendly;
@@ -152,6 +154,7 @@ test('敵歩兵に占領された工場も、敵の部隊がマスを空ける�
   assert.equal(game.productionStatus(home), 'unavailable');
   assert.equal(game.produce('infantry', home), null);
   assert.ok(!game.enemyProductions.some(({x, y}) => x === 1 && y === 5));
+  assert.deepEqual(game.facilityHealing, [{side: 'enemy', unit: '歩兵', amount: 2, facility: 'factory'}]);
 
   // Defend headquarters so the occupying enemy can move out without ending the battle.
   Object.assign(game.friendlyUnits[0], {x: 0, y: 6});

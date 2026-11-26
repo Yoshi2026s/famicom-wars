@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=crossing-factory-capture">
+    <link rel="stylesheet" href="./style.css?v=portrait-factory-recovery">
     <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=crossing-factory-capture"></script>
+    <script defer src="./rules.js?v=portrait-factory-recovery"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
-    <script defer src="./music.js?v=finale"></script>
-    <script defer src="./combat.js?v=crossing-factories"></script>
-    <script defer src="./game.js?v=crossing-factory-capture"></script>
+    <script defer src="./music.js?v=portrait-factory-recovery"></script>
+    <script defer src="./orientation.js?v=portrait-factory-recovery"></script>
+    <script defer src="./combat.js?v=portrait-factory-recovery"></script>
+    <script defer src="./game.js?v=portrait-factory-recovery"></script>
   </head>
   <body>
     <header class="masthead">
@@ -56,7 +57,7 @@
               <div><span>敵資金</span> <strong id="enemy-funds"></strong><small>次の収入 +<b id="enemy-income"></b></small></div>
             </div>
             <div class="city-list"><b>都市</b> <div class="city-overview" id="city-overview"></div></div>
-            <p class="city-healing" id="city-healing" role="status" aria-atomic="true"></p>
+            <p class="facility-healing" id="facility-healing" role="status" aria-atomic="true"></p>
           </section>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">
@@ -106,6 +107,11 @@
       </div>
       <noscript>ゲームを遊ぶにはJavaScriptを有効にしてください。</noscript>
     </main>
+    <dialog class="portrait-notice" id="portrait-notice" aria-labelledby="portrait-title" aria-describedby="portrait-description">
+      <span class="portrait-phone" aria-hidden="true"></span>
+      <h2 id="portrait-title" tabindex="-1" autofocus>端末を縦向きにしてください</h2>
+      <p id="portrait-description">縦向きに戻すと、続きから遊べます。</p>
+    </dialog>
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>
       <ol><li>青い味方部隊を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。各部隊は1ターンに1回、上下左右へ移動でき、部隊がいるマスは通れません。</li><li>敵が射程内にいると「攻撃」の印が付きます。敵を選ぶと戦闘が始まり、その部隊の行動が終わります。</li><li>「ターン終了」で次に進みます。敵が射程内なら、移動せずに攻撃できます。</li></ol>

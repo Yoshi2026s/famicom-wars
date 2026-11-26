@@ -58,7 +58,7 @@ const combatScreen = (() => {
     stage.textContent = first ? '先攻' : '反撃';
     const team = teamNames[attacker];
     status.textContent = first ? `${team}が構えた。` : `${team}が反撃の構え。`;
-    scene.timer = setTimeout(startVolley, motion.matches ? 90 : 360);
+    scene.timer = portraitMode.schedule(startVolley, motion.matches ? 90 : 360);
   }
 
   function startVolley() {
@@ -95,7 +95,7 @@ const combatScreen = (() => {
     const team = teamNames[dialog.dataset.attacker];
     status.textContent = `${team}の${scene.nextStrike === 0 ? '攻撃' : '反撃'}！`;
     if (motion.matches) combatAudio.play('shot', fromPlayer ? -.62 : .62);
-    scene.timer = setTimeout(showImpact, motion.matches ? 160 : lastShot + 350);
+    scene.timer = portraitMode.schedule(showImpact, motion.matches ? 160 : lastShot + 350);
   }
 
   function defenseMessage(hit) {
@@ -120,14 +120,14 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'impact';
     combatAudio.play('impact', hit.attacker === 'player' ? .55 : -.55);
     const next = scene.strikes[scene.nextStrike];
-    scene.timer = setTimeout(() => {
+    scene.timer = portraitMode.schedule(() => {
       if (next) beginStrike(next.attacker);
       else showResult(true);
     }, motion.matches ? 460 : 900);
   }
 
   function showResult(autoReturn) {
-    clearTimeout(scene.timer);
+    portraitMode.cancel(scene.timer);
     combatAudio.stop();
     scene.strikes ??= scene.resolve();
     const [attack, counter] = scene.strikes;
@@ -154,7 +154,7 @@ const combatScreen = (() => {
       finale.hidden = false;
       music.setScene(verdict);
     } else if (autoReturn) {
-      scene.timer = setTimeout(close, 2200);
+      scene.timer = portraitMode.schedule(close, 2200);
     }
   }
 
@@ -163,7 +163,7 @@ const combatScreen = (() => {
     scene.strikes ??= scene.resolve();
     const completed = scene;
     scene = null;
-    clearTimeout(completed.timer);
+    portraitMode.cancel(completed.timer);
     combatAudio.stop();
     removeRetreatingFighters();
     dialog.close();
@@ -172,12 +172,12 @@ const combatScreen = (() => {
   }
 
   function advanceScene() {
-    if (!scene) return;
+    if (!scene || portraitMode.blocked) return;
     if (dialog.dataset.phase === 'result') close();
     else showResult(false);
   }
   advance.addEventListener('click', (event) => {
-    if (!scene) return;
+    if (!scene || portraitMode.blocked) return;
     if (event.detail > 0) {
       // Some touch browsers report each tap as a single click.
       if (scene.skipClickTime !== null && (event.detail > 1 || event.timeStamp - scene.skipClickTime < 300)) return;
@@ -196,7 +196,7 @@ const combatScreen = (() => {
     if (scene) advanceScene();
   });
   volley.addEventListener('animationstart', (event) => {
-    if (scene && dialog.dataset.phase === 'attack' && event.animationName === 'shot-trail') {
+    if (scene && !portraitMode.blocked && dialog.dataset.phase === 'attack' && event.animationName === 'shot-trail') {
       combatAudio.play('shot', dialog.dataset.attacker === 'player' ? -.62 : .62);
     }
   });
@@ -231,7 +231,7 @@ const combatScreen = (() => {
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
       if (motion.matches) beginStrike(attacker);
-      else scene.timer = setTimeout(() => beginStrike(attacker), 420);
+      else scene.timer = portraitMode.schedule(() => beginStrike(attacker), 420);
     },
     close,
   };

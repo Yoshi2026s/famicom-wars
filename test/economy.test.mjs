@@ -20,7 +20,7 @@ test('歩兵で占領した都市は次のターンから収入になり、タ�
   assert.equal(game.funds.friendly, 6500);
   assert.equal(city.owner, 'friendly');
   assert.equal(game.friendlyAt(4, 1).hp, 6);
-  assert.deepEqual(game.cityHealing, [{side: 'friendly', unit: '歩兵', amount: 2}]);
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'city'}]);
 });
 
 test('車両は中立都市を占領できず、都市の地形と双方の収入は維持される', () => {
@@ -79,7 +79,7 @@ test('決着時は収入と補充を停止し、再戦では所有者と初期�
   assert.deepEqual(game.funds, {friendly: 4500, enemy: 4500});
   assert.deepEqual(game.enemyProductions, []);
   assert.equal(game.friendlyUnits[1].hp, 6);
-  assert.deepEqual(game.cityHealing, []);
+  assert.deepEqual(game.facilityHealing, []);
   const replay = new TrainingMap('crossing');
   assert.equal(replay.cityAt(4, 1).owner, 'neutral');
   assert.deepEqual(replay.funds, {friendly: 4500, enemy: 4500});
@@ -100,8 +100,24 @@ test('ターン開始時は所有都市にいる両陣営の生存部隊だけ�
   game.finishEnemyTurn();
   game.finishEnemyTurn();
   assert.deepEqual([scout.hp, infantry.hp, support.hp, destroyed.hp, enemyScout.hp], [8, 5, 8, 0, 10]);
-  assert.deepEqual(game.cityHealing, [
-    {side: 'friendly', unit: '偵察車', amount: 2},
-    {side: 'enemy', unit: '偵察車', amount: 1},
+  assert.deepEqual(game.facilityHealing, [
+    {side: 'friendly', unit: '偵察車', amount: 2, facility: 'city'},
+    {side: 'enemy', unit: '偵察車', amount: 1, facility: 'city'},
   ]);
+});
+
+test('自軍工場ではHPが最大値まで回復し、敵工場の車両や撃破済みの部隊は回復しない', () => {
+  const game = new TrainingMap('crossing');
+  game.beginEnemyTurn();
+  for (let action; (action = game.prepareEnemyAction());) game.resolveEnemyAction(action);
+  const [scout, , support] = game.friendlyUnits;
+  const [destroyed] = game.enemyUnits;
+  Object.assign(scout, {x: 1, y: 5, hp: 9});
+  Object.assign(support, {x: 8, y: 4, hp: 5});
+  Object.assign(destroyed, {x: 8, y: 4, hp: 0});
+  game.finishEnemyTurn();
+  game.finishEnemyTurn();
+  assert.deepEqual([scout.hp, support.hp, destroyed.hp], [10, 5, 0]);
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '偵察車', amount: 1, facility: 'factory'}]);
+  assert.deepEqual(game.funds, {friendly: 5500, enemy: 5500});
 });
