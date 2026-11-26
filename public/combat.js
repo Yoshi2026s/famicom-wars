@@ -53,6 +53,8 @@ const combatScreen = (() => {
   function beginStrike(attacker) {
     removeRetreatingFighters();
     dialog.dataset.attacker = attacker;
+    const unit = formations[attacker].dataset.unit;
+    dialog.dataset.ordnance = unit.includes('tank') || unit.includes('support') ? 'shell' : 'burst';
     dialog.dataset.phase = 'aim';
     const first = scene.nextStrike === 0;
     stage.textContent = first ? '先攻' : '反撃';

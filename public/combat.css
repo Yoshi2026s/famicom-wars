@@ -101,12 +101,12 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 }
 .fighter::before { content: ""; position: absolute; inset: 90% 11% 0 3%; background: #291f32a6; border-radius: 50%; filter: blur(2px); z-index: -1; }
 .foe .fighter { background-image: url("./assets/volley-foe.png"); }
-.formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png"); }
-.formation[data-unit="enemy-scout"] .fighter { background-image: url("./assets/volley-enemy-scout.png"); }
-.formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png"); }
-.formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png"); }
-.formation[data-unit="tank"] .fighter { background-image: url("./assets/volley-tank.png"); }
-.formation[data-unit="enemy-tank"] .fighter { background-image: url("./assets/volley-enemy-tank.png"); }
+.formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png?v=river-motion"); }
+.formation[data-unit="enemy-scout"] .fighter { background-image: url("./assets/volley-enemy-scout.png?v=river-motion"); }
+.formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png?v=river-motion"); }
+.formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png?v=river-motion"); }
+.formation[data-unit="tank"] .fighter { background-image: url("./assets/volley-tank.png?v=river-motion"); }
+.formation[data-unit="enemy-tank"] .fighter { background-image: url("./assets/volley-enemy-tank.png?v=river-motion"); }
 .platoon .formation[data-unit="infantry"] .fighter {
   left: calc(74% - var(--column) * 17% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);
@@ -194,6 +194,23 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 [data-phase="impact"] .combat-smoke { animation: dust .78s ease-out both; }
 [data-phase="impact"] .combat-sparks { animation: scattering .45s ease-out both; }
 [data-phase="impact"] .combat-damage { opacity: 1; animation: damage-rise .8s ease-out both; }
+[data-ordnance="shell"] .combat-volley i { height: 4px; width: clamp(18px, 8%, 66px); }
+[data-ordnance="shell"] .combat-volley i::before { box-shadow: 0 0 10px var(--shot-edge), -12px 1px 5px #e8ce8c75; }
+[data-ordnance="shell"] .combat-impact { width: clamp(36px, 14%, 100px); }
+.combat-impact::before {
+  content: ""; position: absolute; inset: 16%; border: 2px solid #ffebba;
+  border-radius: 50%; box-shadow: inset 0 0 13px #ee916c, 0 0 15px #ffd59788; opacity: 0;
+}
+.combat-sparks::after {
+  content: ""; position: absolute; inset: 0; background: #e9b477; opacity: 0;
+  box-shadow: 13px 8px #ba855e, -7px 4px #f9cf89, 4px -13px #df9f67, -17px -2px #af7b65;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-phase="impact"][data-ordnance="shell"] .combat-impact::before { animation: impact-ring .42s ease-out both; }
+  [data-phase="impact"] .combat-sparks::after { animation: earth-chips .48s ease-out both; }
+  @keyframes impact-ring { from { opacity: .9; transform: scale(.55); } to { opacity: 0; transform: scale(2.4); } }
+  @keyframes earth-chips { from { opacity: 1; transform: scale(.5); } to { opacity: 0; transform: translateY(9px) scale(2.2) rotate(22deg); } }
+}
 [data-phase="impact"][data-attacker="player"] .foe .fighter:not(.retreating),
 [data-phase="impact"][data-attacker="enemy"] .ally .fighter:not(.retreating) {
   animation: flinch .5s ease-out both, hit-pose .5s steps(1, end) both;

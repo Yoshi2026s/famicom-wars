@@ -270,8 +270,12 @@ for (let i = 0; i < 175; i++) {
   forestTile.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '819d6b' : '486f55');
 }
 for (const [x, y] of [[-3,-4],[13,-6],[36,-4],[50,-3],[6,8],[28,9],[46,12],[-4,24],[17,25],[36,26],[51,31],[4,39],[22,40],[40,41]]) {
-  forestTile.ellipse(x + 17, y + 26, 14, 5, '365b48');
-  forestTile.sprite(x, y, fir, {t:'254b43', l:'90b977', m:'4f815d', w:'80664d'},2);
+  forestTile.ellipse(x + 17, y + 26, 14, 5, '305445');
+  forestTile.sprite(x, y, fir, {t:'224943', l:'8dbb76', m:'487e61', w:'80664d'},2);
+  forestTile.rect(x + 9, y + 8, 3, 2, 'c1d490');
+  forestTile.rect(x + 5, y + 16, 4, 2, 'a5c78a');
+  forestTile.rect(x + 12, y + 20, 5, 1, '609570');
+  forestTile.rect(x + 15, y + 23, 3, 1, '39755a');
 }
 forestTile.save('terrain-forest.png');
 
@@ -289,9 +293,12 @@ const peak = [
   'tllrllrsdsdddssddddddt', 'ttrrlrrssdddddddddddtt', '.ttrrrssdddttttttttt..',
 ];
 const stoneColors = {t:'455766', l:'d5d0bc', h:'f7e8c6', r:'b2b5b0', s:'8c9ba3', d:'637689'};
+const ridgeColors = {t:'43566a', l:'d9d6c4', h:'fff0cc', r:'b7bab5', s:'899da9', d:'5e748a'};
 for (const [x, y, scale] of [[-7,8,2],[25,1,2],[16,24,2],[0,43,1],[40,39,1],[31,47,1]]) {
   mountainTile.ellipse(x+11*scale,y+17*scale,12*scale,3*scale,'5c7164');
-  mountainTile.sprite(x, y, peak, stoneColors, scale);
+  mountainTile.sprite(x, y, peak, ridgeColors, scale);
+  mountainTile.rect(x+9*scale,y+6*scale,scale,scale,'efe9cf');
+  mountainTile.rect(x+14*scale,y+12*scale,3*scale,scale,'7890a2');
 }
 mountainTile.save('terrain-mountain.png');
 
@@ -302,6 +309,9 @@ const crossingPlains = new Pixels(64, 64);
 crossingPlains.rect(0, 0, 64, 64, '859c63');
 for (let i = 0; i < 150; i++) {
   crossingPlains.rect(random(64), random(64), 1 + random(4), 1, i % 2 ? '98aa70' : '718e5a');
+}
+for (const [x, y] of [[7,13],[43,9],[24,38],[58,33],[9,54],[41,56]]) {
+  crossingPlains.sprite(x,y,['...a.','.a.a.','.al..','..s..'], {a:'b8c77d', l:'a1b36f', s:'688955'});
 }
 crossingPlains.save('terrain-crossing-plains.png');
 
@@ -325,6 +335,10 @@ for (const [side, roof, light, flag] of [
   base.rect(31, 6, 3, 17, 'e1d9aa');
   base.rect(34, 7, 15, 8, flag);
   base.rect(34, 13, 12, 2, roof);
+  base.rect(10, 49, 44, 2, 'e1ca98');
+  base.rect(17, 41, 8, 2, 'aa9977');
+  base.rect(40, 43, 8, 2, 'aa9977');
+  base.rect(18, 22, 28, 2, light);
   base.save(`headquarters-${side}.png`);
 }
 
@@ -339,6 +353,8 @@ for (const [side, wall, bright] of [['friendly', '347485', '81bfba'], ['enemy', 
     '.xxxxxxxxxxxxx', '.xwwwwwwwwwwwx', '.xwlwxhhhxwlwx', '.xwwwxhhhxwwwx', '.xwwwxhhhxwwwx', '.xxxxxxxxxxxxx'],
   {x: '2e3334', w: wall, l: bright, h: '7f8277'}, 4);
   factory.rect(29, 49, 12, 2, 'd0c6a9');
+  for (const y of [39,42,45]) factory.rect(26, y, 16, 1, '555e5c');
+  for (const x of [13,18,47,52]) factory.rect(x, 42, 2, 2, bright);
   factory.save(`factory-${side}.png`);
 }
 
@@ -357,10 +373,34 @@ for (const [side, roof, light] of [
     city.rect(x + 4, y + 9, 4, 4, '666357');
     city.rect(x + width - 8, y + 9, 4, 4, '666357');
     city.rect(x + Math.floor(width / 2) - 2, 41, 5, 7, '544b41');
+    city.rect(x + 4, y + 9, 2, 2, 'fbde9c');
+    city.rect(x + width - 8, y + 9, 2, 2, 'edbd79');
+    city.rect(x + 2, 45, 4, 1, 'a99a77');
   }
   city.save(`city-${side}.png`);
 }
 
+function drawBridge(tile) {
+  tile.rect(0, 18, 64, 31, '40312c');
+  tile.rect(0, 21, 64, 23, 'b99262');
+  for (let x = 0; x < 64; x += 8) {
+    tile.rect(x, 21, 1, 24, '725139');
+    tile.rect(x + 1, 23, 5, 2, 'd8b783');
+    tile.rect(x + 1, 33, 4, 1, 'c5a473');
+    tile.rect(x + 2, 41, 4, 1, '997443');
+  }
+  for (const y of [17, 44]) {
+    tile.rect(0, y, 64, 3, 'e3bf82');
+    for (const x of [4, 27, 56]) {
+      tile.rect(x, y - 3, 4, 9, '70513b');
+      tile.rect(x, y - 3, 3, 1, 'f4d29b');
+    }
+  }
+}
+
+const deck = new Pixels(64, 64);
+drawBridge(deck);
+deck.save('terrain-bridge-deck.png');
 for (const name of ['river', 'bridge']) {
   const tile = new Pixels(64, 64);
   tile.rect(0, 0, 64, 64, '386c81');
@@ -368,21 +408,45 @@ for (const name of ['river', 'bridge']) {
   for (let i = 0; i < 130; i++) {
     tile.rect(random(64), random(64), 2 + random(11), 1, i % 2 ? '609ba3' : '2f627a');
   }
-  if (name === 'bridge') {
-    tile.rect(0, 18, 64, 31, '40312c');
-    tile.rect(0, 21, 64, 23, 'b18a59');
-    for (let x = 0; x < 64; x += 8) {
-      tile.rect(x, 21, 1, 24, '725139');
-      tile.rect(x + 1, 24, 5, 2, 'c9a977');
-      tile.rect(x + 2, 39, 4, 1, '997443');
-    }
-    for (const y of [17, 44]) {
-      tile.rect(0, y, 64, 3, 'e3bf82');
-      for (const x of [4, 27, 56]) tile.rect(x, y - 3, 4, 9, '70513b');
-    }
-  }
+  if (name === 'bridge') drawBridge(tile);
   tile.save(`terrain-${name}.png`);
 }
+
+// The four cardinal connections use bits 1, 2, 4 and 8, clockwise from north.
+const waterways = new Pixels(64 * 9, 64 * 16);
+for (let mask = 0; mask < 16; mask++) {
+  const lateral = (mask & 5) === 0 && mask !== 0;
+  for (let frame = 0; frame <= 8; frame++) {
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const dx = x - 31.5;
+        const dy = y - 31.5;
+        const horizontal = Math.sin(x / 63 * Math.PI) * 3;
+        const vertical = Math.sin(y / 63 * Math.PI) * 3;
+        const bank = Math.min(Math.hypot(dx, dy) - 22,
+          mask & 1 ? Math.hypot(dx + vertical, Math.max(0, dy)) - 21 : Infinity,
+          mask & 2 ? Math.hypot(dy - horizontal, Math.max(0, -dx)) - 21 : Infinity,
+          mask & 4 ? Math.hypot(dx - vertical, Math.max(0, -dy)) - 21 : Infinity,
+          mask & 8 ? Math.hypot(dy + horizontal, Math.max(0, dx)) - 21 : Infinity);
+        const grain = ((x * 23 + y * 37) ^ (x * y * 11)) & 15;
+        const across = lateral ? y : x;
+        const downstream = lateral ? x : y;
+        const ripple = (downstream + 64 - frame * 8 + (across >> 3) * 3) & 63;
+        const gleam = ripple % 17 < 2 && (across + (ripple >> 2) * 13) % 19 < 11;
+        let color;
+        if (bank > 3) color = grain < 2 ? 'a0b573' : grain > 13 ? '748e58' : '859c63';
+        else if (bank > 1) color = grain < 7 ? '738755' : 'a1a477';
+        else if (bank > -1.1) color = grain < 11 ? 'b8b68a' : 'd6c69b';
+        else if (bank > -4) color = gleam ? 'bbded3' : '589a9c';
+        else if (gleam) color = ripple < 20 ? '7dbcb5' : '5d9fa7';
+        else if (ripple % 13 < 2) color = '31687f';
+        else color = bank < -14 ? '2e6e87' : '3a8295';
+        waterways.rect(frame * 64 + x, mask * 64 + y, 1, 1, color);
+      }
+    }
+  }
+}
+waterways.save('terrain-waterways.png');
 
 function reeds(image, x, y, scale = 1) {
   image.sprite(x, y, ['...ll.......', '...ll....l..', '.l..l....l..', '.l..ml...ml.',
@@ -417,12 +481,12 @@ const vehiclePalettes = {
   'friendly-support': {body: '3c719a', light: 'a3d7ed', shade: '294c72', glass: 'b9eddf'},
 };
 
-function drawVehicle(image, top, name, pose) {
+function drawVehicle(image, top, name, pose, left = 0, stride = 0) {
   const scoutVehicle = name === 'scout' || name === 'enemy-scout';
   const {body, light, shade, glass} = vehiclePalettes[name];
   const shift = pose === 3 || pose === 4 ? -2 : 0;
-  const y = top + (pose === 5 ? 2 : 0);
-  const paint = (left, row, width, height, color) => image.rect(left + shift, y + row, width, height, color);
+  const y = top + (pose === 5 ? 2 : stride % 2);
+  const paint = (x, row, width, height, color) => image.rect(left + x + shift, y + row, width, height, color);
   const edge = '202b37';
   // Wheels and chassis.
   paint(5, 35, 53, 10, edge);
@@ -430,13 +494,16 @@ function drawVehicle(image, top, name, pose) {
   for (const x of [11, 23, 35, 47]) {
     paint(x, 39, 8, 9, scoutVehicle ? '273345' : '3c3337');
     paint(x + 2, 41, 4, 4, shade);
-    paint(x + 3, 42, 2, 2, light);
+    paint(x + 2 + stride % 4, 41 + stride % 3, 2, 2, light);
   }
   paint(6, 28, 52, 9, edge);
   paint(9, 26, 43, 9, body);
   paint(8, 28, 49, 2, light);
   paint(10, 35, 45, 4, shade);
   paint(55, 30, 4, 3, 'ffe4a1');
+  paint(11, 31, 3, 2, light);
+  paint(48, 32, 4, 2, shade);
+  for (const x of [15, 32, 45]) paint(x, 36, 1, 1, light);
   if (scoutVehicle) {
     paint(18, 19, 23, 9, edge);
     paint(22, 17, 12, 4, light);
@@ -458,10 +525,10 @@ function drawVehicle(image, top, name, pose) {
   if (pose === 4) paint(27, 28, 9, 2, 'fff5c1');
 }
 
-function drawTank(image, top, {body, light, shade}, pose) {
+function drawTank(image, top, {body, light, shade}, pose, left = 0, stride = 0) {
   const shift = pose === 3 ? -3 : pose === 4 ? -1 : 0;
   const turret = pose === 5 ? 3 : 0;
-  const paint = (x, y, width, height, color) => image.rect(x + shift, top + y, width, height, color);
+  const paint = (x, y, width, height, color) => image.rect(left + x + shift, top + y, width, height, color);
   const outline = '20262e';
   paint(7, 34, 50, 15, outline);
   paint(11, 32, 42, 19, outline);
@@ -471,6 +538,7 @@ function drawTank(image, top, {body, light, shade}, pose) {
     paint(x + 1, 40, 4, 4, '777b71');
     paint(x + 2, 41, 2, 2, shade);
   }
+  for (let x = 12 + stride; x <= 51; x += 6) paint(x, 47, 3, 1, '8c8974');
   paint(5, 29, 54, 9, outline);
   paint(8, 27, 48, 7, body);
   paint(8, 29, 48, 2, light);
@@ -481,6 +549,8 @@ function drawTank(image, top, {body, light, shade}, pose) {
   paint(24, 15 + turret, 12, 3, outline);
   paint(40, 24 + turret, pose === 3 ? 18 : 23, 6, outline);
   paint(42, 25 + turret, pose === 3 ? 15 : 19, 2, light);
+  paint(23, 22 + turret, 4, 2, shade);
+  for (const x of [14, 25, 36, 47]) paint(x, 31, 2, 1, light);
   if (pose === 2) paint(59, 23, 5, 7, 'ffe4a1');
   if (pose === 4) paint(12, 29, 17, 2, 'fff5c1');
 }
@@ -496,12 +566,43 @@ function saveVehicle(name, draw) {
 for (const name of Object.keys(vehiclePalettes)) {
   saveVehicle(name, (image, top, pose) => drawVehicle(image, top, name, pose));
 }
-for (const [name, palette] of Object.entries({
+const tankPalettes = {
   tank: {body: '397299', light: '8ecbd5', shade: '284c6b'},
   'enemy-tank': {body: 'aa6144', light: 'efb577', shade: '733735'},
-})) {
+};
+for (const [name, palette] of Object.entries(tankPalettes)) {
   saveVehicle(name, (image, top, pose) => drawTank(image, top, palette, pose));
 }
+
+function drawMarchingInfantry(image, left, top, colors, stride) {
+  const rise = stride % 2;
+  image.sprite(left + 9, top + 2 - rise, infantryRows.slice(0, 20), colors, 2);
+  image.rect(left + 33, top + 10 - rise, 9, 2, colors.h);
+  image.rect(left + 36, top + 8 - rise, 5, 2, colors.a);
+  image.rect(left + 34, top + 29 - rise, 5, 2, colors.h);
+  const swing = [0, 3, 0, -3][stride];
+  for (const [x, lifted] of [[left + 24 - swing, stride === 1], [left + 34 + swing, stride === 3]]) {
+    const y = top + 41 - (lifted ? 3 : 0);
+    image.rect(x, y - 2, 7, 11, colors.o);
+    image.rect(x + 1, y - 1, 5, 7, colors.l);
+    image.rect(x - 1, y + 6, 9, 4, colors.o);
+    image.rect(x, y + 6, 6, 2, colors.b);
+  }
+}
+
+const marchRows = ['infantry','scout','friendly-support','tank','enemy-infantry','enemy-scout','support','enemy-tank'];
+const march = new Pixels(64 * 5, 56 * marchRows.length);
+for (const [row, name] of marchRows.entries()) {
+  for (let frame = 0; frame <= 4; frame++) {
+    const top = row * 56;
+    const left = frame * 64;
+    const stride = frame % 4;
+    if (name.endsWith('infantry')) drawMarchingInfantry(march, left, top, name === 'infantry' ? uniform : enemyUniform, stride);
+    else if (tankPalettes[name]) drawTank(march, top, tankPalettes[name], 0, left, stride);
+    else drawVehicle(march, top, name, 0, left, stride);
+  }
+}
+march.save('map-march.png');
 
 const vista = new Pixels(360, 168);
 for (const [top, end, color] of [
