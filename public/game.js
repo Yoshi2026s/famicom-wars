@@ -5,6 +5,7 @@ const pendingEnemyTurns = new Set();
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
 const mapScrollNote = document.getElementById('map-scroll-note');
+const mapLetters = document.getElementById('map-letters');
 const mapNumbers = document.getElementById('map-numbers');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
@@ -28,6 +29,36 @@ const cityOverview = document.getElementById('city-overview');
 const cityEntries = [];
 const currency = new Intl.NumberFormat('ja-JP');
 const ownerNames = {friendly: '味方', enemy: '敵', neutral: '中立'};
+const main = document.querySelector('main');
+const replay = document.getElementById('replay');
+const fieldTools = document.getElementById('field-tools');
+const fieldNextUnit = document.getElementById('field-next-unit');
+const fieldStatus = document.getElementById('field-status');
+const fieldUnit = document.getElementById('field-unit');
+const fieldFunds = document.getElementById('field-funds');
+const fieldRoster = document.getElementById('field-roster-dialog');
+const fieldOverview = document.getElementById('field-overview-dialog');
+const overviewGrid = document.getElementById('overview-grid');
+const overviewWindow = document.createElement('span');
+overviewWindow.className = 'overview-window';
+overviewWindow.setAttribute('aria-hidden', 'true');
+const fieldButtons = [...fieldTools.querySelectorAll('button[aria-controls]')];
+const fieldDialogs = fieldButtons.map(button => document.getElementById(button.getAttribute('aria-controls')));
+const fieldSections = [
+  ['friendly-roster', 'field-roster-content'],
+  ['orders-notes', 'field-intel-content'],
+  ['map-intel', 'field-intel-content'],
+  ['map-keys', 'field-intel-content'],
+  ['unit-panel', 'field-intel-content'],
+  ['map-sound-controls', 'field-intel-content'],
+  ['replay', 'orders-actions'],
+].map(([id, targetId]) => {
+  const content = document.getElementById(id);
+  const placeholder = document.createComment(id);
+  content.before(placeholder);
+  return {content, placeholder, target: document.getElementById(targetId)};
+});
+let mobileField = false;
 
 function columnName(x) {
   return String.fromCharCode(65 + x);
@@ -69,17 +100,34 @@ function extendRoster(container, entries, units, interactive) {
     card.append(name, hp, state);
     if (interactive) {
       card.type = 'button';
-      card.addEventListener('click', () => {
-        if (inputBlocked()) return;
-        game.choose(unit.x, unit.y);
-        setBoardTabStop(friendlyTile());
-        revealTile(friendlyTile());
-        render();
-      });
+      card.addEventListener('click', () => selectFriendlyUnit(unit));
     }
     entries.push({unit, card, hp, state});
     container.append(card);
   }
+}
+
+function selectFriendlyUnit(unit) {
+  if (inputBlocked() || !unit.hp) return;
+  if (!mobileField || game.activeUnit !== unit || !game.selected) game.choose(unit.x, unit.y);
+  const tile = friendlyTile();
+  setBoardTabStop(tile);
+  if (fieldRoster.open) {
+    fieldRoster.close();
+    tile.focus({preventScroll: true});
+  }
+  revealTile(tile, mobileField);
+  render();
+}
+
+function canAct(unit) {
+  return unit.hp && unit.readyTurn <= game.turn && !unit.attacked && (!unit.moved || game.canUnitAttack(unit));
+}
+
+function nextFriendlyUnit() {
+  const units = game.friendlyUnits;
+  const current = units.indexOf(game.activeUnit);
+  return units.slice(current + 1).concat(units.slice(0, current)).find(canAct);
 }
 
 function unitState(unit) {
@@ -189,7 +237,7 @@ function render() {
   }
   for (const {unit, card, hp, state} of rosterEntries) {
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
-    state.textContent = unitState(unit);
+    state.textContent = mobileField && unit.hp ? `${coordinate(unit.x, unit.y)} · ${unitState(unit)}` : unitState(unit);
     card.disabled = !unit.hp || Boolean(game.result);
     card.classList.toggle('defeated', !unit.hp);
     card.setAttribute('aria-disabled', String(waiting || card.disabled));
@@ -202,7 +250,7 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, terrainLabel, image, base, factory, city} = cell;
+    const {x, y, button, terrainLabel, image, hpBadge, base, factory, city} = cell;
     const terrain = game.terrainAt(x, y);
     button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
@@ -242,6 +290,10 @@ function render() {
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
     image.hidden = !occupied && !enemy;
     if (occupied || enemy) showImage(image, unitImage((enemy ?? friendly).type, Boolean(enemy)));
+    if (hpBadge) {
+      hpBadge.hidden = !mobileField || image.hidden;
+      if (!hpBadge.hidden) hpBadge.textContent = (enemy ?? friendly).hp;
+    }
   }
   const {movement, minRange, maxRange, attackBonus} = game.playerUnit;
   document.getElementById('unit-name').textContent = game.activeUnit.name;
@@ -260,8 +312,9 @@ function render() {
   endTurn.setAttribute('aria-disabled', String(waiting));
   productionLaunch.setAttribute('aria-disabled', String(waiting));
   document.getElementById('help').setAttribute('aria-disabled', String(Boolean(game.enemyTurn)));
-  ordersActions.hidden = Boolean(game.result);
-  const replay = document.getElementById('replay');
+  ordersActions.hidden = Boolean(game.result) && !mobileField;
+  endTurn.hidden = Boolean(game.result);
+  productionLaunch.hidden = productionControls.hidden || !canOpenProductionDialog || Boolean(game.result);
   const enemiesRemain = game.enemyUnits.some(unit => unit.hp > 0);
   replay.hidden = game.isBattle ? !game.result : enemiesRemain;
   replay.textContent = game.isBattle ? 'もう一度対戦する' : 'もう一度訓練する';
@@ -305,8 +358,7 @@ function render() {
     state.textContent = '行動済み';
     if (game.isCrossing) {
       const action = game.attacked ? '行動を終えました。' : `${position} に移動しました。`;
-      const another = game.friendlyUnits.some(unit => unit !== game.activeUnit && unit.hp && unit.readyTurn <= game.turn
-        && !unit.attacked && (!unit.moved || game.canUnitAttack(unit)));
+      const another = game.friendlyUnits.some(unit => unit !== game.activeUnit && canAct(unit));
       message.textContent = `${friendlyName}は${action}${another ? '別の味方を選べます。' : 'ターンを終了できます。'}`;
     } else if (game.attacked && game.isBattle) message.textContent = '戦闘終了。味方HP ' + game.playerHP + '、敵HP ' + game.enemyHP + '。ターンを終了できます。';
     else message.textContent = game.attacked ? '敵歩兵を撃破しました！' : position + ' に移動しました。ターンを終了できます。';
@@ -316,6 +368,15 @@ function render() {
   } else {
     state.textContent = '行動可能';
     message.textContent = `ターン ${game.turn}。${game.isCrossing ? '動かす部隊を選んでください。' : `盤面の${friendlyName}を選んでください。`}`;
+  }
+  if (mobileField) {
+    let summary = `${game.activeUnit.name} ${position} · HP ${game.playerHP} · ${state.textContent}`;
+    if (waiting) summary = actingEnemy ? `敵${actingEnemy.name}が行動中` : state.textContent;
+    if (game.result) summary = state.textContent;
+    if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
+    fieldFunds.textContent = currency.format(game.funds.friendly);
+    for (const button of fieldButtons) button.setAttribute('aria-disabled', String(waiting));
+    fieldNextUnit.setAttribute('aria-disabled', String(waiting || Boolean(game.result) || !nextFriendlyUnit()));
   }
 }
 
@@ -359,9 +420,11 @@ function renderBattleStatus() {
 
 function showMission() {
   if (productionDialog.open) productionDialog.close();
+  closeFieldDialogs();
   const hash = location.hash.slice(1);
   const mode = Object.hasOwn(missions, hash) ? hash : 'training';
   game = missions[mode];
+  setMobileFieldLayout();
   music.setScene('map');
   const title = missionTitles[mode];
   document.title = 'ファミコンウォーズ｜' + title;
@@ -374,7 +437,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '戦車は移動力3、射程1で、攻撃と反撃が通常より1ダメージ強力です。歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、ターン開始時に自軍の都市や工場にいる部隊はHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: 'スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。戦車は移動力3、射程1で、攻撃と反撃が通常より1ダメージ強力です。歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、ターン開始時に自軍の都市や工場にいる部隊はHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;
@@ -387,7 +450,6 @@ function showMission() {
   factoryLegend.hidden = !game.factories.length;
   document.getElementById('city-economy').hidden = !game.isCrossing;
   productionControls.hidden = !game.factories.length;
-  productionLaunch.hidden = productionControls.hidden || !canOpenProductionDialog;
   document.getElementById('crossing-objective').hidden = !game.headquarters;
   if (game.headquarters) {
     for (const [side, {x, y}] of Object.entries(game.headquarters)) {
@@ -417,19 +479,90 @@ function showMission() {
   setBoardTabStop(friendlyTile());
   render();
   mapSurround.scrollLeft = 0;
-  revealTile(friendlyTile());
+  mapSurround.scrollTop = 0;
+  revealTile(friendlyTile(), mobileField);
 }
 
-function revealTile(button) {
+function revealTile(button, center = false) {
   const viewport = mapSurround.getBoundingClientRect();
   const tile = button.getBoundingClientRect();
   const visibleLeft = viewport.left + (game.isCrossing ? mapNumbers.offsetWidth : 0);
+  const visibleRight = viewport.left + mapSurround.clientWidth;
+  if (mobileField) {
+    const visibleTop = viewport.top + mapLetters.offsetHeight;
+    const bottom = viewport.top + mapSurround.clientHeight;
+    if (center) {
+      mapSurround.scrollLeft += (tile.left + tile.right - visibleLeft - visibleRight) / 2;
+      mapSurround.scrollTop += (tile.top + tile.bottom - visibleTop - bottom) / 2;
+      return;
+    }
+    if (tile.top < visibleTop) mapSurround.scrollTop += tile.top - visibleTop - 8;
+    if (tile.bottom > bottom) mapSurround.scrollTop += tile.bottom - bottom + 8;
+  }
   if (tile.left < visibleLeft) mapSurround.scrollLeft += tile.left - visibleLeft - 12;
-  if (tile.right > viewport.right) mapSurround.scrollLeft += tile.right - viewport.right + 12;
+  if (tile.right > visibleRight) mapSurround.scrollLeft += tile.right - visibleRight + 12;
 }
 
 function updateMapScrollNote() {
   mapScrollNote.hidden = !game.isCrossing || mapSurround.scrollWidth <= mapSurround.clientWidth;
+}
+
+function closeFieldDialogs() {
+  for (const dialog of fieldDialogs) if (dialog.open) dialog.close();
+}
+
+function setMobileFieldLayout() {
+  const enabled = game.isCrossing && compactControls.matches && canOpenProductionDialog;
+  if (portraitMode.blocked || mobileField === enabled) return false;
+  closeFieldDialogs();
+  mobileField = enabled;
+  main.toggleAttribute('data-mobile-field', enabled);
+  fieldTools.hidden = fieldStatus.hidden = !enabled;
+  for (const {content, placeholder, target} of fieldSections) {
+    if (enabled) target.append(content);
+    else placeholder.after(content);
+  }
+  return true;
+}
+
+function drawOverview() {
+  overviewGrid.style.setProperty('--columns', game.width);
+  overviewGrid.style.setProperty('--rows', game.height);
+  const spots = cells.map(({button, base}) => {
+    const spot = document.createElement('span');
+    spot.className = 'overview-cell';
+    spot.setAttribute('aria-hidden', 'true');
+    spot.dataset.terrain = button.dataset.terrain;
+    if (base) spot.dataset.base = base;
+    const facility = button.dataset.factory ?? button.dataset.city;
+    if (facility) spot.dataset.facility = facility;
+    if (button.classList.contains('occupied')) spot.dataset.side = 'friendly';
+    if (button.classList.contains('enemy')) spot.dataset.side = 'enemy';
+    return spot;
+  });
+  overviewGrid.replaceChildren(...spots, overviewWindow);
+}
+
+function updateOverviewWindow() {
+  if (!fieldOverview.open || portraitMode.blocked) return;
+  const viewport = mapSurround.getBoundingClientRect();
+  const map = board.getBoundingClientRect();
+  const left = Math.max(0, viewport.left + mapNumbers.offsetWidth - map.left);
+  const top = Math.max(0, viewport.top + mapLetters.offsetHeight - map.top);
+  const right = Math.min(map.width, viewport.left + mapSurround.clientWidth - map.left);
+  const bottom = Math.min(map.height, viewport.top + mapSurround.clientHeight - map.top);
+  overviewWindow.style.left = `${left / map.width * 100}%`;
+  overviewWindow.style.top = `${top / map.height * 100}%`;
+  overviewWindow.style.width = `${(right - left) / map.width * 100}%`;
+  overviewWindow.style.height = `${(bottom - top) / map.height * 100}%`;
+}
+
+function jumpToFieldLocation({x, y}) {
+  if (!fieldOverview.open || portraitMode.blocked) return;
+  fieldOverview.close();
+  const tile = cells[y * game.width + x].button;
+  tile.focus({preventScroll: true});
+  revealTile(tile, true);
 }
 
 function setBoardTabStop(button) {
@@ -440,7 +573,7 @@ function buildBoard() {
   board.replaceChildren();
   cells.length = 0;
   const {width, height} = game;
-  document.querySelector('main').dataset.mode = game.mode;
+  main.dataset.mode = game.mode;
   board.dataset.mode = game.mode;
   mapSurround.dataset.mode = game.mode;
   mapSurround.style.setProperty('--columns', width);
@@ -477,6 +610,12 @@ function addTile(x, y) {
   image.alt = '';
   image.draggable = false;
   button.append(terrainLabel, image);
+  const hpBadge = game.isCrossing ? document.createElement('span') : null;
+  if (hpBadge) {
+    hpBadge.className = 'map-hp';
+    hpBadge.setAttribute('aria-hidden', 'true');
+    button.append(hpBadge);
+  }
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', () => {
     if (inputBlocked()) return;
@@ -500,9 +639,13 @@ function addTile(x, y) {
     const [dx, dy] = offsets[event.key];
     const nextX = Math.max(0, Math.min(game.width - 1, x + dx));
     const nextY = Math.max(0, Math.min(game.height - 1, y + dy));
-    cells[nextY * game.width + nextX].button.focus();
+    const next = cells[nextY * game.width + nextX].button;
+    if (mobileField) {
+      next.focus({preventScroll: true});
+      revealTile(next);
+    } else next.focus();
   });
-  cells.push({x, y, button, terrainLabel, image, base, factory, city});
+  cells.push({x, y, button, terrainLabel, image, hpBadge, base, factory, city});
   board.append(button);
 }
 
@@ -590,6 +733,37 @@ for (const button of productionButtons) {
     if (!inputBlocked() && game.produce(button.dataset.produce, selectedFactory)) render();
   });
 }
+for (const [index, button] of fieldButtons.entries()) {
+  const dialog = fieldDialogs[index];
+  button.addEventListener('click', () => {
+    if (!mobileField || portraitMode.blocked || waitingForEnemy() || combatScreen.active || dialog.open) return;
+    if (dialog === fieldOverview) drawOverview();
+    dialog.showModal();
+    if (dialog === fieldOverview) updateOverviewWindow();
+  });
+}
+fieldNextUnit.addEventListener('click', () => {
+  if (!mobileField || inputBlocked()) return;
+  const unit = nextFriendlyUnit();
+  if (unit) selectFriendlyUnit(unit);
+});
+overviewGrid.addEventListener('click', event => {
+  if (!event.detail) {
+    jumpToFieldLocation(game.activeUnit);
+    return;
+  }
+  const rect = overviewGrid.getBoundingClientRect();
+  const x = Math.max(0, Math.min(game.width - 1, Math.floor((event.clientX - rect.left) / rect.width * game.width)));
+  const y = Math.max(0, Math.min(game.height - 1, Math.floor((event.clientY - rect.top) / rect.height * game.height)));
+  jumpToFieldLocation({x, y});
+});
+for (const button of fieldOverview.querySelectorAll('[data-jump]')) {
+  button.addEventListener('click', () => {
+    const destination = button.dataset.jump;
+    jumpToFieldLocation(destination === 'unit' ? game.activeUnit : game.headquarters[destination]);
+  });
+}
+mapSurround.addEventListener('scroll', updateOverviewWindow, {passive: true});
 productionLaunch.addEventListener('click', () => {
   if (!productionLaunch.hidden && compactControls.matches && !inputBlocked() && !productionDialog.open) {
     productionDialog.showModal();
@@ -624,11 +798,24 @@ window.addEventListener('hashchange', () => {
   document.getElementById('mission-title').focus({preventScroll: true});
   window.scrollTo(0, 0);
 });
-compactControls.addEventListener('change', positionProductionControls);
+function resizeGame() {
+  const focused = document.activeElement;
+  positionProductionControls();
+  if (setMobileFieldLayout()) {
+    render();
+    if (mobileField) revealTile(friendlyTile(), true);
+    else if (fieldTools.contains(focused) || fieldDialogs.some(dialog => dialog.contains(focused))) {
+      document.getElementById('mission-title').focus({preventScroll: true});
+    }
+  }
+  updateMapScrollNote();
+  updateOverviewWindow();
+}
+window.addEventListener('resize', resizeGame);
+compactControls.addEventListener('change', resizeGame);
+portraitMode.onChange(resizeGame);
 positionProductionControls();
 showMission();
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);
-} else {
-  window.addEventListener('resize', updateMapScrollNote);
 }

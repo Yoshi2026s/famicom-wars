@@ -7,12 +7,13 @@
     <title>ファミコンウォーズ｜はじまりの草原</title>
     <link rel="stylesheet" href="./style.css?v=mobile-actions">
     <link rel="stylesheet" href="./combat.css?v=crossing-tanks">
+    <link rel="stylesheet" href="./battlefield.css?v=battlefield">
     <script defer src="./rules.js?v=crossing-tanks"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=portrait-factory-recovery"></script>
-    <script defer src="./orientation.js?v=portrait-factory-recovery"></script>
+    <script defer src="./orientation.js?v=battlefield"></script>
     <script defer src="./combat.js?v=crossing-tanks"></script>
-    <script defer src="./game.js?v=mobile-actions"></script>
+    <script defer src="./game.js?v=battlefield"></script>
   </head>
   <body>
     <header class="masthead">
@@ -28,7 +29,7 @@
           <a id="battle-link" href="#battle">歩兵戦</a>
           <a id="crossing-link" href="#crossing">水辺の攻防</a>
         </nav>
-        <div class="sound-controls">
+        <div class="sound-controls" id="map-sound-controls">
           <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="false">BGM <b>OFF</b></button>
           <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="false">効果音 <b>OFF</b></button>
         </div>
@@ -40,25 +41,33 @@
       <div class="layout">
         <section class="map-panel" aria-labelledby="map-title">
           <div class="map-bar"><h2 id="map-title"><span class="map-icon" aria-hidden="true">▦</span> 作戦マップ</h2><span class="dimensions" id="dimensions">5 × 5</span></div>
-          <div class="battle-health" id="battle-health" hidden>
-            <span>味方HP <meter id="player-hp" min="0" aria-label="味方HP"></meter><b id="player-hp-text"></b></span>
-            <span>敵HP <meter id="enemy-hp" min="0" aria-label="敵HP"></meter><b id="enemy-hp-text"></b></span>
-          </div>
-          <div class="friendly-roster enemy-roster" id="enemy-roster" role="group" aria-label="敵部隊の状況" hidden></div>
-          <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択" hidden></div>
-          <div class="legend base-legend" id="base-legend" hidden>
-            <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地 <b id="friendly-base-coordinate"></b></span>
-            <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地 <b id="enemy-base-coordinate"></b></span>
-          </div>
-          <div class="legend base-legend" id="factory-legend" hidden></div>
-          <section class="city-economy" id="city-economy" aria-label="資金と都市" hidden>
-            <div class="economy-balances">
-              <div><span>味方資金</span> <strong id="friendly-funds"></strong><small>次の収入 +<b id="friendly-income"></b></small></div>
-              <div><span>敵資金</span> <strong id="enemy-funds"></strong><small>次の収入 +<b id="enemy-income"></b></small></div>
+          <div id="map-intel">
+            <div class="battle-health" id="battle-health" hidden>
+              <span>味方HP <meter id="player-hp" min="0" aria-label="味方HP"></meter><b id="player-hp-text"></b></span>
+              <span>敵HP <meter id="enemy-hp" min="0" aria-label="敵HP"></meter><b id="enemy-hp-text"></b></span>
             </div>
-            <div class="city-list"><b>都市</b> <div class="city-overview" id="city-overview"></div></div>
-            <p class="facility-healing" id="facility-healing" role="status" aria-atomic="true"></p>
-          </section>
+            <div class="friendly-roster enemy-roster" id="enemy-roster" role="group" aria-label="敵部隊の状況" hidden></div>
+            <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択" hidden></div>
+            <div class="legend base-legend" id="base-legend" hidden>
+              <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地 <b id="friendly-base-coordinate"></b></span>
+              <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地 <b id="enemy-base-coordinate"></b></span>
+            </div>
+            <div class="legend base-legend" id="factory-legend" hidden></div>
+            <section class="city-economy" id="city-economy" aria-label="資金と都市" hidden>
+              <div class="economy-balances">
+                <div><span>味方資金</span> <strong id="friendly-funds"></strong><small>次の収入 +<b id="friendly-income"></b></small></div>
+                <div><span>敵資金</span> <strong id="enemy-funds"></strong><small>次の収入 +<b id="enemy-income"></b></small></div>
+              </div>
+              <div class="city-list"><b>都市</b> <div class="city-overview" id="city-overview"></div></div>
+              <p class="facility-healing" id="facility-healing" role="status" aria-atomic="true"></p>
+            </section>
+          </div>
+          <nav class="field-tools" id="field-tools" aria-label="マップ操作" hidden>
+            <button type="button" aria-haspopup="dialog" aria-controls="field-roster-dialog">味方部隊</button>
+            <button type="button" id="field-next-unit" aria-label="次の行動可能な味方部隊">次の部隊</button>
+            <button type="button" aria-haspopup="dialog" aria-controls="field-overview-dialog">全体図</button>
+            <button type="button" aria-haspopup="dialog" aria-controls="field-intel-dialog">戦況</button>
+          </nav>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">
             <div class="chart">
@@ -67,12 +76,18 @@
               <div class="board" id="board" role="group" aria-label="5列5行の作戦マップ"></div>
             </div>
           </div>
-          <div class="legend"><span><i class="friendly-key"></i><span id="friendly-legend">味方歩兵</span></span><span><i class="enemy-key"></i><span id="enemy-legend">敵歩兵</span></span><span><i class="range-key"></i>移動できるマス</span></div>
-          <div class="legend terrain-legend" id="terrain-legend" hidden><span><i class="forest-key"></i>森 ダメージ−1</span><span><i class="mountain-key"></i>山 ダメージ−2</span></div>
-          <div class="legend terrain-legend" id="crossing-legend" hidden><span><i class="river-key"></i>川 通行不可</span><span><i class="bridge-key"></i>橋 通行可</span><span><i class="marsh-key"></i>湿地 移動力2・ダメージ−1</span></div>
+          <div class="field-status" id="field-status" hidden>
+            <p id="field-unit" role="status" aria-atomic="true"></p>
+            <p class="field-funds">資金 <b id="field-funds"></b></p>
+          </div>
+          <div id="map-keys">
+            <div class="legend"><span><i class="friendly-key"></i><span id="friendly-legend">味方歩兵</span></span><span><i class="enemy-key"></i><span id="enemy-legend">敵歩兵</span></span><span><i class="range-key"></i>移動できるマス</span></div>
+            <div class="legend terrain-legend" id="terrain-legend" hidden><span><i class="forest-key"></i>森 ダメージ−1</span><span><i class="mountain-key"></i>山 ダメージ−2</span></div>
+            <div class="legend terrain-legend" id="crossing-legend" hidden><span><i class="river-key"></i>川 通行不可</span><span><i class="bridge-key"></i>橋 通行可</span><span><i class="marsh-key"></i>湿地 移動力2・ダメージ−1</span></div>
+          </div>
         </section>
         <aside class="sidebar" aria-label="部隊と操作">
-          <section class="unit-panel" aria-labelledby="unit-title">
+          <section class="unit-panel" id="unit-panel" aria-labelledby="unit-title">
             <div class="panel-heading"><h2 id="unit-title">部隊情報</h2><span class="state" id="state">行動可能</span></div>
             <div class="portrait" aria-hidden="true"><img id="unit-portrait" src="./assets/infantry.png?v=graphics-bgm" alt=""></div>
             <div class="unit-details">
@@ -82,11 +97,13 @@
             </div>
           </section>
           <section class="orders" aria-labelledby="orders-title">
-            <h2 id="orders-title">行動指示</h2>
-            <p class="crossing-objective" id="crossing-objective" hidden>歩兵で敵本拠地を占領するか、敵部隊を全滅させると勝利です。</p>
-            <p class="enemy-range" id="enemy-range" hidden>敵支援車の射程は2〜3マス</p>
-            <div id="enemy-report" class="enemy-report" hidden></div>
-            <p id="message" role="status" aria-live="polite" aria-atomic="true">盤面の歩兵を選んでください。</p>
+            <div id="orders-notes">
+              <h2 id="orders-title">行動指示</h2>
+              <p class="crossing-objective" id="crossing-objective" hidden>歩兵で敵本拠地を占領するか、敵部隊を全滅させると勝利です。</p>
+              <p class="enemy-range" id="enemy-range" hidden>敵支援車の射程は2〜3マス</p>
+              <div id="enemy-report" class="enemy-report" hidden></div>
+              <p id="message" role="status" aria-live="polite" aria-atomic="true">盤面の歩兵を選んでください。</p>
+            </div>
             <section class="production" id="production-controls" aria-labelledby="production-title" hidden>
               <div class="production-heading">
                 <h3 id="production-title">味方工場 <b id="production-title-coordinate"></b></h3>
@@ -112,6 +129,26 @@
       </div>
       <noscript>ゲームを遊ぶにはJavaScriptを有効にしてください。</noscript>
     </main>
+    <dialog class="field-dialog" id="field-roster-dialog" aria-labelledby="field-roster-title">
+      <header><h2 id="field-roster-title">味方部隊</h2><form method="dialog"><button type="submit" autofocus>閉じる</button></form></header>
+      <div id="field-roster-content" class="field-dialog-content"></div>
+    </dialog>
+    <dialog class="field-dialog" id="field-overview-dialog" aria-labelledby="field-overview-title">
+      <header><h2 id="field-overview-title">全体図</h2><form method="dialog"><button type="submit" autofocus>閉じる</button></form></header>
+      <div class="field-dialog-content">
+        <p>地図をタップすると、その場所を表示します。</p>
+        <button type="button" class="overview-grid" id="overview-grid" aria-label="表示位置を選ぶ地図"></button>
+        <div class="overview-jumps" aria-label="マップの表示位置" role="group">
+          <button type="button" data-jump="friendly">味方本拠地</button>
+          <button type="button" data-jump="unit">操作中の部隊</button>
+          <button type="button" data-jump="enemy">敵本拠地</button>
+        </div>
+      </div>
+    </dialog>
+    <dialog class="field-dialog" id="field-intel-dialog" aria-labelledby="field-intel-title">
+      <header><h2 id="field-intel-title">戦況</h2><form method="dialog"><button type="submit" autofocus>閉じる</button></form></header>
+      <div id="field-intel-content" class="field-dialog-content"></div>
+    </dialog>
     <dialog class="production-dialog" id="production-dialog" aria-labelledby="production-title">
       <form method="dialog"><button class="replay" autofocus>閉じる</button></form>
     </dialog>
