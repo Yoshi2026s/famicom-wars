@@ -92,7 +92,6 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
   pointer-events: none;
 }
 [data-mobile-field] .enemy .map-hp { background: #702e29; border-color: #ffe0c6; }
-[data-mobile-field] .board .tile .terrain-label { top: 2px; bottom: auto; left: 2px; padding-inline: 2px; font-size: 10px; }
 [data-mobile-field] .tile img { width: 76%; }
 [data-mobile-field] .tile.reachable { --tile-tint: #bbffcf70; box-shadow: inset 0 0 0 2px #176750; }
 [data-mobile-field] .tile.reachable::after { width: 10px; border-color: #f6ffea; box-shadow: 0 0 2px #142e28; }

@@ -103,12 +103,6 @@ h2 { font-size: 16px; font-weight: 850; }
 [data-city="friendly"] { --facility-image: url("./assets/city-friendly.png"); --facility-color: #234e60; }
 [data-city="enemy"] { --facility-image: url("./assets/city-enemy.png"); --facility-color: #723b2a; }
 [data-city="neutral"] { --facility-image: url("./assets/city-neutral.png"); --facility-color: #5b5037; }
-.terrain-label { position: absolute; z-index: 2; top: 3%; left: 4%; padding: 0 3px; color: #fff9dc; background: #233e31; border: 1px solid #fff9dc; font-size: clamp(10px, 1vw, 13px); font-weight: bold; line-height: 1.35; pointer-events: none; }
-[data-terrain="mountain"] .terrain-label { background: #374355; }
-[data-terrain="river"] .terrain-label { background: #244456; }
-[data-terrain="bridge"] .terrain-label { background: #553a29; }
-:is([data-base], [data-factory], [data-city]) .terrain-label { background: var(--facility-color); }
-.board[data-mode="crossing"] .tile.enemy .terrain-label { top: auto; bottom: 3%; }
 .tile.last-column { border-right: 0; }
 .tile.last-row { border-bottom: 0; }
 .tile img { position: absolute; z-index: 1; left: 50%; bottom: 10%; width: 68%; height: 83%; object-fit: contain; transform: translateX(-50%); image-rendering: pixelated; pointer-events: none; filter: drop-shadow(1px 2px 0 #1b282f60); }
