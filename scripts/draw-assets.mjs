@@ -501,11 +501,11 @@ const vehiclePalettes = {
   'friendly-support': {body: '3c719a', light: 'a3d7ed', shade: '294c72', glass: 'b9eddf'},
 };
 
-function drawVehicle(image, top, name, pose, left = 0, stride = 0) {
+function drawVehicle(image, top, name, pose, left = 0, stride = 0, {ride = stride % 2, mast = 0, rackRise = 0} = {}) {
   const scoutVehicle = name === 'scout' || name === 'enemy-scout';
   const {body, light, shade, glass} = vehiclePalettes[name];
   const shift = pose === 3 || pose === 4 ? -2 : 0;
-  const y = top + stride % 2;
+  const y = top + ride;
   const paint = (x, row, width, height, color) => image.rect(left + x + shift, y + row, width, height, color);
   const edge = '202b37';
   if (pose === 6) {
@@ -535,8 +535,10 @@ function drawVehicle(image, top, name, pose, left = 0, stride = 0) {
     paint(19, 22, 16, 9, shade);
     paint(24, 22, 11, 6, glass);
     paint(35, 23, 4, 5, glass);
-    paint(12, 10, 2, 19, edge);
-    paint(11, 9, 5, 2, light);
+    paint(12, 15, 2, 14, edge);
+    paint(12 + mast, 10, 2, 7, edge);
+    if (mast) paint(Math.min(12, 12 + mast), 14, Math.abs(mast) + 2, 2, edge);
+    paint(11 + mast, 9, 5, 2, light);
     const barrel = pose === 1 || pose === 2 ? 23 : 26;
     paint(38, barrel, 18, 4, edge);
     paint(41, barrel, 13, 1, light);
@@ -544,10 +546,11 @@ function drawVehicle(image, top, name, pose, left = 0, stride = 0) {
     paint(7, 34, 4, 3, 'cb815f');
     paint(24, 34, 11, 2, light);
     for (const x of [12, 42]) {
-      paint(x, 37, 12, 12, edge);
-      paint(x + 2, 39, 8, 8, '465056');
-      paint(x + 3, 40, 6, 6, shade);
-      paint(x + 4 + stride % 3, 41 + stride % 2, 2, 2, light);
+      paint(x, 37 - ride, 12, 12, edge);
+      paint(x + 2, 39 - ride, 8, 8, '465056');
+      paint(x + 3, 40 - ride, 6, 6, shade);
+      const [spokeX, spokeY] = [[0,0],[2,0],[3,2],[2,4],[0,4],[-1,2]][stride];
+      paint(x + 4 + spokeX, 41 + spokeY - ride, 2, 2, light);
     }
     if (pose === 2) paint(55, barrel - 1, 5, 5, 'ffe9a8');
     if (pose === 4) paint(45, 31, 8, 3, 'ffdc9b');
@@ -566,23 +569,23 @@ function drawVehicle(image, top, name, pose, left = 0, stride = 0) {
     const raised = pose === 1 || pose === 2;
     const drop = pose === 4 ? 4 : 0;
     for (let segment = 0; segment < 7; segment++) {
-      const rack = 17 - (raised ? segment * 2 : Math.floor(segment / 3)) + drop;
+      const rack = 17 - (raised ? segment * 2 : Math.floor(segment * (2 + rackRise) / 6)) + drop;
       paint(6 + segment * 5, rack - 4, 5, 14, edge);
       paint(6 + segment * 5, rack - 2, 5, 10, shade);
       paint(6 + segment * 5, rack - 2, 5, 2, light);
       paint(6 + segment * 5, rack + 2, 5, 1, body);
     }
     for (const [x, tz] of [[10,39],[22,39],[45,39]]) {
-      paint(x, tz, 11, 10, edge);
-      paint(x + 2, tz + 2, 7, 6, shade);
-      paint(x + 4 + stride % 3, tz + 3, 2, 2, light);
+      paint(x, tz - ride, 11, 10, edge);
+      paint(x + 2, tz + 2 - ride, 7, 6, shade);
+      paint(x + 4 + stride % 3, tz + 3 + Math.floor(stride / 3) - ride, 2, 2, light);
     }
     if (pose === 2) paint(41, 4, 6, 6, 'fcecc1');
     if (pose === 4) paint(22, 24, 6, 2, 'ffe0a3');
   }
 }
 
-function drawTank(image, top, {body, light, shade}, pose, left = 0, stride = 0) {
+function drawTank(image, top, {body, light, shade}, pose, left = 0, stride = 0, sweep = 0) {
   const shift = pose === 3 ? -3 : pose === 4 ? -1 : 0;
   const turret = pose === 4 || pose === 5 ? 3 : 0;
   const paint = (x, y, width, height, color) => image.rect(left + x + shift, top + y, width, height, color);
@@ -619,8 +622,15 @@ function drawTank(image, top, {body, light, shade}, pose, left = 0, stride = 0) 
   paint(22, 17 + turret, 15, 3, light);
   paint(22, 14 + turret, 11, 3, outline);
   paint(24, 14 + turret, 10, 2, shade);
-  paint(40, 24 + turret, pose === 3 ? 18 : 23, 6, outline);
-  paint(42, 25 + turret, pose === 3 ? 15 : 19, 2, light);
+  if (sweep) {
+    const length = 23 - Math.abs(sweep) * 2;
+    paint(40, 24 + turret, 9, 6, outline);
+    paint(46, 24 + turret - sweep, length - 6, 6, outline);
+    paint(47, 25 + turret - sweep, length - 9, 2, light);
+  } else {
+    paint(40, 24 + turret, pose === 3 ? 18 : 23, 6, outline);
+    paint(42, 25 + turret, pose === 3 ? 15 : 19, 2, light);
+  }
   paint(39, 23 + turret, 7, 7, shade);
   paint(23, 22 + turret, 6, 3, shade);
   paint(24, 22 + turret, 4, 1, 'eddb9f');
@@ -654,15 +664,19 @@ for (const [name, palette] of Object.entries(tankPalettes)) {
   saveVehicle(name, (image, top, pose) => drawTank(image, top, palette, pose));
 }
 
-function drawMarchingInfantry(image, left, top, colors, stride) {
-  const rise = stride % 2;
-  image.sprite(left + 9, top + 2 - rise, infantryRows.slice(0, 20), colors, 2);
-  image.rect(left + 33, top + 10 - rise, 9, 2, colors.h);
-  image.rect(left + 36, top + 8 - rise, 5, 2, colors.a);
-  image.rect(left + 34, top + 29 - rise, 5, 2, colors.h);
-  const swing = [0, 3, 0, -3][stride];
-  for (const [x, lifted] of [[left + 24 - swing, stride === 1], [left + 34 + swing, stride === 3]]) {
-    const y = top + 41 - (lifted ? 3 : 0);
+function drawMapInfantry(image, left, top, colors, stride, watching = false) {
+  const rise = watching ? [0, 0, 1, 1, 0, 0][stride] : [0, 2, 1, 0, 2, 1][stride];
+  const glance = watching ? [0, 1, 3, -2, -3, 0][stride] : 0;
+  const swing = watching ? 0 : [-3, 1, 4, 3, -1, -4][stride];
+  for (const [row, pixels] of infantryRows.slice(0, 20).entries()) {
+    image.sprite(left + 9 + (row < 12 ? glance : 0), top + 3 + row * 2 - rise, [pixels], colors, 2);
+  }
+  image.rect(left + 31 + glance, top + 11 - rise, 10, 2, colors.h);
+  image.rect(left + 35 + glance, top + 9 - rise, 5, 2, colors.a);
+  image.rect(left + 34 + Math.round(swing / 2), top + 30 - rise, 5, 2, colors.h);
+  const footLift = watching ? [0, 0] : [[0,2],[0,4],[2,1],[2,0],[4,0],[1,2]][stride];
+  for (const [leg, x] of [left + 24 - swing, left + 34 + swing].entries()) {
+    const y = top + 41 - footLift[leg];
     image.rect(x, y - 2, 7, 11, colors.o);
     image.rect(x + 1, y - 1, 5, 7, colors.l);
     image.rect(x - 1, y + 6, 9, 4, colors.o);
@@ -671,18 +685,31 @@ function drawMarchingInfantry(image, left, top, colors, stride) {
 }
 
 const marchRows = ['infantry','scout','friendly-support','tank','enemy-infantry','enemy-scout','support','enemy-tank'];
-const march = new Pixels(64 * 5, 56 * marchRows.length);
+const march = new Pixels(64 * 7, 56 * marchRows.length);
+const idle = new Pixels(64 * 7, 56 * marchRows.length);
 for (const [row, name] of marchRows.entries()) {
-  for (let frame = 0; frame <= 4; frame++) {
+  for (let frame = 0; frame <= 6; frame++) {
     const top = row * 56;
     const left = frame * 64;
-    const stride = frame % 4;
-    if (name.endsWith('infantry')) drawMarchingInfantry(march, left, top, name === 'infantry' ? uniform : enemyUniform, stride);
-    else if (tankPalettes[name]) drawTank(march, top, tankPalettes[name], 0, left, stride);
-    else drawVehicle(march, top, name, 0, left, stride);
+    const stride = frame % 6;
+    if (name.endsWith('infantry')) {
+      const colors = name === 'infantry' ? uniform : enemyUniform;
+      drawMapInfantry(march, left, top, colors, stride);
+      drawMapInfantry(idle, left, top, colors, stride, true);
+    } else if (tankPalettes[name]) {
+      drawTank(march, top, tankPalettes[name], 0, left, stride, [0,0,1,1,0,0][stride]);
+      drawTank(idle, top, tankPalettes[name], 0, left, 0, [0,1,3,2,-2,-1][stride]);
+    } else if (name.endsWith('scout')) {
+      drawVehicle(march, top, name, 0, left, stride, {ride:[0,2,1,0,2,1][stride], mast:[0,1,1,0,-1,0][stride]});
+      drawVehicle(idle, top, name, 0, left, 0, {ride:[0,0,1,1,0,0][stride], mast:[0,1,3,2,-2,0][stride]});
+    } else {
+      drawVehicle(march, top, name, 0, left, stride, {ride:[0,0,1,1,0,0][stride], rackRise:[0,1,2,1,0,0][stride]});
+      drawVehicle(idle, top, name, 0, left, 0, {rackRise:[0,2,5,5,2,0][stride]});
+    }
   }
 }
 march.save('map-march.png');
+idle.save('map-idle.png');
 
 const vista = new Pixels(360, 168);
 for (const [top, end, color] of [

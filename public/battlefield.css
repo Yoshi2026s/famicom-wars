@@ -115,7 +115,7 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
 .tile:is([data-terrain="river"], [data-terrain="bridge"])::after { z-index: 2; }
 .tile.friendly-route:not(.action-pending) { --tile-tint: #b6e8f05c; outline: 1px dashed #cdeef0; outline-offset: -3px; }
 .tile:has(.map-stride) { z-index: 3; }
-.tile:has(.map-stride) > img { visibility: hidden; }
+.tile:has(.map-stride) > :is(img, .map-idle) { visibility: hidden; }
 .map-stride, .map-feedback {
   position: absolute;
   inset: 0;
@@ -142,17 +142,39 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
   background: #cfb184;
   box-shadow: -5px 3px #957d5b, 4px 2px #ead1a0, -8px -1px #ceb28b;
 }
+.map-stride[data-unit="infantry"] { --wake-distance: 5px; }
+.map-stride[data-unit="infantry"]::after { width: 2px; height: 2px; box-shadow: -3px 2px #9b835d; }
+.map-stride[data-unit="scout"] { --step-easing: cubic-bezier(.13,.44,.36,1); --wake-distance: 14px; }
+.map-stride[data-unit="support"] { --step-easing: ease-in-out; }
+.map-stride[data-unit="tank"] { --step-easing: cubic-bezier(.35,.22,.73,.82); --wake-distance: 11px; }
+.map-stride[data-unit="tank"]::after { width: 6px; height: 3px; box-shadow: -5px 3px #917657, 4px 2px #c5a37a, -8px -2px #c6aa82; }
 .tile:is([data-terrain="marsh"], [data-terrain="bridge"]) .map-stride::after { background: #abd1c8; box-shadow: -5px 3px #548188, 4px 2px #b0d9c9; }
-.map-stride-sprite {
+.map-idle, .map-stride-sprite {
   position: absolute;
   left: 50%;
   bottom: 12%;
   width: 78%;
   aspect-ratio: 8 / 7;
-  transform: translateX(-50%) scaleX(var(--facing));
-  background: url("./assets/map-march.png?v=unit-combat") 0% var(--atlas-row) / 500% 800% no-repeat;
+  transform: translateX(-50%) scaleX(var(--facing, 1));
+  background-size: 700% 800%;
+  background-repeat: no-repeat;
+  pointer-events: none;
 }
-.map-stride[data-unit="infantry"] .map-stride-sprite { width: 96%; bottom: 10%; }
+.map-stride-sprite { background-image: url("./assets/map-march.png?v=map-unit-motion"); background-position: 0% var(--atlas-row); }
+.map-idle {
+  display: none;
+  z-index: 1;
+  background-image: url("./assets/map-idle.png?v=map-unit-motion");
+  background-position: 0% calc((var(--atlas-row, 0) + var(--team-row, 0)) * 100% / 7);
+  filter: drop-shadow(1px 2px 0 #1b282f60);
+}
+.tile.enemy .map-idle { --team-row: 4; --facing: -1; }
+.tile.spent .map-idle { filter: saturate(.45); }
+.map-idle[data-unit="infantry"] { --idle-time: 2.4s; }
+.map-idle[data-unit="scout"] { --idle-time: 1.95s; }
+.map-idle[data-unit="support"] { --idle-time: 3.3s; }
+.map-idle[data-unit="tank"] { --idle-time: 3.7s; }
+.map-idle[data-unit="infantry"], .map-stride[data-unit="infantry"] .map-stride-sprite { width: 96%; bottom: 10%; }
 .map-feedback {
   z-index: 3;
   border: 2px solid color-mix(in srgb, var(--flash, #fff0a7) 85%, transparent);
@@ -172,21 +194,27 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
 }
 @media (prefers-reduced-motion: no-preference) {
   .water-surface { animation: river-reflections 1.76s steps(8, end) infinite; }
-  .map-stride { animation: map-step var(--stride-duration) linear both; }
+  .map-idle-ready .tile > .map-idle:not([hidden]) {
+    display: block;
+    animation: unit-frames var(--idle-time, 3s) steps(6, end) var(--idle-delay) infinite;
+  }
+  .map-idle-ready .tile > img { visibility: hidden; }
+  .map-stride { animation: map-step var(--stride-duration) var(--step-easing, linear) both; }
   .map-stride::after { animation: stride-wake var(--stride-duration) ease-out both; }
-  .map-stride-sprite { animation: stride-frames var(--stride-duration) steps(4, end) both; }
+  .map-stride-sprite { animation: unit-frames var(--stride-duration) steps(6, end) both; }
   .map-feedback { animation: map-pulse .75s ease-out both; }
 }
 @media (prefers-reduced-motion: reduce) {
   .map-stride, .map-feedback { display: none; }
   .tile:has(.map-stride) > img { visibility: visible; }
 }
-body:has(#portrait-notice[open], #combat-screen[open]) :is(.water-surface, .map-stride, .map-stride-sprite, .map-feedback),
+body:has(#portrait-notice[open], #combat-screen[open]) :is(.water-surface, .map-idle, .map-stride, .map-stride-sprite, .map-feedback),
+.board[data-map-hidden] .map-idle,
 body:has(#portrait-notice[open], #combat-screen[open]) .map-stride::after { animation-play-state: paused; }
 @keyframes river-reflections { to { background-position-x: 100%; } }
 @keyframes map-step { from { transform: translate(var(--stride-x), var(--stride-y)); } to { transform: none; } }
-@keyframes stride-frames { to { background-position-x: 100%; } }
-@keyframes stride-wake { from { opacity: 0; } 45% { opacity: .92; } to { opacity: 0; transform: translateX(calc(-8px * var(--facing))); } }
+@keyframes unit-frames { to { background-position-x: 100%; } }
+@keyframes stride-wake { from { opacity: 0; } 45% { opacity: .92; } to { opacity: 0; transform: translateX(calc(-1 * var(--wake-distance, 8px) * var(--facing))); } }
 @keyframes map-pulse { from { opacity: .92; transform: scale(.78); } 30% { opacity: .7; } to { opacity: 0; transform: scale(1.09); } }
 .field-dialog {
   width: min(470px, 100% - 24px);

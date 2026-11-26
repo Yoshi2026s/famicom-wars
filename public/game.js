@@ -9,6 +9,12 @@ const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
 const reducedMapMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const mapUnitMotion = {
+  infantry: {row: 0, step: 185},
+  scout: {row: 1, step: 125},
+  support: {row: 2, step: 175},
+  tank: {row: 3, step: 215},
+};
 const rosterEntries = [];
 const enemyRosterEntries = [];
 const ordersActions = document.getElementById('orders-actions');
@@ -348,7 +354,7 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, image, hpBadge, actionBadge, productionBadge, base, factory, city} = cell;
+    const {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city} = cell;
     const terrain = game.terrainAt(x, y);
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
     if (city) button.dataset.city = city.owner;
@@ -392,8 +398,16 @@ function render() {
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
-    image.hidden = !occupied && !enemy;
-    if (occupied || enemy) showImage(image, unitImage((enemy ?? friendly).type, Boolean(enemy)));
+    const unit = enemy ?? friendly;
+    image.hidden = idleSprite.hidden = !unit;
+    if (unit) {
+      showImage(image, unitImage(unit.type, Boolean(enemy)));
+      const {id} = unit.type;
+      if (idleSprite.dataset.unit !== id) {
+        idleSprite.dataset.unit = id;
+        idleSprite.style.setProperty('--atlas-row', mapUnitMotion[id].row);
+      }
+    }
     hpBadge.hidden = !mobileField || image.hidden;
     if (!hpBadge.hidden) hpBadge.textContent = (enemy ?? friendly).hp;
     actionBadge.hidden = !actionInfo?.marker;
@@ -670,6 +684,11 @@ function addTile(x, y) {
   image.alt = '';
   image.draggable = false;
   button.append(image);
+  const idleSprite = document.createElement('span');
+  idleSprite.className = 'map-idle';
+  idleSprite.setAttribute('aria-hidden', 'true');
+  idleSprite.style.setProperty('--idle-delay', `${-(x * 371 + y * 587) % 1600}ms`);
+  button.append(idleSprite);
   const hpBadge = document.createElement('span');
   hpBadge.className = 'map-hp';
   hpBadge.setAttribute('aria-hidden', 'true');
@@ -683,7 +702,7 @@ function addTile(x, y) {
   productionBadge.setAttribute('aria-hidden', 'true');
   productionBadge.textContent = '生産';
   button.append(productionBadge);
-  const cell = {x, y, button, image, hpBadge, actionBadge, productionBadge, base, factory, city};
+  const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city};
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', (event) => {
     if (inputBlocked()) return;
@@ -744,7 +763,7 @@ function highlightFriendlyRoute(path) {
 
 function showStride(unit, from, to, enemy, duration) {
   strideSprite?.remove();
-  if (reducedMapMotion.matches || (from.x === to.x && from.y === to.y)) return;
+  if (!board.classList.contains('map-march-ready') || reducedMapMotion.matches || (from.x === to.x && from.y === to.y)) return;
   const tile = tileAt(to);
   const shell = document.createElement('span');
   const sprite = document.createElement('span');
@@ -752,7 +771,7 @@ function showStride(unit, from, to, enemy, duration) {
   shell.dataset.unit = unit.type.id;
   shell.setAttribute('aria-hidden', 'true');
   sprite.className = 'map-stride-sprite';
-  const atlasRow = ['infantry', 'scout', 'support', 'tank'].indexOf(unit.type.id) + (enemy ? 4 : 0);
+  const atlasRow = mapUnitMotion[unit.type.id].row + (enemy ? 4 : 0);
   shell.style.setProperty('--atlas-row', `${atlasRow / 7 * 100}%`);
   shell.style.setProperty('--stride-x', `${(from.x - to.x) * 100}%`);
   shell.style.setProperty('--stride-y', `${(from.y - to.y) * 100}%`);
@@ -775,7 +794,7 @@ function flashMapTile(position, effect, text = '') {
 }
 
 function animateFriendlyMove(unit, from, path, onComplete) {
-  const duration = unit.type.id === 'infantry' ? 180 : 150;
+  const duration = mapUnitMotion[unit.type.id].step;
   function advance(index, previous) {
     const position = path[index];
     if (!position || reducedMapMotion.matches) {
@@ -940,7 +959,7 @@ function playEnemyAction(action, restoreFocus) {
   const commandDetail = {move: `${destination} へ移動`, capture: `${destination} を占領`,
     attack: friendly ? `${coordinate(friendly.x, friendly.y)} の味方${friendly.name}を攻撃` : '', wait: `${origin} で待機`};
   const steps = commands.flatMap(({id}) => id === 'move'
-    ? [{id, position: from, delay: 260}, ...path.map(position => ({id, position, delay: 145}))]
+    ? [{id, position: from, delay: 260}, ...path.map(position => ({id, position, delay: mapUnitMotion[enemy.type.id].step}))]
     : [{id, position: to, delay: 330}]);
   highlightEnemyRoute(path, to);
 
@@ -1169,6 +1188,14 @@ window.addEventListener('resize', resizeGame);
 compactControls.addEventListener('change', resizeGame);
 portraitMode.onChange(resizeGame);
 showMap();
+for (const atlas of ['map-idle', 'map-march']) {
+  const image = new Image();
+  image.src = `./assets/${atlas}.png?v=map-unit-motion`;
+  image.decode().then(() => board.classList.add(atlas + '-ready')).catch(() => {
+    // Keep the static sprite if the animation could not load.
+  });
+}
+document.addEventListener('visibilitychange', () => board.toggleAttribute('data-map-hidden', document.hidden));
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);
 }
