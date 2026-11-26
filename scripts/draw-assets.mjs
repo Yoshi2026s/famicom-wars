@@ -588,3 +588,39 @@ for (const [x, y, scale] of [[2,13,2],[35,3,2],[62,18,2],[17,40,1],[44,43,1],[67
   duskMountain.sprite(x, y, peak, shale, scale);
 }
 duskMountain.save('volley-cover-mountain.png');
+
+function drawHomeIcon(size) {
+  const icon = new Pixels(size, size);
+  const edge = position => Math.round(position * size / 32);
+  const tile = (x, y, w, h, color) => icon.rect(edge(x), edge(y), edge(x + w) - edge(x), edge(y + h) - edge(y), color);
+  tile(0, 0, 32, 32, '1c2638');
+  tile(0, 0, 32, 9, '252e43');
+  tile(0, 20, 32, 12, '192837');
+  for (const x of [4, 12, 20, 28]) tile(x, 0, 1, 32, '2c3a4b');
+  for (const y of [4, 12, 20, 28]) tile(0, y, 32, 1, '2c3a4b');
+
+  // The flag sits above a stepped river, like a marker on the operations map.
+  for (const [x, y, width] of [[0, 25, 6], [6, 26, 8], [14, 27, 7], [21, 26, 6], [27, 24, 5]]) {
+    tile(x, y, width, 3, '306781');
+    tile(x, y, width, 1, '51a0ae');
+  }
+
+  tile(8, 8, 5, 18, '111a28');
+  tile(10, 8, 2, 16, 'f8d38b');
+  tile(9, 7, 4, 2, 'ffeac0');
+  tile(8, 23, 8, 2, 'ffcf77');
+  tile(8, 25, 8, 1, 'a1693b');
+  tile(12, 8, 7, 10, '141d2b');
+  tile(19, 10, 6, 8, '141d2b');
+  tile(12, 8, 6, 8, 'ffcc72');
+  tile(18, 9, 5, 7, 'ffcc72');
+  tile(23, 10, 2, 4, 'ffcc72');
+  tile(12, 8, 6, 2, 'ffe5a7');
+  tile(18, 9, 5, 1, 'ffe5a7');
+  tile(12, 14, 6, 2, 'e5a853');
+  tile(18, 14, 5, 2, 'e5a853');
+  tile(23, 13, 2, 1, 'e5a853');
+  icon.save(`home-icon-${size}.png`);
+}
+
+for (const size of [180, 192, 512]) drawHomeIcon(size);
