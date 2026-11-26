@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=portrait-factory-recovery">
-    <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=portrait-factory-recovery"></script>
+    <link rel="stylesheet" href="./style.css?v=crossing-tanks">
+    <link rel="stylesheet" href="./combat.css?v=crossing-tanks">
+    <script defer src="./rules.js?v=crossing-tanks"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=portrait-factory-recovery"></script>
     <script defer src="./orientation.js?v=portrait-factory-recovery"></script>
-    <script defer src="./combat.js?v=portrait-factory-recovery"></script>
-    <script defer src="./game.js?v=portrait-factory-recovery"></script>
+    <script defer src="./combat.js?v=crossing-tanks"></script>
+    <script defer src="./game.js?v=crossing-tanks"></script>
   </head>
   <body>
     <header class="masthead">
@@ -77,6 +77,7 @@
             <div class="portrait" aria-hidden="true"><img id="unit-portrait" src="./assets/infantry.png?v=graphics-bgm" alt=""></div>
             <div class="unit-details">
               <h3 id="unit-name">歩兵</h3>
+              <p class="unit-trait" id="unit-trait" hidden>攻撃と反撃の基礎ダメージ +1</p>
               <dl><div><dt>現在地</dt><dd id="position">C3</dd></div><div><dt>地形</dt><dd id="unit-terrain">草原</dd></div><div><dt>移動力</dt><dd><b id="unit-movement">2</b></dd></div><div><dt>射程</dt><dd><b id="unit-range">1</b><span> マス</span></dd></div></dl>
             </div>
           </section>
@@ -97,6 +98,7 @@
                 <button type="button" data-produce="infantry" aria-disabled="true">歩兵を生産<small></small></button>
                 <button type="button" data-produce="scout" aria-disabled="true">偵察車を生産<small></small></button>
                 <button type="button" data-produce="support" aria-disabled="true">支援車を生産<small></small></button>
+                <button type="button" data-produce="tank" aria-disabled="true">戦車を生産<small></small></button>
               </div>
             </section>
             <button id="end" class="end" type="button">ターン終了 <span aria-hidden="true">→</span></button>

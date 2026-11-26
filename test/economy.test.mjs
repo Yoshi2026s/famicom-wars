@@ -49,7 +49,7 @@ test('敵歩兵が都市を奪うと次のターンの収入が移り、既存�
 });
 
 test('部隊の種類ごとに費用が異なり、資金不足の操作は資金や部隊に影響しない', () => {
-  for (const [type, cost] of [['infantry', 1000], ['scout', 2500], ['support', 3000]]) {
+  for (const [type, cost] of [['infantry', 1000], ['scout', 2500], ['support', 3000], ['tank', 4000]]) {
     const game = new TrainingMap('crossing');
     const factory = game.factoryAt(1, 5);
     assert.equal(game.productionCost(type), cost);

@@ -14,18 +14,20 @@ const battleTerrain = [
   'pffpp',
 ];
 const crossingTerrain = [
-  'pfmffrfmfp',
-  'ppfppbffpp',
-  'fppsrrpfmp',
-  'mfpsrpsspp',
-  'pppsrppfpp',
-  'fpspbppfmp',
-  'ppfsrsppfp',
-  'fppprsfppp',
+  'pfmffrfmfpfppf',
+  'ppfppbffppppmp',
+  'fppsrrpfmppffp',
+  'mfpsrpssppmppp',
+  'pppsrppfpppfsp',
+  'fpspbppfmppfpp',
+  'ppfsrsppfpppff',
+  'fppprsfpppfppp',
+  'fpmpbpspfmpspp',
+  'ppffrppfppfppm',
 ];
 const crossingHeadquarters = Object.freeze({
   friendly: Object.freeze({x: 0, y: 6}),
-  enemy: Object.freeze({x: 9, y: 5}),
+  enemy: Object.freeze({x: 13, y: 7}),
 });
 const startingFunds = 4500;
 const cityIncome = 1000;
@@ -33,7 +35,8 @@ const facilityRecovery = 2;
 const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1, cost: 1000});
 const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1, cost: 2500});
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3, cost: 3000});
-const productionTypes = [infantry, scout, support];
+const tank = Object.freeze({id: 'tank', name: '戦車', movement: 3, minRange: 1, maxRange: 1, cost: 4000, attackBonus: 1});
+const productionTypes = [infantry, scout, support, tank];
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function distanceBetween(from, to) {
@@ -419,10 +422,11 @@ class TrainingMap {
 
   #strike(attacker, friendly, enemy) {
     const playerAttacks = attacker === 'player';
-    const attackingHP = playerAttacks ? friendly.hp : enemy.hp;
+    const attackingUnit = playerAttacks ? friendly : enemy;
     const defender = playerAttacks ? enemy : friendly;
     const terrain = this.terrainAt(defender.x, defender.y);
-    const strength = attackingHP >= 8 ? 3 : attackingHP >= 4 ? 2 : 1;
+    const baseStrength = attackingUnit.hp >= 8 ? 3 : attackingUnit.hp >= 4 ? 2 : 1;
+    const strength = baseStrength + (attackingUnit.type.attackBonus ?? 0);
     const protectedDamage = Math.max(1, strength - terrain.defense);
     const damage = Math.min(protectedDamage, defender.hp);
     defender.hp -= damage;
