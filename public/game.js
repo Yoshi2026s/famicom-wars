@@ -8,6 +8,7 @@ const mapNumbers = document.getElementById('map-numbers');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
+const reducedMapMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const rosterEntries = [];
 const enemyRosterEntries = [];
 const ordersActions = document.getElementById('orders-actions');
@@ -46,7 +47,7 @@ const ownerNames = {friendly: '味方', enemy: '敵', neutral: '中立'};
 const unitActions = {
   ready: {label: '移動可能'}, spent: {label: '行動済み', marker: '済'},
   attack: {label: '攻撃可能', marker: '攻可'}, deployed: {label: '次のターンから', marker: '次'},
-  acting: {label: '行動中', marker: '動'}, defeated: {label: '撃破'}, ended: {label: '対戦終了'},
+  acting: {label: '行動中', marker: '動'}, moving: {label: '移動中', marker: '動'}, defeated: {label: '撃破'}, ended: {label: '対戦終了'},
 };
 const main = document.querySelector('main');
 const saveStatus = document.getElementById('crossing-save-status');
@@ -82,7 +83,10 @@ const fieldSections = [
   return {content, placeholder, target: document.getElementById(targetId)};
 });
 let mobileField = false;
+let movingFriendly = null;
 let movingEnemy = null;
+let markedFriendlyTiles = [];
+let strideSprite;
 let markedEnemyTiles = [];
 let enemyPositionInView = null;
 let playerScrollTop = null;
@@ -121,9 +125,9 @@ function tileAt({x, y}) {
 }
 
 function unitImage(type, enemy = false) {
-  if (enemy && type.id !== 'support') return `./assets/enemy-${type.id}.png`;
+  if (enemy && type.id !== 'support') return `./assets/enemy-${type.id}.png?v=river-motion`;
   const sprite = !enemy && type.id === 'support' ? 'friendly-support' : type.id;
-  return `./assets/${sprite}.png`;
+  return `./assets/${sprite}.png?v=river-motion`;
 }
 
 function showImage(image, source) {
@@ -135,7 +139,7 @@ function waitingForEnemy() {
 }
 
 function inputBlocked() {
-  return portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(game.result);
+  return portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(movingFriendly || game.result);
 }
 
 function extendRoster(container, entries, units, interactive) {
@@ -182,6 +186,7 @@ function nextFriendlyUnit() {
 
 function friendlyAction(unit) {
   if (!unit.hp) return 'defeated';
+  if (movingFriendly?.unit === unit) return 'moving';
   if (game.result) return 'ended';
   if (unit.readyTurn > game.turn) return 'deployed';
   if (unit.attacked) return 'spent';
@@ -191,7 +196,7 @@ function friendlyAction(unit) {
 
 function renderTurn(waiting) {
   const round = String(game.turn).padStart(2, '0');
-  const side = game.result ? 'ended' : waiting ? 'enemy' : 'friendly';
+  const side = game.result && !movingFriendly ? 'ended' : waiting ? 'enemy' : 'friendly';
   const label = {friendly: '味方の手番', enemy: '敵の手番', ended: '対戦終了'}[side];
   turnIndicator.dataset.side = side;
   if (turnNumber.textContent !== round) turnNumber.textContent = round;
@@ -241,8 +246,9 @@ function renderProduction() {
   document.getElementById('production-funds').textContent = currency.format(game.funds.friendly);
   for (const button of productionButtons) {
     const affordable = game.funds.friendly >= game.productionCost(button.dataset.produce);
-    button.hidden = Boolean(mapFactory) && (status !== 'ready' || !affordable);
-    button.setAttribute('aria-disabled', String(status !== 'ready' || !affordable));
+    const canBuy = status === 'ready' && affordable && !movingFriendly;
+    button.hidden = Boolean(mapFactory) && !canBuy;
+    button.setAttribute('aria-disabled', String(!canBuy));
   }
 }
 
@@ -297,6 +303,8 @@ function renderEconomy() {
 
 function render() {
   const waiting = waitingForEnemy();
+  const result = movingFriendly ? null : game.result;
+  const ordersLocked = waiting || Boolean(movingFriendly);
   const spent = !game.canMove && !game.canAttack;
   const lost = game.result === 'defeat';
   const friendlyName = '味方' + game.activeUnit.name;
@@ -321,11 +329,12 @@ function render() {
     const action = friendlyAction(unit);
     const label = unitActions[action].label;
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
-    state.textContent = mobileField && unit.hp ? `${coordinate(unit.x, unit.y)} · ${label}` : label;
+    const {x, y} = movingFriendly?.unit === unit ? movingFriendly.position : unit;
+    state.textContent = mobileField && unit.hp ? `${coordinate(x, y)} · ${label}` : label;
     card.dataset.action = action;
     card.disabled = !unit.hp || Boolean(game.result);
     card.classList.toggle('defeated', !unit.hp);
-    card.setAttribute('aria-disabled', String(waiting || card.disabled));
+    card.setAttribute('aria-disabled', String(ordersLocked || card.disabled));
     card.setAttribute('aria-pressed', String(unit === game.activeUnit));
   }
   for (const {unit, card, hp, state} of enemyRosterEntries) {
@@ -341,11 +350,12 @@ function render() {
   for (const cell of cells) {
     const {x, y, button, image, hpBadge, actionBadge, productionBadge, base, factory, city} = cell;
     const terrain = game.terrainAt(x, y);
-    button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
     if (city) button.dataset.city = city.owner;
     if (factory) button.dataset.factory = factory.owner;
-    const friendly = game.friendlyAt(x, y);
+    let friendly = game.friendlyAt(x, y);
+    if (movingFriendly && movingFriendly.position.x === x && movingFriendly.position.y === y) friendly = movingFriendly.unit;
+    else if (movingFriendly && friendly === movingFriendly.unit) friendly = undefined;
     const occupied = Boolean(friendly);
     const active = friendly === game.activeUnit;
     let enemy = game.enemyAt(x, y);
@@ -353,12 +363,12 @@ function render() {
     else if (movingEnemy && enemy === movingEnemy.unit) enemy = undefined;
     const action = friendly ? friendlyAction(friendly) : enemy ? enemyAction(enemy) : '';
     const actionInfo = unitActions[action];
-    const target = !waiting && enemy && game.canUnitAttack(game.activeUnit, enemy);
+    const target = !ordersLocked && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
     const facility = factory ?? city;
     const captureTarget = reachable && game.playerUnit.id === 'infantry'
       && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly'));
-    const productionReady = factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
+    const productionReady = !ordersLocked && factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
     productionBadge.hidden = !productionReady;
     button.classList.toggle('action-pending', pendingAction?.cell === cell);
     if (productionReady || reachable || target) button.setAttribute('aria-haspopup', 'dialog');
@@ -398,23 +408,27 @@ function render() {
   document.getElementById('unit-range').textContent = minRange === maxRange ? maxRange : `${minRange}〜${maxRange}`;
   document.getElementById('unit-trait').hidden = !attackBonus;
   showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
-  const position = coordinate(game.x, game.y);
+  const shownPosition = movingFriendly?.position ?? game.activeUnit;
+  const position = coordinate(shownPosition.x, shownPosition.y);
   document.getElementById('position').textContent = game.playerHP ? position : '—';
   document.getElementById('unit-terrain').textContent = game.playerHP ? game.terrainAt(game.x, game.y).name : '—';
   renderTurn(waiting);
   const state = document.getElementById('state');
   const message = document.getElementById('message');
   state.classList.toggle('spent', spent);
-  state.classList.toggle('attack-ready', !waiting && game.canAttack);
-  endTurn.setAttribute('aria-disabled', String(waiting));
-  productionLaunch.setAttribute('aria-disabled', String(waiting));
-  document.getElementById('help').setAttribute('aria-disabled', String(Boolean(game.enemyTurn)));
-  ordersActions.hidden = Boolean(game.result) && !mobileField;
-  endTurn.hidden = Boolean(game.result);
-  productionLaunch.hidden = !canOpenProductionDialog || Boolean(game.result);
-  replay.hidden = !game.result;
+  state.classList.toggle('attack-ready', !ordersLocked && game.canAttack);
+  endTurn.setAttribute('aria-disabled', String(ordersLocked));
+  productionLaunch.setAttribute('aria-disabled', String(ordersLocked));
+  document.getElementById('help').setAttribute('aria-disabled', String(ordersLocked));
+  ordersActions.hidden = Boolean(result) && !mobileField;
+  endTurn.hidden = Boolean(result);
+  productionLaunch.hidden = !canOpenProductionDialog || Boolean(result);
+  replay.hidden = !result;
   renderBattleStatus();
-  if (game.result) {
+  if (movingFriendly) {
+    state.textContent = '移動中';
+    message.textContent = `${friendlyName}が移動中です。`;
+  } else if (result) {
     state.textContent = lost ? '敗北' : '勝利';
     if (game.capturedBy) {
       const base = game.headquarters[lost ? 'friendly' : 'enemy'];
@@ -464,8 +478,8 @@ function render() {
     if (game.result) summary = state.textContent;
     if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
     fieldFunds.textContent = currency.format(game.funds.friendly);
-    for (const button of fieldButtons) button.setAttribute('aria-disabled', String(waiting));
-    fieldNextUnit.setAttribute('aria-disabled', String(waiting || Boolean(game.result) || !nextFriendlyUnit()));
+    for (const button of fieldButtons) button.setAttribute('aria-disabled', String(ordersLocked));
+    fieldNextUnit.setAttribute('aria-disabled', String(ordersLocked || Boolean(result) || !nextFriendlyUnit()));
   }
 }
 
@@ -493,6 +507,7 @@ function showMap() {
   turnChangeTimer = undefined;
   turnChange.hidden = true;
   pendingAction = undefined;
+  highlightFriendlyRoute([]);
   productionOrigin = undefined;
   if (actionDialog.open) actionDialog.close();
   if (productionDialog.open) productionDialog.close();
@@ -645,6 +660,9 @@ function addTile(x, y) {
   const base = game.headquartersAt(x, y);
   const factory = game.factoryAt(x, y);
   const city = game.cityAt(x, y);
+  const terrain = game.terrainAt(x, y).id;
+  button.dataset.terrain = terrain;
+  if (terrain === 'river' || terrain === 'bridge') drawWater(button, x, y);
   if (base) button.dataset.base = base;
   button.classList.toggle('last-column', x === game.width - 1);
   button.classList.toggle('last-row', y === game.height - 1);
@@ -699,11 +717,89 @@ function repeatedTap(event, opener) {
     && Math.hypot(event.clientX - opener.clientX, event.clientY - opener.clientY) < 24;
 }
 
+function drawWater(tile, x, y) {
+  const directions = [[0,-1], [1,0], [0,1], [-1,0]];
+  let bank = 0;
+  for (const [index, [dx, dy]] of directions.entries()) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx < 0 || nx >= game.width || ny < 0 || ny >= game.height) continue;
+    const id = game.terrainAt(nx, ny).id;
+    if (id === 'river' || id === 'bridge') bank |= 1 << index;
+  }
+  if (y === 0 && (bank & 4)) bank |= 1;
+  if (y === game.height - 1 && (bank & 1)) bank |= 4;
+  const surface = document.createElement('span');
+  surface.className = 'water-surface';
+  surface.setAttribute('aria-hidden', 'true');
+  surface.style.setProperty('--shore-row', `${bank / 15 * 100}%`);
+  tile.append(surface);
+}
+
+function highlightFriendlyRoute(path) {
+  for (const tile of markedFriendlyTiles) tile.classList.remove('friendly-route');
+  markedFriendlyTiles = path.map(tileAt);
+  for (const tile of markedFriendlyTiles) tile.classList.add('friendly-route');
+}
+
+function showStride(unit, from, to, enemy, duration) {
+  strideSprite?.remove();
+  if (reducedMapMotion.matches || (from.x === to.x && from.y === to.y)) return;
+  const tile = tileAt(to);
+  const shell = document.createElement('span');
+  const sprite = document.createElement('span');
+  shell.className = 'map-stride';
+  shell.dataset.unit = unit.type.id;
+  shell.setAttribute('aria-hidden', 'true');
+  sprite.className = 'map-stride-sprite';
+  const atlasRow = ['infantry', 'scout', 'support', 'tank'].indexOf(unit.type.id) + (enemy ? 4 : 0);
+  shell.style.setProperty('--atlas-row', `${atlasRow / 7 * 100}%`);
+  shell.style.setProperty('--stride-x', `${(from.x - to.x) * 100}%`);
+  shell.style.setProperty('--stride-y', `${(from.y - to.y) * 100}%`);
+  shell.style.setProperty('--stride-duration', `${duration}ms`);
+  shell.style.setProperty('--facing', from.x > to.x || (from.x === to.x && enemy) ? '-1' : '1');
+  shell.append(sprite);
+  tile.append(shell);
+  strideSprite = shell;
+}
+
+function flashMapTile(position, effect, text = '') {
+  if (reducedMapMotion.matches) return;
+  const marker = document.createElement('span');
+  marker.className = 'map-feedback';
+  marker.dataset.effect = effect;
+  marker.setAttribute('aria-hidden', 'true');
+  marker.textContent = text;
+  tileAt(position).append(marker);
+  portraitMode.schedule(() => marker.remove(), 780);
+}
+
+function animateFriendlyMove(unit, from, path, onComplete) {
+  const duration = unit.type.id === 'infantry' ? 180 : 150;
+  function advance(index, previous) {
+    const position = path[index];
+    if (!position || reducedMapMotion.matches) {
+      strideSprite?.remove();
+      movingFriendly = null;
+      highlightFriendlyRoute([]);
+      onComplete();
+      return;
+    }
+    movingFriendly = {unit, position};
+    render();
+    revealTile(tileAt(position));
+    showStride(unit, previous, position, false, duration);
+    portraitMode.schedule(() => advance(index + 1, position), duration);
+  }
+  advance(0, from);
+}
+
 function previewAction(cell, opener) {
   const {x, y, base, factory, city} = cell;
   const unit = game.activeUnit;
   const enemy = game.enemyAt(x, y);
   const strikes = game.previewAttack(enemy);
+  let path = [];
   const destination = coordinate(x, y);
   let verb;
   if (strikes.length) {
@@ -715,6 +811,7 @@ function previewAction(cell, opener) {
   } else {
     const route = game.movementTargets().get(`${x},${y}`);
     if (!route) return false;
+    path = routeSteps(route);
     const site = factory ?? city;
     let capture = '';
     if (unit.type.id === 'infantry') {
@@ -728,6 +825,7 @@ function previewAction(cell, opener) {
   actionTitle.textContent = `${verb}を確認`;
   actionConfirm.textContent = `${verb}する`;
   pendingAction = {cell, unit, enemy: strikes.length ? enemy : null, opener};
+  highlightFriendlyRoute(path);
   cell.button.classList.add('action-pending');
   actionDialog.showModal();
   return true;
@@ -737,9 +835,10 @@ actionConfirm.addEventListener('click', (event) => {
   if (!pendingAction || inputBlocked() || repeatedTap(event, pendingAction.opener)) return;
   const {cell, unit, enemy} = pendingAction;
   const {x, y, factory} = cell;
+  const route = enemy ? null : game.movementTargets().get(`${x},${y}`);
   if (unit !== game.activeUnit || (enemy
     ? enemy !== game.enemyAt(x, y) || !game.canUnitAttack(unit, enemy)
-    : !game.canMoveTo(x, y))) {
+    : !route)) {
     actionDialog.close();
     return;
   }
@@ -751,16 +850,23 @@ actionConfirm.addEventListener('click', (event) => {
     return;
   }
   const capturedFactory = factory?.owner === 'enemy';
+  const previousCapture = game.friendlyCapture;
+  const from = {x: unit.x, y: unit.y};
   game.choose(x, y);
   if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
   saveProgress();
-  restoreBoardFocus();
+  const captured = game.capturedBy === 'friendly' || game.friendlyCapture !== previousCapture;
+  animateFriendlyMove(unit, from, routeSteps(route), () => {
+    restoreBoardFocus();
+    if (captured) flashMapTile(cell, 'capture');
+  });
 });
 
 actionDialog.addEventListener('close', () => {
   if (actionDialog.open || !pendingAction) return;
   const {button} = pendingAction.cell;
   pendingAction = undefined;
+  highlightFriendlyRoute([]);
   button.classList.remove('action-pending');
   button.focus({preventScroll: true});
 });
@@ -838,16 +944,18 @@ function playEnemyAction(action, restoreFocus) {
     : [{id, position: to, delay: 330}]);
   highlightEnemyRoute(path, to);
 
-  function advance(index) {
+  function advance(index, previous = from) {
     const step = steps[index];
     if (step) {
       movingEnemy = {unit: enemy, position: step.position};
       showEnemyChoice(step.id, step.id, commandDetail[step.id]);
       render();
       followEnemy(step.position);
-      portraitMode.schedule(() => advance(index + 1), step.delay);
+      showStride(enemy, previous, step.position, true, step.delay);
+      portraitMode.schedule(() => advance(index + 1, step.position), step.delay);
       return;
     }
+    strideSprite?.remove();
     movingEnemy = null;
     highlightEnemyRoute([]);
     if (friendly) {
@@ -857,6 +965,8 @@ function playEnemyAction(action, restoreFocus) {
     }
     game.resolveEnemyAction(action);
     saveProgress();
+    const resolved = game.enemyActions.at(-1);
+    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured) flashMapTile(to, 'capture');
     runEnemyTurn(restoreFocus);
   }
   advance(0);
@@ -882,6 +992,7 @@ function playEnemyProduction(order, restoreFocus) {
       showEnemyChoice('deploy', type.id, `${unit.name}が出撃`);
       render();
       tileAt(factory).classList.add('enemy-spawned');
+      flashMapTile(factory, 'deploy');
       portraitMode.schedule(() => runEnemyTurn(restoreFocus), 520);
     }, 390);
   }, 280);
@@ -908,7 +1019,13 @@ function runEnemyTurn(restoreFocus = true) {
   if (playerScrollTop !== null) window.scrollTo(0, playerScrollTop);
   playerScrollTop = null;
   restoreBoardFocus(restoreFocus);
-  if (!game.result) announceTurn('friendly');
+  if (!game.result) announceTurn('friendly', () => {
+    for (const {side, unit, amount} of game.facilityHealing) {
+      const units = side === 'friendly' ? game.friendlyUnits : game.enemyUnits;
+      const healed = units.find(candidate => candidate.name === unit);
+      if (healed) flashMapTile(healed, 'heal', `+${amount} HP`);
+    }
+  });
 }
 
 function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPosition = enemy, resolve, onReturn = restoreBoardFocus}) {
@@ -939,15 +1056,18 @@ endTurn.addEventListener('keydown', (event) => {
 });
 for (const button of productionButtons) {
   button.addEventListener('click', event => {
-    if (inputBlocked() || repeatedTap(event, productionOrigin?.event) || !game.produce(button.dataset.produce, selectedFactory)) return;
+    if (inputBlocked() || repeatedTap(event, productionOrigin?.event)) return;
+    const unit = game.produce(button.dataset.produce, selectedFactory);
+    if (!unit) return;
     saveProgress();
     render();
+    flashMapTile(unit, 'deploy');
   });
 }
 for (const [index, button] of fieldButtons.entries()) {
   const dialog = fieldDialogs[index];
   button.addEventListener('click', () => {
-    if (!mobileField || portraitMode.blocked || waitingForEnemy() || combatScreen.active || dialog.open) return;
+    if (!mobileField || portraitMode.blocked || waitingForEnemy() || movingFriendly || combatScreen.active || dialog.open) return;
     if (dialog === fieldOverview) drawOverview();
     dialog.showModal();
     if (dialog === fieldOverview) updateOverviewWindow();
@@ -1020,7 +1140,7 @@ function positionProductionControls(opening = false) {
   }
 }
 document.getElementById('help').addEventListener('click', () => {
-  if (!portraitMode.blocked && !game.enemyTurn) document.getElementById('guide').showModal();
+  if (!portraitMode.blocked && !game.enemyTurn && !movingFriendly) document.getElementById('guide').showModal();
 });
 replay.addEventListener('click', () => {
   if (portraitMode.blocked || combatScreen.active || game.enemyTurn || !game.result) return;
@@ -1041,6 +1161,7 @@ function resizeGame() {
     }
   }
   if (enemyPositionInView && !portraitMode.blocked && !combatScreen.active) followEnemy(enemyPositionInView);
+  if (movingFriendly && !portraitMode.blocked) revealTile(tileAt(movingFriendly.position));
   updateMapScrollNote();
   updateOverviewWindow();
 }
