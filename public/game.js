@@ -1,5 +1,8 @@
 const missionTitles = {training: 'はじまりの草原', battle: '草原の遭遇戦', crossing: '水辺の攻防'};
+const crossingSave = createCrossingSave(() => window.localStorage);
 const missions = Object.fromEntries(Object.keys(missionTitles).map(mode => [mode, new TrainingMap(mode)]));
+missions.crossing = crossingSave.load(TrainingMap.fromCrossingSnapshot) ?? missions.crossing;
+let resumeEnemyTurn = Boolean(missions.crossing.enemyTurn);
 let game = missions.training;
 const pendingEnemyTurns = new Set();
 const board = document.getElementById('board');
@@ -30,6 +33,7 @@ const cityEntries = [];
 const currency = new Intl.NumberFormat('ja-JP');
 const ownerNames = {friendly: '味方', enemy: '敵', neutral: '中立'};
 const main = document.querySelector('main');
+const saveStatus = document.getElementById('crossing-save-status');
 const replay = document.getElementById('replay');
 const fieldTools = document.getElementById('field-tools');
 const fieldNextUnit = document.getElementById('field-next-unit');
@@ -59,6 +63,25 @@ const fieldSections = [
   return {content, placeholder, target: document.getElementById(targetId)};
 });
 let mobileField = false;
+
+function renderSaveStatus() {
+  saveStatus.hidden = !game.isCrossing;
+  if (saveStatus.hidden) return;
+  const messages = {
+    ready: '自動保存', saved: '自動保存済み', restored: '続きから再開',
+    unreadable: '保存データを読み込めません。', unavailable: '進行を保存できません。',
+    'changed-elsewhere': '別のタブで進行が更新されました。開き直してください。',
+  };
+  const text = messages[crossingSave.status];
+  if (saveStatus.textContent !== text) saveStatus.textContent = text;
+  saveStatus.toggleAttribute('data-error', !['ready', 'saved', 'restored'].includes(crossingSave.status));
+}
+
+function saveCrossing(acting) {
+  if (acting !== missions.crossing) return;
+  crossingSave.write(acting.crossingSnapshot());
+  if (acting === game) renderSaveStatus();
+}
 
 function columnName(x) {
   return String.fromCharCode(65 + x);
@@ -110,6 +133,7 @@ function extendRoster(container, entries, units, interactive) {
 function selectFriendlyUnit(unit) {
   if (inputBlocked() || !unit.hp) return;
   if (!mobileField || game.activeUnit !== unit || !game.selected) game.choose(unit.x, unit.y);
+  saveCrossing(game);
   const tile = friendlyTile();
   setBoardTabStop(tile);
   if (fieldRoster.open) {
@@ -424,6 +448,7 @@ function showMission() {
   const hash = location.hash.slice(1);
   const mode = Object.hasOwn(missions, hash) ? hash : 'training';
   game = missions[mode];
+  renderSaveStatus();
   setMobileFieldLayout();
   music.setScene('map');
   const title = missionTitles[mode];
@@ -481,6 +506,10 @@ function showMission() {
   mapSurround.scrollLeft = 0;
   mapSurround.scrollTop = 0;
   revealTile(friendlyTile(), mobileField);
+  if (game.isCrossing && resumeEnemyTurn) {
+    resumeEnemyTurn = false;
+    runEnemyTurn(game, false);
+  }
 }
 
 function revealTile(button, center = false) {
@@ -627,6 +656,7 @@ function addTile(x, y) {
     }
     const capturedFactory = factory?.owner === 'enemy';
     game.choose(x, y);
+    saveCrossing(game);
     if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
     if (game.capturedBy) restoreBoardFocus(game, 'player', true);
     else render();
@@ -653,7 +683,10 @@ endTurn.addEventListener('click', (event) => {
   if (inputBlocked()) return;
   const ending = game;
   if (ending.isCrossing) {
-    if (event.detail <= 1 && ending.beginEnemyTurn()) runEnemyTurn(ending);
+    if (event.detail <= 1 && ending.beginEnemyTurn()) {
+      saveCrossing(ending);
+      runEnemyTurn(ending);
+    }
     return;
   }
   if (!ending.isBattle) {
@@ -678,6 +711,7 @@ function runEnemyTurn(acting, restoreFocus = true) {
   const action = acting.prepareEnemyAction();
   if (!action) {
     acting.finishEnemyTurn();
+    saveCrossing(acting);
     if (game === acting) restoreBoardFocus(acting, 'enemy', restoreFocus);
     return;
   }
@@ -691,6 +725,7 @@ function runEnemyTurn(acting, restoreFocus = true) {
       });
     } else {
       acting.resolveEnemyAction(action);
+      saveCrossing(acting);
       runEnemyTurn(acting, restoreFocus);
     }
   }, 280);
@@ -698,7 +733,12 @@ function runEnemyTurn(acting, restoreFocus = true) {
 
 function presentAttack(acting, {attacker, friendly = acting.activeUnit, enemy, enemyPosition = enemy, resolve, onReturn}) {
   combatScreen.open({
-    map: acting, attacker, friendly, enemy, enemyPosition, resolve,
+    map: acting, attacker, friendly, enemy, enemyPosition, resolveOnOpen: acting.isCrossing,
+    resolve: () => {
+      const strikes = resolve();
+      saveCrossing(acting);
+      return strikes;
+    },
     onReturn: onReturn ?? (restoreFocus => {
       if (game === acting) restoreBoardFocus(acting, attacker, restoreFocus);
     }),
@@ -730,7 +770,9 @@ endTurn.addEventListener('keydown', (event) => {
 });
 for (const button of productionButtons) {
   button.addEventListener('click', () => {
-    if (!inputBlocked() && game.produce(button.dataset.produce, selectedFactory)) render();
+    if (inputBlocked() || !game.produce(button.dataset.produce, selectedFactory)) return;
+    saveCrossing(game);
+    render();
   });
 }
 for (const [index, button] of fieldButtons.entries()) {
@@ -788,7 +830,9 @@ document.getElementById('help').addEventListener('click', () => {
 });
 document.getElementById('replay').addEventListener('click', () => {
   if (portraitMode.blocked) return;
-  missions[game.mode] = new TrainingMap(game.mode);
+  const started = new TrainingMap(game.mode);
+  missions[game.mode] = started;
+  saveCrossing(started);
   showMission();
   friendlyTile().focus();
 });

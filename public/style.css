@@ -29,6 +29,8 @@ button:focus-visible { outline: 3px solid #0061b6; outline-offset: 2px; }
 main { padding: 30px 0 max(34px, env(safe-area-inset-bottom)); }
 .intro, .panel-heading, .map-bar { display: flex; align-items: center; justify-content: space-between; }
 .intro { margin-bottom: 20px; gap: 12px; }
+.crossing-save-status { margin-top: 2px; color: #335343; font-size: 12px; font-weight: 750; }
+.crossing-save-status[data-error] { color: #803622; }
 .mission-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .sound-controls { display: flex; flex-wrap: wrap; gap: 6px; }
 .missions { display: inline-flex; gap: 2px; background: #e4e8d7; border: 1px solid #a5b199; border-radius: 6px; padding: 2px; }
