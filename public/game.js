@@ -274,14 +274,12 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, terrainLabel, image, hpBadge, base, factory, city} = cell;
+    const {x, y, button, image, hpBadge, base, factory, city} = cell;
     const terrain = game.terrainAt(x, y);
     button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
     if (city) button.dataset.city = city.owner;
     if (factory) button.dataset.factory = factory.owner;
-    terrainLabel.textContent = captured ? '占領済' : base ? '本拠地' : factory ? '工場' : city ? '都市' : terrain.name;
-    terrainLabel.hidden = !base && !factory && !city && terrain.id === 'plains';
     const friendly = game.friendlyAt(x, y);
     const occupied = Boolean(friendly);
     const active = friendly === game.activeUnit;
@@ -632,13 +630,10 @@ function addTile(x, y) {
   if (base) button.dataset.base = base;
   button.classList.toggle('last-column', x === game.width - 1);
   button.classList.toggle('last-row', y === game.height - 1);
-  const terrainLabel = document.createElement('span');
-  terrainLabel.className = 'terrain-label';
-  terrainLabel.setAttribute('aria-hidden', 'true');
   const image = document.createElement('img');
   image.alt = '';
   image.draggable = false;
-  button.append(terrainLabel, image);
+  button.append(image);
   const hpBadge = game.isCrossing ? document.createElement('span') : null;
   if (hpBadge) {
     hpBadge.className = 'map-hp';
@@ -675,7 +670,7 @@ function addTile(x, y) {
       revealTile(next);
     } else next.focus();
   });
-  cells.push({x, y, button, terrainLabel, image, hpBadge, base, factory, city});
+  cells.push({x, y, button, image, hpBadge, base, factory, city});
   board.append(button);
 }
 
