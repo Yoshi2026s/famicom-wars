@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {test} from 'node:test';
+import {runInNewContext} from 'node:vm';
+
+const script = readFileSync(new URL('../public/music.js', import.meta.url), 'utf8');
+
+function audioPage(savedPreference) {
+  const events = new Map();
+  const settings = new Map([['famicom-wars-bgm', savedPreference]]);
+  const button = {label: {},
+    addEventListener: (type, fn) => events.set('button:' + type, fn),
+    setAttribute() {},
+    querySelector() { return this.label; },
+  };
+  const player = {
+    paused: true, ended: false, currentTime: 0,
+    play() { this.paused = false; return Promise.resolve(); },
+    pause() { this.paused = true; },
+  };
+  const document = {
+    hidden: false,
+    getElementById: () => player,
+    querySelectorAll: () => [button],
+    addEventListener: (type, fn) => events.set(type, fn),
+  };
+  const music = runInNewContext(script + '\nmusic', {
+    document, location: {protocol: 'file:'},
+    window: {addEventListener: (type, fn) => events.set(type, fn)},
+    localStorage: {getItem: key => settings.get(key), setItem: (key, value) => settings.set(key, value)},
+  });
+  return {
+    music, player, button, settings,
+    unlock() { events.get('click')({isTrusted: true, target: {closest: () => null}}); },
+    toggle() { events.get('button:click')(); },
+    setHidden(hidden) { document.hidden = hidden; events.get('visibilitychange')(); },
+    track() { return player.src?.match(/\/bgm-([\w-]+)\.mp3/)[1]; },
+  };
+}
+
+test('手番を切り替えると陣営のBGMが冒頭から流れ、戦闘後は同じ手番の位置に戻る', () => {
+  const page = audioPage();
+  const {music, player, button} = page;
+  assert.equal(button.label.textContent, 'ON');
+  assert.equal(page.track(), undefined);
+  page.unlock();
+  assert.equal(page.track(), 'map');
+  player.currentTime = 11;
+  music.setScene('battle');
+  assert.equal(page.track(), 'battle');
+  assert.equal(player.loop, true);
+  music.setScene('map');
+  assert.equal(page.track(), 'map');
+  assert.equal(player.currentTime, 11);
+
+  music.setTurn('enemy');
+  assert.equal(page.track(), 'enemy-map');
+  assert.equal(player.currentTime, 0);
+  player.currentTime = 3.5;
+  music.setScene('battle');
+  assert.equal(page.track(), 'enemy-battle');
+  music.setScene('map');
+  assert.equal(page.track(), 'enemy-map');
+  assert.equal(player.currentTime, 3.5);
+  music.setTurn('friendly');
+  assert.equal(page.track(), 'map');
+  assert.equal(player.currentTime, 0);
+});
+
+test('敵手番の再開、BGMオフの保持、画面復帰と勝敗曲が現在の場面に追従する', () => {
+  const page = audioPage('off');
+  const {music, player, button, settings} = page;
+  music.setTurn('enemy');
+  page.unlock();
+  assert.equal(page.track(), undefined);
+  assert.equal(button.label.textContent, 'OFF');
+  page.toggle();
+  assert.equal(page.track(), 'enemy-map');
+  assert.equal(settings.get('famicom-wars-bgm'), 'on');
+  page.setHidden(true);
+  assert.equal(player.paused, true);
+  music.setOrientationBlocked(true);
+  music.setScene('battle');
+  page.setHidden(false);
+  assert.equal(player.paused, true);
+  music.setOrientationBlocked(false);
+  assert.equal(page.track(), 'enemy-battle');
+  assert.equal(player.paused, false);
+  for (const result of ['defeat', 'victory']) {
+    music.setScene(result);
+    assert.equal(page.track(), result);
+    assert.equal(player.loop, false);
+  }
+});
