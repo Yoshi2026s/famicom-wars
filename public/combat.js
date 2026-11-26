@@ -103,7 +103,6 @@ const combatScreen = (() => {
   }
 
   function showImpact() {
-    scene.strikes ??= scene.resolve();
     const hit = scene.strikes[scene.nextStrike++];
     showForces(hit, true);
     const target = teamNames[hit.attacker === 'player' ? 'enemy' : 'player'];
@@ -129,15 +128,12 @@ const combatScreen = (() => {
   function showResult(autoReturn) {
     portraitMode.cancel(scene.timer);
     combatAudio.stop();
-    scene.strikes ??= scene.resolve();
     const [attack, counter] = scene.strikes;
     const outcome = counter ?? attack;
     showForces(outcome);
-    const verdict = scene.map.result ?? (!scene.map.isBattle && outcome.enemyHP === 0 ? 'victory' : null);
+    const verdict = scene.map.result;
     const title = verdict === 'victory' ? '勝利' : '敗北';
-    const defeated = scene.map.isCrossing ? '味方部隊が全滅しました。' : `${teamNames.player}が撃破されました。`;
-    const victory = scene.map.isCrossing ? '敵部隊をすべて撃破しました。' : `${teamNames.enemy}を撃破しました。`;
-    const result = verdict === 'victory' ? `勝利。${victory}` : verdict === 'defeat' ? `敗北。${defeated}`
+    const result = verdict === 'victory' ? '勝利。敵部隊をすべて撃破しました。' : verdict === 'defeat' ? '敗北。味方部隊が全滅しました。'
       : outcome.enemyHP === 0 ? `${teamNames.enemy}を撃破しました。`
       : outcome.playerHP === 0 ? `${teamNames.player}が撃破されました。` : '戦闘終了。';
     const report = scene.strikes.map((hit, index) => {
@@ -160,7 +156,6 @@ const combatScreen = (() => {
 
   function close(restoreFocus = true) {
     if (!scene) return;
-    scene.strikes ??= scene.resolve();
     const completed = scene;
     scene = null;
     portraitMode.cancel(completed.timer);
@@ -203,11 +198,10 @@ const combatScreen = (() => {
 
   return {
     get active() { return scene !== null; },
-    open({map, attacker, friendly, enemy, enemyPosition, resolve, resolveOnOpen, onReturn}) {
+    open({map, attacker, friendly, enemy, enemyPosition, resolve, onReturn}) {
       if (scene) return;
       combatAudio.unlock();
-      scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
-      dialog.classList.toggle('platoon', map.isBattle);
+      scene = {map, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
       for (const [side, prefix, unit, position] of [['player', '味方', friendly, friendly], ['enemy', '敵', enemy, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
@@ -228,12 +222,11 @@ const combatScreen = (() => {
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';
       dialog.showModal();
-      if (resolveOnOpen) scene.strikes = resolve();
+      scene.strikes = resolve();
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
       if (motion.matches) beginStrike(attacker);
       else scene.timer = portraitMode.schedule(() => beginStrike(attacker), 420);
     },
-    close,
   };
 })();

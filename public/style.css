@@ -3,7 +3,6 @@
   --ink: #25333d;
   --edge: #c1baa8;
   --paper: #fff9eb;
-  --dark: #252d40;
   --gold: #ffd483;
   font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
   color: var(--ink);
@@ -28,21 +27,16 @@ button:focus-visible { outline: 3px solid #0061b6; outline-offset: 2px; }
 .help span { display: grid; place-items: center; width: 17px; height: 17px; border: 1.5px solid currentColor; border-radius: 50%; font: bold 12px/1 monospace; }
 main { padding: 30px 0 max(34px, env(safe-area-inset-bottom)); }
 .intro, .panel-heading, .map-bar { display: flex; align-items: center; justify-content: space-between; }
-.intro { margin-bottom: 20px; gap: 12px; }
+.intro { margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
 .crossing-save-status { margin-top: 2px; color: #335343; font-size: 12px; font-weight: 750; }
 .crossing-save-status[data-error] { color: #803622; }
-.mission-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .sound-controls { display: flex; flex-wrap: wrap; gap: 6px; }
-.missions { display: inline-flex; gap: 2px; background: #e4e8d7; border: 1px solid #a5b199; border-radius: 6px; padding: 2px; }
+.intro > .sound-controls { margin-inline-start: auto; }
 .sound-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--edge); background: var(--paper); color: var(--ink); font-size: 13px; font-weight: bold; white-space: nowrap; }
 .sound-toggle b { min-width: 3ch; font: bold 12px Consolas, monospace; color: #53645a; }
 .sound-toggle[aria-pressed="true"] { background: #dcece0; border-color: #779e87; }
 .sound-toggle[aria-pressed="true"] b { color: #1e6149; }
 .sound-toggle:disabled { cursor: default; opacity: .65; }
-.missions a, .next-mission { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 18px; border-radius: 4px; color: var(--ink); font-size: 14px; font-weight: bold; text-decoration: none; }
-.missions [aria-current="page"] { background: var(--dark); color: var(--paper); }
-.missions a:focus-visible, .next-mission:focus-visible { outline: 3px solid #0061b6; outline-offset: 1px; }
-.next-mission { margin-top: 8px; width: 100%; background: var(--dark); color: var(--paper); }
 h1, h2, h3, p, dl, dd { margin: 0; }
 h1 { font-size: clamp(28px, 3.6vw, 43px); font-weight: 900; letter-spacing: .025em; line-height: 1.28; }
 h2 { font-size: 16px; font-weight: 850; }
@@ -56,13 +50,6 @@ h2 { font-size: 16px; font-weight: 850; }
 .map-bar { min-height: 44px; padding: 0 18px; background: linear-gradient(90deg,#35394b,#222c3c); color: var(--paper); border-bottom: 1px solid #8e826b; }
 .map-icon { color: #efce8b; margin-right: 4px; }
 .dimensions { font-weight: bold; font-size: 13px; color: #d5dfc3; }
-.battle-health { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; background: #eeeadc; border-bottom: 1px solid #a69e88; }
-.battle-health span { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; }
-.battle-health meter { width: clamp(30px, 8vw, 84px); height: 14px; }
-.battle-health meter::-webkit-meter-optimum-value { background: #33736b; }
-.battle-health span:last-child meter::-webkit-meter-optimum-value { background: #9b4b3c; }
-.battle-health b { font-family: Consolas, monospace; }
-.battle-health > span:last-child { margin-inline-start: auto; }
 .friendly-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px 9px; background: #eeeadc; max-height: 156px; overflow-y: auto; }
 .friendly-roster > .defeated { order: 1; }
 .friendly-roster > * { display: flex; flex-wrap: wrap; align-content: center; align-items: baseline; gap: 0 6px; min-height: 48px; padding: 3px 6px; border: 1px solid #9ca99a; border-radius: 4px; background: var(--paper); color: var(--ink); text-align: left; }
@@ -76,23 +63,21 @@ h2 { font-size: 16px; font-weight: 850; }
 .enemy-roster span:last-child { color: #784334; }
 .enemy-roster .enemy-acting { border-color: #934533; box-shadow: inset 0 0 0 1px #934533; background: #ffdfc2; }
 .enemy-roster .defeated { opacity: .65; }
-.map-surround { padding: 2px 17px 14px 4px; --columns: 5; --rows: 5; }
-.map-surround[data-mode="crossing"] { overflow-x: auto; scroll-padding-inline-start: 24px; }
-.map-surround[data-mode="crossing"] .chart { min-width: calc(var(--columns) * 48px + 24px); }
+.map-surround { padding: 2px 17px 14px 4px; overflow-x: auto; scroll-padding-inline-start: 24px; }
+.map-surround .chart { min-width: calc(var(--columns) * 48px + 24px); }
 .map-scroll-note { padding: 6px 12px 0; color: #e0e8d3; font-size: 12px; }
 .chart { display: grid; grid-template-columns: 24px 1fr; grid-template-rows: 22px 1fr; }
 .letters, .numbers { display: grid; font-size: 11px; color: #d4dfc6; align-items: center; text-align: center; }
 .letters { grid-column: 2; grid-template-columns: repeat(var(--columns), 1fr); }
 .numbers { grid-column: 1; grid-row: 2; grid-template-rows: repeat(var(--rows), 1fr); }
-.map-surround[data-mode="crossing"] .numbers { position: sticky; left: 0; z-index: 1; background: #2a3744; }
-.board { position: relative; grid-area: 2 / 2; display: grid; grid-template: repeat(var(--rows), 1fr) / repeat(var(--columns), 1fr); aspect-ratio: var(--columns) / var(--rows); isolation: isolate; background: #85a46d url("./assets/grassland.png?v=highland") center / 100% 100%; image-rendering: pixelated; box-shadow: 0 0 0 1px #1b242f, 0 0 0 3px #9a9a82; }
-.board[data-mode="crossing"] { background-image: none; }
+.map-surround .numbers { position: sticky; left: 0; z-index: 1; background: #2a3744; }
+.board { position: relative; grid-area: 2 / 2; display: grid; grid-template: repeat(var(--rows), 1fr) / repeat(var(--columns), 1fr); aspect-ratio: var(--columns) / var(--rows); isolation: isolate; background: #85a46d; image-rendering: pixelated; box-shadow: 0 0 0 1px #1b242f, 0 0 0 3px #9a9a82; }
 .board::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 17px #22372a59; }
 .tile { position: relative; padding: 0; min-width: 0; min-height: 0; border: 0; border-right: 1px solid #35583755; border-bottom: 1px solid #35583755; background: transparent; color: inherit; border-radius: 0; }
 .tile { background-image: linear-gradient(var(--tile-tint, transparent), var(--tile-tint, transparent)), var(--facility-image, none), var(--terrain-image, none); background-size: 100% 100%; }
 .tile[data-terrain="forest"], .forest-key { --terrain-image: url("./assets/terrain-forest.png?v=highland"); }
 .tile[data-terrain="mountain"], .mountain-key { --terrain-image: url("./assets/terrain-mountain.png?v=highland"); }
-.board[data-mode="crossing"] [data-terrain="plains"] { --terrain-image: url("./assets/terrain-crossing-plains.png"); }
+.tile[data-terrain="plains"] { --terrain-image: url("./assets/terrain-crossing-plains.png"); }
 .tile[data-terrain="river"], .river-key { --terrain-image: url("./assets/terrain-river.png"); }
 .tile[data-terrain="bridge"], .bridge-key { --terrain-image: url("./assets/terrain-bridge.png"); }
 .tile[data-terrain="marsh"], .marsh-key { --terrain-image: url("./assets/terrain-marsh.png"); }
@@ -165,7 +150,7 @@ dd span { font-family: sans-serif; font-size: 12px; }
 #unit-terrain { font-family: inherit; font-size: 18px; line-height: 1.7; }
 .orders { padding: 16px 18px 18px; }
 .enemy-report { margin-top: 9px; border-left: 3px solid #a9583f; padding: 5px 8px; background: #faebd8; color: #633a2c; font-size: 13px; line-height: 1.5; white-space: pre-line; }
-main[data-mode="crossing"] .enemy-report { max-height: 9em; overflow-y: auto; }
+.orders .enemy-report { max-height: 9em; overflow-y: auto; }
 .orders-actions button[aria-disabled="true"] { background: #eee4ca; border-color: #b0aa92; color: #5d604f; cursor: wait; }
 .production-launch { display: none; }
 .orders .replay.primary { background: var(--gold); border-color: #92651d; font-size: 16px; }
@@ -209,10 +194,10 @@ dialog .end { justify-content: center; }
 body:has(#portrait-notice[open]) { overflow: hidden; }
 body:has(#portrait-notice[open]) > :is(header, main, dialog:not(#portrait-notice)) { visibility: hidden; }
 body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *) { animation-play-state: paused; }
-@media (min-width: 1100px) and (max-height: 820px) { main, .mast-inner { max-width: 880px; } main { padding-top: 22px; } }
+@media (min-width: 1100px) and (max-height: 820px) { main { padding-top: 22px; } }
 @media (min-width: 1100px) {
-  main[data-mode="crossing"], body:has(main[data-mode="crossing"]) .mast-inner { width: min(100% - 64px, 1180px); max-width: none; }
-  main[data-mode="crossing"] .layout { grid-template-columns: minmax(0, 1fr) minmax(270px, 29%); }
+  main, .mast-inner { width: min(100% - 64px, 1180px); }
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(270px, 29%); }
 }
 @media (max-width: 720px) {
   html:has(.orders-actions:not([hidden])) { --mobile-actions-height: calc(65px + env(safe-area-inset-bottom)); scroll-padding-block-end: var(--mobile-actions-height); }
@@ -250,7 +235,6 @@ body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *) { animati
   .intro { margin-bottom: 10px; }
 }
 @media (max-width: 400px) {
-  .missions a { padding-inline: 9px; font-size: 13px; }
   .sound-toggle { padding-inline: 7px; font-size: 12px; }
 }
 @supports (padding: max(0px)) {
