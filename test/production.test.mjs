@@ -177,6 +177,40 @@ test('敵も2工場を所有すると、空いている両工場から同じタ�
   assert.equal(game.funds.enemy, budget - 5000 + game.incomeFor('enemy'));
 });
 
+test('敵の生産選択は盤面を変えず、1工場で出撃した直後に再開しても再生産しない', () => {
+  const game = new BattleMap();
+  game.factoryAt(1, 5).owner = 'enemy';
+  game.funds.enemy = 6000;
+  assert.equal(game.planEnemyProduction(), null);
+  game.beginEnemyTurn();
+  assert.equal(game.planEnemyProduction(), null);
+  for (let action; (action = game.prepareEnemyAction());) game.resolveEnemyAction(action);
+  const before = game.crossingSnapshot();
+  const order = game.planEnemyProduction();
+  assert.equal(order.factory, game.factoryAt(1, 5));
+  assert.equal(order.type.id, 'tank');
+  assert.deepEqual(game.crossingSnapshot(), before);
+  assert.equal(game.produceEnemyUnit({...order, factory: game.factoryAt(8, 4)}), null);
+  assert.equal(game.produceEnemyUnit(order).readyTurn, 2);
+  assert.equal(game.produceEnemyUnit(order), null);
+  assert.equal(game.funds.enemy, 2000);
+  assert.equal(game.turn, 1);
+
+  const resumed = BattleMap.fromCrossingSnapshot(JSON.parse(JSON.stringify(game.crossingSnapshot())));
+  const next = resumed.planEnemyProduction();
+  assert.equal(next.factory, resumed.factoryAt(8, 4));
+  assert.equal(next.type.id, 'infantry');
+  resumed.produceEnemyUnit(next);
+  assert.equal(resumed.planEnemyProduction(), null);
+  resumed.finishEnemyTurn();
+  game.finishEnemyTurn();
+  assert.deepEqual(resumed.crossingSnapshot(), game.crossingSnapshot());
+  assert.deepEqual(resumed.enemyProductions.map(({unit}) => unit), ['戦車', '歩兵 2']);
+  assert.equal(resumed.enemyActions.length, 3);
+  assert.equal(resumed.funds.enemy, 2000);
+  assert.equal(resumed.turn, 2);
+});
+
 test('両工場で生産した戦車は次のターンから、移動力3・射程1と攻撃力補正を使う', () => {
   const game = new BattleMap();
   const friendlyTank = game.produce('tank', game.factoryAt(1, 5));

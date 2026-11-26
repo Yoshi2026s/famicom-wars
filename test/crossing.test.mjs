@@ -56,7 +56,9 @@ test('支援車は川・湿地を避けて橋を目指し、射程に入ると�
   game.y = 4;
   const support = leaveEnemySupport(game, 5, 4);
   const before = structuredClone(game);
-  assert.deepEqual(game.planEnemyAction(support), {enemy: support, from: {x: 5, y: 4}, to: {x: 5, y: 5}, friendly: null});
+  assert.deepEqual(game.planEnemyAction(support), {
+    enemy: support, from: {x: 5, y: 4}, to: {x: 5, y: 5}, path: [{x: 5, y: 5}], friendly: null,
+  });
   assert.deepEqual(structuredClone(game), before);
   game.endTurn();
   game.endTurn();
@@ -66,6 +68,7 @@ test('支援車は川・湿地を避けて橋を目指し、射程に入ると�
   assert.deepEqual(strikes.map(hit => hit.attacker), ['enemy']);
   assert.equal(game.planEnemyAction(support).friendly, game.activeUnit);
   assert.deepEqual(game.planEnemyAction(support).to, game.enemy);
+  assert.deepEqual(game.planEnemyAction(support).path, []);
 });
 
 test('偵察車の隣接攻撃と支援車の遠距離攻撃はどちらも射程外から反撃されない', () => {

@@ -9,16 +9,16 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=turn-status">
+    <link rel="stylesheet" href="./style.css?v=enemy-preview">
     <link rel="stylesheet" href="./combat.css?v=turn-status">
     <link rel="stylesheet" href="./battlefield.css?v=main-map">
-    <script defer src="./rules.js?v=main-map"></script>
+    <script defer src="./rules.js?v=enemy-preview"></script>
     <script defer src="./crossing-save.js?v=crossing-save"></script>
     <script defer src="./combat-audio.js?v=turn-status"></script>
     <script defer src="./music.js?v=turn-status"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
     <script defer src="./combat.js?v=turn-status"></script>
-    <script defer src="./game.js?v=turn-status"></script>
+    <script defer src="./game.js?v=enemy-preview"></script>
   </head>
   <body>
     <header class="masthead">
@@ -66,6 +66,13 @@
             <button type="button" aria-haspopup="dialog" aria-controls="field-overview-dialog">全体図</button>
             <button type="button" aria-haspopup="dialog" aria-controls="field-intel-dialog">戦況</button>
           </nav>
+          <section class="enemy-preview" id="enemy-preview" aria-label="敵の行動" hidden>
+            <div class="enemy-preview-heading" role="status" aria-atomic="true">
+              <strong id="enemy-preview-title"></strong>
+              <span id="enemy-preview-detail"></span>
+            </div>
+            <ul id="enemy-preview-choices" class="enemy-preview-choices" aria-label="敵の選択"></ul>
+          </section>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">
             <div class="chart">

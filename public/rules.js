@@ -54,6 +54,12 @@ function validEntries(entries, validate) {
   return Array.isArray(entries) && entries.every(entry => entry && validate(entry));
 }
 
+function routeSteps(destination) {
+  const steps = [];
+  for (let step = destination; step?.previous; step = step.previous) steps.push({x: step.x, y: step.y});
+  return steps.reverse();
+}
+
 class BattleMap {
   turn = 1;
   selected = false;
@@ -397,11 +403,15 @@ class BattleMap {
     const phase = this.enemyTurn;
     if (!phase || this.result) return null;
     if (phase.action) return phase.action;
-    const index = this.enemyUnits.findIndex((unit, index) => index >= phase.nextIndex && unit.hp > 0 && unit.readyTurn <= this.turn);
+    const index = this.#nextEnemyIndex(phase.nextIndex);
     if (index < 0) return null;
     phase.action = this.planEnemyAction(this.enemyUnits[index]);
     phase.nextIndex = index + 1;
     return phase.action;
+  }
+
+  #nextEnemyIndex(after) {
+    return this.enemyUnits.findIndex((unit, index) => index >= after && unit.hp > 0 && unit.readyTurn <= this.turn);
   }
 
   resolveEnemyAction(action) {
@@ -421,24 +431,30 @@ class BattleMap {
 
   finishEnemyTurn() {
     if (!this.enemyTurn || this.prepareEnemyAction()) return;
-    if (!this.result) this.#produceEnemyReinforcements();
+    for (let order; (order = this.planEnemyProduction());) this.produceEnemyUnit(order);
     this.enemyTurn = null;
     this.#startNextTurn();
   }
 
-  #produceEnemyReinforcements() {
+  planEnemyProduction() {
+    const phase = this.enemyTurn;
+    if (!phase || this.result || phase.action || this.#nextEnemyIndex(phase.nextIndex) >= 0) return null;
+    const factory = this.factories.find(site => site.owner === 'enemy' && this.#factoryStatus(site) === 'ready');
+    if (!factory) return null;
     const counts = new Map(productionTypes.map(({id}) => [id, 0]));
     for (const unit of this.enemyUnits) {
       if (unit.hp > 0) counts.set(unit.type.id, counts.get(unit.type.id) + 1);
     }
-    for (const factory of this.factories) {
-      if (factory.owner !== 'enemy' || this.#factoryStatus(factory) !== 'ready') continue;
-      const type = productionTypes.reduce((fewest, next) => counts.get(next.id) < counts.get(fewest.id) ? next : fewest);
-      const unit = this.#deployReinforcement(factory, type);
-      if (!unit) continue;
-      counts.set(type.id, counts.get(type.id) + 1);
-      this.enemyProductions.push({x: factory.x, y: factory.y, ...factory.production});
-    }
+    const type = productionTypes.reduce((fewest, next) => counts.get(next.id) < counts.get(fewest.id) ? next : fewest);
+    return this.funds.enemy >= type.cost ? {factory, type} : null;
+  }
+
+  produceEnemyUnit({factory, type}) {
+    const next = this.planEnemyProduction();
+    if (!next || next.factory !== factory || next.type !== type) return null;
+    const unit = this.#deployReinforcement(factory, type);
+    this.enemyProductions.push({x: factory.x, y: factory.y, ...factory.production});
+    return unit;
   }
 
   #restoreActiveUnit() {
@@ -490,12 +506,12 @@ class BattleMap {
     const home = this.headquarters.friendly;
     if (type.id === infantry.id) {
       const route = routes.get(`${home.x},${home.y}`);
-      if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, friendly: null};
+      if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, path: routeSteps(route), friendly: null};
       const destination = this.#captureRoute(this.factories, routes, type.movement)
         ?? this.#captureRoute(this.cities, routes, type.movement);
       if (destination) {
         const to = {x: destination.x, y: destination.y};
-        return {enemy, from, to, friendly: targetAt(to) ?? null};
+        return {enemy, from, to, path: routeSteps(destination), friendly: targetAt(to) ?? null};
       }
     }
     let goal = null;
@@ -516,7 +532,7 @@ class BattleMap {
     }
     while (goal && goal.cost > type.movement) goal = goal.previous;
     const to = goal ? {x: goal.x, y: goal.y} : from;
-    return {enemy, from, to, friendly: targetAt(to) ?? null};
+    return {enemy, from, to, path: routeSteps(goal), friendly: targetAt(to) ?? null};
   }
 }
 
