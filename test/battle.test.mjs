@@ -20,6 +20,7 @@ test('敵の行動計画を調べても位置・ターン・HPが変わらない
   const plan = map.planEnemyAction(map.enemyUnits[0]);
   assert.deepEqual(plan.from, {x: 7, y: 1});
   assert.deepEqual(plan.to, {x: 5, y: 1});
+  assert.deepEqual(plan.path, [{x: 6, y: 1}, {x: 5, y: 1}]);
   assert.equal(plan.friendly, map.activeUnit);
   assert.deepEqual(map.crossingSnapshot(), before);
 });

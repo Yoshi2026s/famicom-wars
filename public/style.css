@@ -74,6 +74,21 @@ h2 { font-size: 16px; font-weight: 850; }
 .map-surround { padding: 2px 17px 14px 4px; overflow-x: auto; scroll-padding-inline-start: 24px; }
 .map-surround .chart { min-width: calc(var(--columns) * 48px + 24px); }
 .map-scroll-note { padding: 6px 12px 0; color: #e0e8d3; font-size: 12px; }
+.enemy-preview { display: grid; gap: 3px; min-height: 58px; padding: 5px 8px; border-bottom: 1px solid #956457; background: #432d35; color: #fff6e6; }
+.enemy-preview-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0 6px; font-size: 13px; }
+.enemy-preview-heading span { color: #f3d4be; font-size: 11px; font-weight: bold; }
+.enemy-preview-choices { display: flex; flex-wrap: wrap; align-items: stretch; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.enemy-preview-choices li { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 0 3px; min-width: 48px; padding: 2px 5px; border: 1px solid #ac7b72; border-radius: 4px; background: #5a4149; color: #fff4e4; font-size: 11px; font-weight: bold; }
+.enemy-preview-choices small { color: #ebd7c6; font: bold 10px Consolas, monospace; }
+.enemy-preview-choices [aria-current="true"] { border-color: #ffeaad; background: #ffd483; color: #33251c; }
+.enemy-preview-choices [aria-current="true"] small { color: #5f4129; }
+.enemy-preview[data-menu="production"] .enemy-preview-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.enemy-preview[data-menu="production"] li { display: grid; justify-items: center; min-width: 0; padding-inline: 2px; }
+.enemy-preview[data-stage="deploy"] .enemy-preview-heading span { color: #ffe096; }
+@media (min-width: 721px) {
+  .enemy-preview { position: fixed; z-index: 8; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(360px, 32vw); border: 1px solid #956457; border-radius: 7px; box-shadow: 0 3px 16px #16162455; }
+}
 .chart { display: grid; grid-template-columns: 24px 1fr; grid-template-rows: 22px 1fr; }
 .letters, .numbers { display: grid; font-size: 11px; color: #d4dfc6; align-items: center; text-align: center; }
 .letters { grid-column: 2; grid-template-columns: repeat(var(--columns), 1fr); }
@@ -104,6 +119,13 @@ h2 { font-size: 16px; font-weight: 850; }
 .tile.enemy::after { content: "敵"; position: absolute; top: 3%; right: 3%; z-index: 1; padding: 0 3px; background: #782f28; color: #fff4db; border: 1px solid #ffe4c1; font-size: clamp(10px, 1vw, 13px); font-weight: bold; line-height: 1.35; }
 .tile.target { --tile-tint: #f8ab775e; box-shadow: inset 0 0 0 2px #ffeead, inset 0 0 0 4px #893a32; }
 .tile.enemy-acting { box-shadow: inset 0 0 0 2px #ffe0a0, inset 0 0 0 4px #934533; }
+.tile.enemy-route:not(.enemy-acting) { --tile-tint: #ed956c42; box-shadow: inset 0 0 0 1px #e0a072; }
+.tile.enemy-destination:not(.enemy-acting) { --tile-tint: #ffcc774a; box-shadow: inset 0 0 0 2px #ffe3a7, inset 0 0 0 4px #98513c; }
+.tile.enemy-spawned { box-shadow: inset 0 0 0 3px #ffe0a0, inset 0 0 0 5px #934533; }
+@media (prefers-reduced-motion: no-preference) {
+  .tile.enemy-spawned img { animation: enemy-deploy .3s ease-out; }
+}
+@keyframes enemy-deploy { from { opacity: .25; transform: translateX(-50%) scale(.7); } to { opacity: 1; transform: translateX(-50%); } }
 .tile.target::after { content: "攻撃"; }
 .tile.spent img { filter: saturate(.45); }
 .unit-action { display: inline-grid; place-items: center; min-width: 17px; padding: 1px 3px; border: 1px solid #fbefda; border-radius: 3px; background: #4d4233; color: white; font-size: 11px; font-weight: 850; line-height: 1.2; white-space: nowrap; }
@@ -208,7 +230,7 @@ dialog .end { justify-content: center; }
 .portrait-phone::after { content: ""; position: absolute; bottom: 3px; left: 8px; width: 5px; height: 2px; border-radius: 2px; background: #ffd483; }
 body:has(#portrait-notice[open]) { overflow: hidden; }
 body:has(#portrait-notice[open]) > :is(header, main, dialog:not(#portrait-notice)) { visibility: hidden; }
-body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *) { animation-play-state: paused; }
+body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *, .tile.enemy-spawned img) { animation-play-state: paused; }
 @media (min-width: 1100px) and (max-height: 820px) { main { padding-top: 22px; } }
 @media (min-width: 1100px) {
   main, .mast-inner { width: min(100% - 64px, 1180px); }

@@ -41,6 +41,10 @@ const saveStatus = document.getElementById('crossing-save-status');
 const replay = document.getElementById('replay');
 const fieldTools = document.getElementById('field-tools');
 const fieldNextUnit = document.getElementById('field-next-unit');
+const enemyPreview = document.getElementById('enemy-preview');
+const enemyPreviewTitle = document.getElementById('enemy-preview-title');
+const enemyPreviewDetail = document.getElementById('enemy-preview-detail');
+const enemyPreviewChoices = document.getElementById('enemy-preview-choices');
 const fieldStatus = document.getElementById('field-status');
 const fieldUnit = document.getElementById('field-unit');
 const fieldFunds = document.getElementById('field-funds');
@@ -66,6 +70,10 @@ const fieldSections = [
   return {content, placeholder, target: document.getElementById(targetId)};
 });
 let mobileField = false;
+let movingEnemy = null;
+let markedEnemyTiles = [];
+let enemyPositionInView = null;
+let playerScrollTop = null;
 
 function renderSaveStatus() {
   saveStatus.hidden = false;
@@ -93,7 +101,11 @@ function coordinate(x, y) {
 }
 
 function friendlyTile() {
-  return cells[game.y * game.width + game.x].button;
+  return tileAt(game.activeUnit);
+}
+
+function tileAt({x, y}) {
+  return cells[y * game.width + x].button;
 }
 
 function unitImage(type, enemy = false) {
@@ -266,6 +278,7 @@ function render() {
   const actedEnemies = new Set(waiting ? game.enemyActions.map(action => action.enemy) : []);
   const enemyAction = unit => {
     if (!unit.hp) return 'defeated';
+    if (waiting && unit.readyTurn > game.turn) return 'deployed';
     if (unit === actingEnemy) return 'acting';
     return actedEnemies.has(unit.name) ? 'spent' : '';
   };
@@ -289,7 +302,8 @@ function render() {
   for (const {unit, card, hp, state} of enemyRosterEntries) {
     const action = enemyAction(unit);
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
-    const spot = coordinate(unit.x, unit.y);
+    const {x, y} = movingEnemy?.unit === unit ? movingEnemy.position : unit;
+    const spot = coordinate(x, y);
     state.textContent = !unit.hp ? unitActions.defeated.label : action ? `${spot} · ${unitActions[action].label}` : spot;
     card.dataset.action = action;
     card.classList.toggle('enemy-acting', unit === actingEnemy);
@@ -305,7 +319,9 @@ function render() {
     const friendly = game.friendlyAt(x, y);
     const occupied = Boolean(friendly);
     const active = friendly === game.activeUnit;
-    const enemy = game.enemyAt(x, y);
+    let enemy = game.enemyAt(x, y);
+    if (movingEnemy && movingEnemy.position.x === x && movingEnemy.position.y === y) enemy = movingEnemy.unit;
+    else if (movingEnemy && enemy === movingEnemy.unit) enemy = undefined;
     const action = friendly ? friendlyAction(friendly) : enemy ? enemyAction(enemy) : '';
     const actionInfo = unitActions[action];
     const target = !waiting && enemy && game.canUnitAttack(game.activeUnit, enemy);
@@ -506,7 +522,8 @@ function setMobileFieldLayout() {
   closeFieldDialogs();
   mobileField = enabled;
   main.toggleAttribute('data-mobile-field', enabled);
-  fieldTools.hidden = fieldStatus.hidden = !enabled;
+  fieldStatus.hidden = !enabled;
+  fieldTools.hidden = !enabled || !enemyPreview.hidden;
   for (const {content, placeholder, target} of fieldSections) {
     if (enabled) target.append(content);
     else placeholder.after(content);
@@ -636,32 +653,144 @@ function addTile(x, y) {
 
 endTurn.addEventListener('click', (event) => {
   if (event.detail > 1 || inputBlocked() || !game.beginEnemyTurn()) return;
+  playerScrollTop = window.scrollY;
   saveProgress();
   runEnemyTurn();
 });
 
+function openEnemyMenu(menu, title, choices) {
+  enemyPreview.hidden = false;
+  fieldTools.hidden = true;
+  enemyPreview.dataset.menu = menu;
+  enemyPreviewTitle.textContent = title;
+  enemyPreviewChoices.replaceChildren(...choices.map(({id, label, cost}) => {
+    const item = document.createElement('li');
+    item.dataset.choice = id;
+    item.textContent = label;
+    if (cost !== undefined) {
+      const price = document.createElement('small');
+      price.textContent = currency.format(cost);
+      item.append(price);
+    }
+    return item;
+  }));
+}
+
+function showEnemyChoice(stage, selected, detail) {
+  enemyPreview.dataset.stage = stage;
+  enemyPreviewDetail.textContent = detail;
+  for (const item of enemyPreviewChoices.children) {
+    if (item.dataset.choice === selected) item.setAttribute('aria-current', 'true');
+    else item.removeAttribute('aria-current');
+  }
+}
+
+function highlightEnemyRoute(path, destination) {
+  for (const tile of markedEnemyTiles) tile.classList.remove('enemy-route', 'enemy-destination', 'enemy-spawned');
+  markedEnemyTiles = path.map(tileAt);
+  for (const tile of markedEnemyTiles) tile.classList.add('enemy-route');
+  if (destination) {
+    const target = tileAt(destination);
+    markedEnemyTiles.push(target);
+    target.classList.add('enemy-destination');
+  }
+}
+
+function followEnemy(position) {
+  enemyPositionInView = position;
+  const tile = tileAt(position);
+  revealTile(tile);
+  if (!mobileField) tile.scrollIntoView({block: 'nearest', inline: 'nearest'});
+}
+
+function playEnemyAction(action, restoreFocus) {
+  const {enemy, from, to, path, friendly} = action;
+  const site = game.factoryAt(to.x, to.y) ?? game.cityAt(to.x, to.y);
+  const capture = enemy.type.id === 'infantry' && (game.headquartersAt(to.x, to.y) === 'friendly' || (site && site.owner !== 'enemy'));
+  const commands = [];
+  if (path.length) commands.push({id: 'move', label: '移動'});
+  if (capture) commands.push({id: 'capture', label: '占領'});
+  if (friendly) commands.push({id: 'attack', label: '攻撃'});
+  if (!commands.length) commands.push({id: 'wait', label: '待機'});
+  const origin = coordinate(from.x, from.y);
+  const destination = coordinate(to.x, to.y);
+  openEnemyMenu('action', `敵${enemy.name}　${origin}${path.length ? ` → ${destination}` : ''}`, commands);
+  const commandDetail = {move: `${destination} へ移動`, capture: `${destination} を占領`,
+    attack: friendly ? `${coordinate(friendly.x, friendly.y)} の味方${friendly.name}を攻撃` : '', wait: `${origin} で待機`};
+  const steps = commands.flatMap(({id}) => id === 'move'
+    ? [{id, position: from, delay: 260}, ...path.map(position => ({id, position, delay: 145}))]
+    : [{id, position: to, delay: 330}]);
+  highlightEnemyRoute(path, to);
+
+  function advance(index) {
+    const step = steps[index];
+    if (step) {
+      movingEnemy = {unit: enemy, position: step.position};
+      showEnemyChoice(step.id, step.id, commandDetail[step.id]);
+      render();
+      followEnemy(step.position);
+      portraitMode.schedule(() => advance(index + 1), step.delay);
+      return;
+    }
+    movingEnemy = null;
+    highlightEnemyRoute([]);
+    if (friendly) {
+      presentAttack({attacker: 'enemy', enemy, friendly, enemyPosition: to,
+        resolve: () => game.resolveEnemyAction(action), onReturn: runEnemyTurn});
+      return;
+    }
+    game.resolveEnemyAction(action);
+    saveProgress();
+    runEnemyTurn(restoreFocus);
+  }
+  advance(0);
+}
+
+function playEnemyProduction(order, restoreFocus) {
+  const {factory, type} = order;
+  const spot = coordinate(factory.x, factory.y);
+  openEnemyMenu('production', `敵工場 ${spot}`, productionTypes.map(({id, name, cost}) => ({id, label: name, cost})));
+  showEnemyChoice('factory', null, `資金 ${currency.format(game.funds.enemy)}`);
+  highlightEnemyRoute([], factory);
+  render();
+  followEnemy(factory);
+  portraitMode.schedule(() => {
+    showEnemyChoice('selection', type.id, `${type.name}を選択　−${currency.format(type.cost)}`);
+    portraitMode.schedule(() => {
+      const unit = game.produceEnemyUnit(order);
+      if (!unit) {
+        runEnemyTurn(restoreFocus);
+        return;
+      }
+      saveProgress();
+      showEnemyChoice('deploy', type.id, `${unit.name}が出撃`);
+      render();
+      tileAt(factory).classList.add('enemy-spawned');
+      portraitMode.schedule(() => runEnemyTurn(restoreFocus), 520);
+    }, 390);
+  }, 280);
+}
+
 function runEnemyTurn(restoreFocus = true) {
   const action = game.prepareEnemyAction();
-  if (!action) {
-    game.finishEnemyTurn();
-    saveProgress();
-    restoreBoardFocus(restoreFocus);
+  if (action) {
+    playEnemyAction(action, restoreFocus);
     return;
   }
-  render();
-  portraitMode.schedule(() => {
-    if (action.friendly) {
-      presentAttack({
-        attacker: 'enemy', enemy: action.enemy, friendly: action.friendly, enemyPosition: action.to,
-        resolve: () => game.resolveEnemyAction(action),
-        onReturn: runEnemyTurn,
-      });
-    } else {
-      game.resolveEnemyAction(action);
-      saveProgress();
-      runEnemyTurn(restoreFocus);
-    }
-  }, 280);
+  const order = game.planEnemyProduction();
+  if (order) {
+    playEnemyProduction(order, restoreFocus);
+    return;
+  }
+  game.finishEnemyTurn();
+  saveProgress();
+  enemyPreview.hidden = true;
+  fieldTools.hidden = !mobileField;
+  highlightEnemyRoute([]);
+  enemyPositionInView = null;
+  if (playerScrollTop !== null) window.scrollTo(0, playerScrollTop);
+  playerScrollTop = null;
+  restoreBoardFocus(restoreFocus);
 }
 
 function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPosition = enemy, resolve, onReturn = restoreBoardFocus}) {
@@ -762,11 +891,13 @@ function resizeGame() {
   positionProductionControls();
   if (setMobileFieldLayout()) {
     render();
-    if (mobileField) revealTile(friendlyTile(), true);
-    else if (fieldTools.contains(focused) || fieldDialogs.some(dialog => dialog.contains(focused))) {
+    if (mobileField) {
+      if (!enemyPositionInView) revealTile(friendlyTile(), true);
+    } else if (fieldTools.contains(focused) || fieldDialogs.some(dialog => dialog.contains(focused))) {
       document.getElementById('mission-title').focus({preventScroll: true});
     }
   }
+  if (enemyPositionInView && !portraitMode.blocked && !combatScreen.active) followEnemy(enemyPositionInView);
   updateMapScrollNote();
   updateOverviewWindow();
 }
