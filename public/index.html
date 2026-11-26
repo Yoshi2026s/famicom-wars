@@ -10,15 +10,15 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="stylesheet" href="./style.css?v=river-motion">
-    <link rel="stylesheet" href="./combat.css?v=river-motion">
-    <link rel="stylesheet" href="./battlefield.css?v=river-motion">
+    <link rel="stylesheet" href="./combat.css?v=unit-combat">
+    <link rel="stylesheet" href="./battlefield.css?v=unit-combat">
     <script defer src="./rules.js?v=turn-orders"></script>
     <script defer src="./crossing-save.js?v=crossing-save"></script>
-    <script defer src="./combat-audio.js?v=turn-orders"></script>
+    <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
-    <script defer src="./combat.js?v=river-motion"></script>
-    <script defer src="./game.js?v=river-motion"></script>
+    <script defer src="./combat.js?v=unit-combat"></script>
+    <script defer src="./game.js?v=unit-combat"></script>
   </head>
   <body>
     <header class="masthead">
@@ -220,7 +220,7 @@
             <div class="formation ally"></div><div class="formation foe"></div>
             <div class="combat-volley"><i></i><i></i><i></i></div>
             <div class="combat-hit">
-              <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i>
+              <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i><i class="combat-wreck"></i>
               <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
             </div>
           </div>

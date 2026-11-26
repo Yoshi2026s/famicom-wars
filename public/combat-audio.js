@@ -8,6 +8,21 @@ const combatAudio = (() => {
   let resuming;
   let cueId = 0;
   let enabled = true;
+  const battleCues = {
+    // Seconds, initial pitch, pitch change, filter, body, noise and decay.
+    'shot-infantry': [.13, 470, -320, .24, .08, .26, 29],
+    'shot-scout': [.11, 590, -390, .20, .12, .21, 31],
+    'shot-support': [.29, 218, 380, .14, .12, .24, 9],
+    'shot-tank': [.34, 160, -110, .10, .32, .24, 12],
+    'impact-infantry': [.19, 155, -75, .12, .13, .16, 20],
+    'impact-scout': [.24, 332, -208, .20, .18, .18, 17],
+    'impact-support': [.29, 116, -45, .11, .23, .20, 14],
+    'impact-tank': [.31, 202, -158, .075, .26, .22, 14],
+    'defeat-infantry': [.26, 132, -76, .12, .16, .19, 13],
+    'defeat-scout': [.37, 232, -168, .15, .24, .23, 11],
+    'defeat-support': [.47, 175, -119, .08, .28, .24, 8],
+    'defeat-tank': [.56, 113, -63, .06, .34, .22, 7],
+  };
   try {
     enabled = localStorage.getItem(preferenceKey) !== 'off';
   } catch {
@@ -37,8 +52,7 @@ const combatAudio = (() => {
 
   function makeEffect(kind) {
     if (kind === 'turn-friendly' || kind === 'turn-enemy') return makeTurnEffect(kind === 'turn-friendly');
-    const impact = kind === 'impact';
-    const duration = impact ? 0.32 : 0.14;
+    const [duration, pitch, slide, filter, body, texture, decay] = battleCues[kind];
     const rate = context.sampleRate;
     const buffer = context.createBuffer(1, Math.ceil(rate * duration), rate);
     const samples = buffer.getChannelData(0);
@@ -48,14 +62,14 @@ const combatAudio = (() => {
     for (let i = 0; i < samples.length; i++) {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const noise = seed / 2147483648 - 1;
-      smoothNoise += (noise - smoothNoise) * (impact ? 0.09 : 0.22);
+      smoothNoise += (noise - smoothNoise) * filter;
       const time = i / rate;
       const progress = time / duration;
-      phase += (impact ? 112 - 62 * progress : 350 - 215 * progress) / rate;
+      phase += (pitch + slide * progress) / rate;
       const tone = Math.sin(phase * 2 * Math.PI);
-      const envelope = Math.min(1, time / 0.0025, (duration - time) / .015) * Math.exp(-time * (impact ? 18 : 27));
-      const tail = noise * Math.max(0, 1 - progress) ** 5 * .027;
-      samples[i] = envelope * (impact ? .35 * tone + .25 * smoothNoise : .25 * (noise - smoothNoise) + .11 * tone) + tail;
+      const envelope = Math.min(1, time / .003, (duration - time) / .027) * Math.exp(-time * decay);
+      const transient = noise * Math.exp(-time * 48) * .48 + smoothNoise * 1.6;
+      samples[i] = envelope * (body * tone + texture * transient);
     }
     return buffer;
   }

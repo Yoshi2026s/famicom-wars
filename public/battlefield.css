@@ -150,7 +150,7 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
   width: 78%;
   aspect-ratio: 8 / 7;
   transform: translateX(-50%) scaleX(var(--facing));
-  background: url("./assets/map-march.png?v=river-motion") 0% var(--atlas-row) / 500% 800% no-repeat;
+  background: url("./assets/map-march.png?v=unit-combat") 0% var(--atlas-row) / 500% 800% no-repeat;
 }
 .map-stride[data-unit="infantry"] .map-stride-sprite { width: 96%; bottom: 10%; }
 .map-feedback {

@@ -125,9 +125,9 @@ function tileAt({x, y}) {
 }
 
 function unitImage(type, enemy = false) {
-  if (enemy && type.id !== 'support') return `./assets/enemy-${type.id}.png?v=river-motion`;
+  if (enemy && type.id !== 'support') return `./assets/enemy-${type.id}.png?v=unit-combat`;
   const sprite = !enemy && type.id === 'support' ? 'friendly-support' : type.id;
-  return `./assets/${sprite}.png?v=river-motion`;
+  return `./assets/${sprite}.png?v=unit-combat`;
 }
 
 function showImage(image, source) {
