@@ -31,9 +31,12 @@ const crossingFactories = Object.freeze({
   friendly: Object.freeze({x: 1, y: 5}),
   enemy: Object.freeze({x: 8, y: 4}),
 });
-const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1});
-const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1});
-const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3});
+const startingFunds = 4500;
+const cityIncome = 1000;
+const cityRecovery = 2;
+const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1, cost: 1000});
+const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1, cost: 2500});
+const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3, cost: 3000});
 const productionTypes = [infantry, scout, support];
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
@@ -60,6 +63,10 @@ class TrainingMap {
   enemyActions = [];
   capturedBy = null;
   production = {friendly: null, enemy: null};
+  funds = {friendly: 0, enemy: 0};
+  cities = [];
+  friendlyCityCapture = null;
+  cityHealing = [];
 
   constructor(mode = 'training') {
     this.mode = mode;
@@ -69,6 +76,11 @@ class TrainingMap {
     if (this.isCrossing) {
       this.friendlyUnits = [deploy(scout, 1, 6, startingHP), deploy(infantry, 3, 1, startingHP), deploy(support, 2, 1, startingHP)];
       this.enemyUnits = [deploy(infantry, 7, 1, startingHP), deploy(scout, 7, 5, startingHP), deploy(support, 7, 2, startingHP)];
+      this.funds = {friendly: startingFunds, enemy: startingFunds};
+      this.cities = [
+        {x: 2, y: 3, owner: 'friendly'}, {x: 7, y: 4, owner: 'enemy'},
+        {x: 4, y: 1, owner: 'neutral'}, {x: 5, y: 5, owner: 'neutral'},
+      ];
     } else if (this.isBattle) {
       this.friendlyUnits = [deploy(infantry, 1, 3, startingHP)];
       this.enemyUnits = [deploy(infantry, 3, 1, startingHP)];
@@ -121,6 +133,19 @@ class TrainingMap {
     return this.#ownerAt(this.factories, x, y);
   }
 
+  cityAt(x, y) {
+    return this.cities.find(city => city.x === x && city.y === y);
+  }
+
+  incomeFor(side) {
+    if (!Object.hasOwn(this.funds, side)) return 0;
+    return this.cities.filter(city => city.owner === side).length * cityIncome;
+  }
+
+  productionCost(typeId) {
+    return productionTypes.find(type => type.id === typeId)?.cost;
+  }
+
   #ownerAt(sites, x, y) {
     if (!sites) return null;
     for (const [side, position] of Object.entries(sites)) {
@@ -132,7 +157,9 @@ class TrainingMap {
   get productionStatus() {
     if (!this.factories || this.result) return 'unavailable';
     if (this.enemyTurn) return 'waiting';
-    return this.#factoryStatus('friendly');
+    const status = this.#factoryStatus('friendly');
+    if (status === 'ready' && !productionTypes.some(type => type.cost <= this.funds.friendly)) return 'insufficient';
+    return status;
   }
 
   #factoryStatus(side) {
@@ -148,12 +175,14 @@ class TrainingMap {
   }
 
   #deployReinforcement(side, type) {
+    if (type.cost > this.funds[side]) return null;
     const units = side === 'friendly' ? this.friendlyUnits : this.enemyUnits;
     const {x, y} = this.factories[side];
     const number = units.filter(unit => unit.type.id === type.id).length + 1;
     const unit = deploy(type, x, y, this.maxHP, number, this.turn + 1);
     units.push(unit);
-    this.production[side] = {unit: unit.name, turn: this.turn};
+    this.funds[side] -= type.cost;
+    this.production[side] = {unit: unit.name, turn: this.turn, cost: type.cost};
     return unit;
   }
 
@@ -161,6 +190,14 @@ class TrainingMap {
     const owner = this.headquartersAt(unit.x, unit.y);
     if (!owner || owner === side || unit.type.id !== infantry.id) return false;
     this.capturedBy = side;
+    return true;
+  }
+
+  #captureCity(unit, side) {
+    if (unit.type.id !== infantry.id) return false;
+    const city = this.cityAt(unit.x, unit.y);
+    if (!city || city.owner === side) return false;
+    city.owner = side;
     return true;
   }
 
@@ -255,6 +292,9 @@ class TrainingMap {
       this.selected = false;
       this.activeUnit.moved = true;
       this.#captureHeadquarters(this.activeUnit, 'friendly');
+      if (this.#captureCity(this.activeUnit, 'friendly')) {
+        this.friendlyCityCapture = {unit: this.activeUnit.name, x, y, turn: this.turn};
+      }
     }
   }
 
@@ -285,7 +325,19 @@ class TrainingMap {
       unit.moved = false;
       unit.attacked = false;
     }
-    if (!this.result) this.turn += 1;
+    if (this.result) return;
+    this.turn += 1;
+    if (!this.isCrossing) return;
+    this.cityHealing = [];
+    for (const [side, units] of [['friendly', this.friendlyUnits], ['enemy', this.enemyUnits]]) {
+      this.funds[side] += this.incomeFor(side);
+      for (const unit of units) {
+        if (!unit.hp || unit.hp >= this.maxHP || this.cityAt(unit.x, unit.y)?.owner !== side) continue;
+        const amount = Math.min(cityRecovery, this.maxHP - unit.hp);
+        unit.hp += amount;
+        this.cityHealing.push({side, unit: unit.name, amount});
+      }
+    }
   }
 
   beginEnemyTurn() {
@@ -315,9 +367,10 @@ class TrainingMap {
     const {enemy, friendly, from, to} = action;
     Object.assign(enemy, to);
     const captured = this.#captureHeadquarters(enemy, 'enemy');
+    const cityCaptured = this.#captureCity(enemy, 'enemy');
     const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
     this.#restoreActiveUnit();
-    this.enemyActions.push({enemy: enemy.name, friendly: friendly?.name, from, to, captured});
+    this.enemyActions.push({enemy: enemy.name, friendly: friendly?.name, from, to, captured, cityCaptured});
     return strikes;
   }
 
@@ -369,12 +422,22 @@ class TrainingMap {
     const {type} = enemy;
     const living = this.friendlyUnits.filter(unit => unit.hp > 0);
     const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
+    const targetAt = position => living.find(unit => inRange(type, position, unit));
     const home = this.headquarters?.friendly;
     if (home && type.id === infantry.id) {
       const route = routes.get(`${home.x},${home.y}`);
       if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, friendly: null};
+      let destination = null;
+      for (const city of this.cities) {
+        if (city.owner === 'enemy') continue;
+        const path = routes.get(`${city.x},${city.y}`);
+        if (path && path.cost > 0 && path.cost <= type.movement && path.cost < (destination?.cost ?? Infinity)) destination = path;
+      }
+      if (destination) {
+        const to = {x: destination.x, y: destination.y};
+        return {enemy, from, to, friendly: targetAt(to) ?? null};
+      }
     }
-    const targetAt = position => living.find(unit => inRange(type, position, unit));
     let goal = null;
     for (const route of routes.values()) {
       if (route.cost < (goal?.cost ?? Infinity) && targetAt(route)) goal = route;

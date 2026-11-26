@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=crossing-factories">
+    <link rel="stylesheet" href="./style.css?v=crossing-city-recovery">
     <link rel="stylesheet" href="./combat.css?v=crossing-rivals">
-    <script defer src="./rules.js?v=crossing-factories"></script>
+    <script defer src="./rules.js?v=crossing-city-recovery"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=finale"></script>
     <script defer src="./combat.js?v=crossing-factories"></script>
-    <script defer src="./game.js?v=crossing-factories"></script>
+    <script defer src="./game.js?v=crossing-city-recovery"></script>
   </head>
   <body>
     <header class="masthead">
@@ -53,6 +53,14 @@
             <span><i class="friendly-factory-key" aria-hidden="true"></i>味方工場 <b id="friendly-factory-coordinate"></b></span>
             <span><i class="enemy-factory-key" aria-hidden="true"></i>敵工場 <b id="enemy-factory-coordinate"></b></span>
           </div>
+          <section class="city-economy" id="city-economy" aria-label="資金と都市" hidden>
+            <div class="economy-balances">
+              <div><span>味方資金</span> <strong id="friendly-funds"></strong><small>次の収入 +<b id="friendly-income"></b></small></div>
+              <div><span>敵資金</span> <strong id="enemy-funds"></strong><small>次の収入 +<b id="enemy-income"></b></small></div>
+            </div>
+            <div class="city-list"><b>都市</b> <div class="city-overview" id="city-overview"></div></div>
+            <p class="city-healing" id="city-healing" role="status" aria-atomic="true"></p>
+          </section>
           <p class="map-scroll-note" id="map-scroll-note" hidden>横にスクロールしてマップ全体を見られます。</p>
           <div class="map-surround" id="map-surround">
             <div class="chart">
@@ -81,12 +89,15 @@
             <div id="enemy-report" class="enemy-report" hidden></div>
             <p id="message" role="status" aria-live="polite" aria-atomic="true">盤面の歩兵を選んでください。</p>
             <section class="production" id="production-controls" aria-labelledby="production-title" hidden>
-              <h3 id="production-title">味方工場 <b id="production-title-coordinate"></b></h3>
+              <div class="production-heading">
+                <h3 id="production-title">味方工場 <b id="production-title-coordinate"></b></h3>
+                <span>資金 <b id="production-funds"></b></span>
+              </div>
               <p id="production-status" role="status" aria-atomic="true"></p>
               <div class="production-choices">
-                <button type="button" data-produce="infantry" aria-disabled="true">歩兵を生産</button>
-                <button type="button" data-produce="scout" aria-disabled="true">偵察車を生産</button>
-                <button type="button" data-produce="support" aria-disabled="true">支援車を生産</button>
+                <button type="button" data-produce="infantry" aria-disabled="true">歩兵を生産<small></small></button>
+                <button type="button" data-produce="scout" aria-disabled="true">偵察車を生産<small></small></button>
+                <button type="button" data-produce="support" aria-disabled="true">支援車を生産<small></small></button>
               </div>
             </section>
             <button id="end" class="end" type="button">ターン終了 <span aria-hidden="true">→</span></button>
