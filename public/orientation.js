@@ -45,6 +45,7 @@ const portraitMode = (() => {
 
   return {
     get blocked() { return landscapePhone.matches; },
+    onChange(listener) { landscapePhone.addEventListener('change', listener); },
     schedule(run, delay) {
       const timer = {run, remaining: delay, id: null};
       timers.add(timer);
