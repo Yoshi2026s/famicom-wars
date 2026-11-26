@@ -203,7 +203,7 @@ const combatScreen = (() => {
 
   return {
     get active() { return scene !== null; },
-    open({map, attacker, friendly, enemy, enemyPosition, resolve, onReturn}) {
+    open({map, attacker, friendly, enemy, enemyPosition, resolve, resolveOnOpen, onReturn}) {
       if (scene) return;
       combatAudio.unlock();
       scene = {map, resolve, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
@@ -228,6 +228,7 @@ const combatScreen = (() => {
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';
       dialog.showModal();
+      if (resolveOnOpen) scene.strikes = resolve();
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
       if (motion.matches) beginStrike(attacker);

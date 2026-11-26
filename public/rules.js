@@ -53,6 +53,14 @@ function deploy(type, x, y, hp, number = 1, readyTurn = 1) {
   return {type, name, x, y, hp, readyTurn, moved: false, attacked: false};
 }
 
+function integerBetween(value, minimum, maximum) {
+  return Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+}
+
+function validEntries(entries, validate) {
+  return Array.isArray(entries) && entries.every(entry => entry && validate(entry));
+}
+
 class TrainingMap {
   static size = 5;
   static movement = 2;
@@ -92,6 +100,86 @@ class TrainingMap {
       this.enemyUnits = [deploy(infantry, 4, 1, startingHP)];
     }
     this.activeUnit = this.friendlyUnits[0];
+  }
+
+  crossingSnapshot() {
+    const saveUnits = units => units.map(({type, x, y, hp, readyTurn, moved, attacked}) => ({
+      type: type.id, x, y, hp, readyTurn, moved, attacked,
+    }));
+    const phase = this.enemyTurn;
+    return {
+      turn: this.turn, selected: this.selected, capturedBy: this.capturedBy,
+      activeUnit: this.friendlyUnits.indexOf(this.activeUnit),
+      friendlyUnits: saveUnits(this.friendlyUnits), enemyUnits: saveUnits(this.enemyUnits),
+      funds: {...this.funds},
+      factories: this.factories.map(({owner, production}) => ({owner, production})),
+      cityOwners: this.cities.map(city => city.owner),
+      // A planned action is recalculated on resume until it has been resolved.
+      nextEnemy: phase ? phase.nextIndex - Number(Boolean(phase.action)) : null,
+      enemyActions: this.enemyActions.map(({friendly, ...action}) => ({...action, friendly: friendly ?? null})),
+      enemyProductions: this.enemyProductions.slice(),
+      friendlyCapture: this.friendlyCapture, facilityHealing: this.facilityHealing.slice(),
+    };
+  }
+
+  static fromCrossingSnapshot(saved) {
+    const game = new TrainingMap('crossing');
+    if (!saved || !integerBetween(saved.turn, 1, Number.MAX_SAFE_INTEGER - 1)) return null;
+    const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
+      enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
+    const validPosition = position => position && integerBetween(position.x, 0, game.width - 1)
+      && integerBetween(position.y, 0, game.height - 1);
+    const isSide = side => side === 'friendly' || side === 'enemy';
+    const restoreUnits = units => {
+      if (!validEntries(units, unit => validPosition(unit) && integerBetween(unit.hp, 0, game.maxHP)
+        && integerBetween(unit.readyTurn, 1, turn + 1) && typeof unit.moved === 'boolean'
+        && typeof unit.attacked === 'boolean')) return null;
+      const counts = new Map();
+      const roster = [];
+      for (const unit of units) {
+        const type = productionTypes.find(type => type.id === unit.type);
+        if (!type || game.terrainAt(unit.x, unit.y).cost === Infinity) return null;
+        const number = (counts.get(type) ?? 0) + 1;
+        counts.set(type, number);
+        roster.push({...deploy(type, unit.x, unit.y, unit.hp, number, unit.readyTurn), moved: unit.moved, attacked: unit.attacked});
+      }
+      return roster;
+    };
+    const friendlyUnits = restoreUnits(saved.friendlyUnits);
+    const enemyUnits = restoreUnits(saved.enemyUnits);
+    if (!friendlyUnits || !enemyUnits?.length || !integerBetween(activeUnit, 0, friendlyUnits.length - 1)
+      || (nextEnemy !== null && !integerBetween(nextEnemy, 0, enemyUnits.length))
+      || (capturedBy !== null && !isSide(capturedBy)) || typeof selected !== 'boolean'
+      || !funds || !integerBetween(funds.friendly, 0, Number.MAX_SAFE_INTEGER)
+      || !integerBetween(funds.enemy, 0, Number.MAX_SAFE_INTEGER)) return null;
+    const liveSpots = [...friendlyUnits, ...enemyUnits].filter(unit => unit.hp).map(unit => `${unit.x},${unit.y}`);
+    if (new Set(liveSpots).size !== liveSpots.length) return null;
+
+    const names = new Set([...friendlyUnits, ...enemyUnits].map(unit => unit.name));
+    const isFacility = facility => facility === 'factory' || facility === 'city';
+    const validProduction = entry => entry && names.has(entry.unit) && integerBetween(entry.turn, 1, turn)
+      && productionTypes.some(type => type.cost === entry.cost);
+    if (!validEntries(factories, site => isSide(site.owner) && (site.production === null || validProduction(site.production)))
+      || factories.length !== game.factories.length
+      || !validEntries(cityOwners, owner => isSide(owner) || owner === 'neutral') || cityOwners.length !== game.cities.length
+      || !validEntries(enemyActions, entry => names.has(entry.enemy) && (!entry.friendly || names.has(entry.friendly))
+        && validPosition(entry.from) && validPosition(entry.to)
+        && [entry.captured, entry.cityCaptured, entry.factoryCaptured].every(flag => typeof flag === 'boolean'))
+      || !validEntries(enemyProductions, entry => validProduction(entry) && game.factoryAt(entry.x, entry.y))
+      || (friendlyCapture !== null && !(validPosition(friendlyCapture) && names.has(friendlyCapture.unit)
+        && isFacility(friendlyCapture.facility) && integerBetween(friendlyCapture.turn, 1, turn)))
+      || !validEntries(facilityHealing, entry => isSide(entry.side) && names.has(entry.unit)
+        && isFacility(entry.facility) && integerBetween(entry.amount, 1, facilityRecovery))) return null;
+
+    Object.assign(game, {turn, selected, capturedBy, friendlyUnits, enemyUnits, activeUnit: friendlyUnits[activeUnit],
+      funds: {friendly: funds.friendly, enemy: funds.enemy}, enemyActions, enemyProductions, friendlyCapture, facilityHealing});
+    game.factories.forEach((site, index) => {
+      const {owner, production} = factories[index];
+      Object.assign(site, {owner, production});
+    });
+    game.cities.forEach((city, index) => { city.owner = cityOwners[index]; });
+    if (nextEnemy !== null) game.enemyTurn = {nextIndex: nextEnemy, action: null};
+    return game;
   }
 
   get isCrossing() { return this.mode === 'crossing'; }

@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#181f2e">
     <title>ファミコンウォーズ｜はじまりの草原</title>
-    <link rel="stylesheet" href="./style.css?v=mobile-actions">
+    <link rel="stylesheet" href="./style.css?v=crossing-save">
     <link rel="stylesheet" href="./combat.css?v=crossing-tanks">
     <link rel="stylesheet" href="./battlefield.css?v=battlefield">
-    <script defer src="./rules.js?v=crossing-tanks"></script>
+    <script defer src="./rules.js?v=crossing-save"></script>
+    <script defer src="./crossing-save.js?v=crossing-save"></script>
     <script defer src="./combat-audio.js?v=volley"></script>
     <script defer src="./music.js?v=portrait-factory-recovery"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
-    <script defer src="./combat.js?v=crossing-tanks"></script>
-    <script defer src="./game.js?v=battlefield"></script>
+    <script defer src="./combat.js?v=crossing-save"></script>
+    <script defer src="./game.js?v=crossing-save"></script>
   </head>
   <body>
     <header class="masthead">
@@ -35,7 +36,10 @@
         </div>
       </div>
       <div class="intro">
-        <h1 id="mission-title" tabindex="-1">はじまりの草原</h1>
+        <div>
+          <h1 id="mission-title" tabindex="-1">はじまりの草原</h1>
+          <p id="crossing-save-status" class="crossing-save-status" role="status" aria-atomic="true" hidden></p>
+        </div>
         <div class="turn"><span>ターン</span><strong id="turn">01</strong></div>
       </div>
       <div class="layout">
