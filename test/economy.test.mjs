@@ -45,23 +45,24 @@ test('敵歩兵が都市を奪うと次のターンの収入が移り、既存�
   assert.ok(game.enemyActions.some(action => action.enemy === '歩兵' && action.cityCaptured));
   assert.deepEqual(game.funds, {friendly: 4500, enemy: 2000});
   assert.deepEqual([game.incomeFor('friendly'), game.incomeFor('enemy')], [0, 2000]);
-  assert.equal(game.production.enemy, null);
+  assert.deepEqual(game.enemyProductions, []);
 });
 
 test('部隊の種類ごとに費用が異なり、資金不足の操作は資金や部隊に影響しない', () => {
   for (const [type, cost] of [['infantry', 1000], ['scout', 2500], ['support', 3000]]) {
     const game = new TrainingMap('crossing');
+    const factory = game.factoryAt(1, 5);
     assert.equal(game.productionCost(type), cost);
     game.funds.friendly = cost - 1;
-    assert.equal(game.produce(type), null);
+    assert.equal(game.produce(type, factory), null);
     assert.equal(game.funds.friendly, cost - 1);
-    assert.equal(game.production.friendly, null);
+    assert.equal(factory.production, null);
     assert.equal(game.friendlyUnits.length, 3);
     game.funds.friendly = cost;
-    assert.equal(game.produce(type).type.id, type);
+    assert.equal(game.produce(type, factory).type.id, type);
     assert.equal(game.funds.friendly, 0);
-    assert.equal(game.production.friendly.cost, cost);
-    assert.equal(game.produce(type), null);
+    assert.equal(factory.production.cost, cost);
+    assert.equal(game.produce(type, factory), null);
   }
 });
 
@@ -76,7 +77,7 @@ test('決着時は収入と補充を停止し、再戦では所有者と初期�
   game.endTurn();
   assert.equal(game.result, 'defeat');
   assert.deepEqual(game.funds, {friendly: 4500, enemy: 4500});
-  assert.equal(game.production.enemy, null);
+  assert.deepEqual(game.enemyProductions, []);
   assert.equal(game.friendlyUnits[1].hp, 6);
   assert.deepEqual(game.cityHealing, []);
   const replay = new TrainingMap('crossing');

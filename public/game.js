@@ -11,10 +11,14 @@ const rosterEntries = [];
 const enemyRosterEntries = [];
 const productionButtons = [...document.querySelectorAll('[data-produce]')];
 const productionStatus = document.getElementById('production-status');
+const factoryLegend = document.getElementById('factory-legend');
+const factoryPicker = document.getElementById('factory-picker');
+const factoryEntries = [];
+let selectedFactory;
 const cityOverview = document.getElementById('city-overview');
 const cityEntries = [];
 const currency = new Intl.NumberFormat('ja-JP');
-const cityOwners = {friendly: '味方', enemy: '敵', neutral: '中立'};
+const ownerNames = {friendly: '味方', enemy: '敵', neutral: '中立'};
 
 function columnName(x) {
   return String.fromCharCode(65 + x);
@@ -75,14 +79,25 @@ function unitState(unit) {
 }
 
 function renderProduction() {
-  const status = game.productionStatus;
-  const purchase = game.production.friendly;
+  const owned = game.factories.filter(factory => factory.owner === 'friendly');
+  if (!owned.includes(selectedFactory)) selectedFactory = owned[0];
+  factoryPicker.hidden = owned.length < 2;
+  for (const {factory, icon, owner, button} of factoryEntries) {
+    icon.dataset.factory = factory.owner;
+    owner.textContent = `${ownerNames[factory.owner]}工場`;
+    button.hidden = factory.owner !== 'friendly';
+    button.setAttribute('aria-pressed', String(factory === selectedFactory));
+  }
+  document.getElementById('production-title-coordinate').textContent = selectedFactory
+    ? coordinate(selectedFactory.x, selectedFactory.y) : '';
+  const status = game.productionStatus(selectedFactory);
+  const purchase = selectedFactory?.production;
   const labels = {
     ready: '1ターンに1部隊を生産できます。',
     occupied: '工場が使用中です。マスが空くと生産できます。',
     used: purchase ? `${purchase.unit}を生産しました（−${currency.format(purchase.cost)}）。次のターンから操作できます。` : '',
     waiting: '敵のターンです。',
-    unavailable: '対戦終了',
+    unavailable: game.result ? '対戦終了' : '工場を占領すると生産できます。',
     insufficient: '生産に必要な資金が足りません。',
   };
   if (productionStatus.textContent !== labels[status]) productionStatus.textContent = labels[status];
@@ -93,18 +108,47 @@ function renderProduction() {
   }
 }
 
+function buildFactories() {
+  selectedFactory = undefined;
+  factoryEntries.length = 0;
+  factoryLegend.replaceChildren();
+  factoryPicker.replaceChildren();
+  for (const factory of game.factories) {
+    const spot = coordinate(factory.x, factory.y);
+    const legend = document.createElement('span');
+    const icon = document.createElement('i');
+    icon.className = 'factory-key';
+    icon.setAttribute('aria-hidden', 'true');
+    const owner = document.createElement('span');
+    const position = document.createElement('b');
+    position.textContent = spot;
+    legend.append(icon, owner, position);
+    factoryLegend.append(legend);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = spot;
+    button.setAttribute('aria-label', `${spot} の工場`);
+    button.addEventListener('click', () => {
+      selectedFactory = factory;
+      renderProduction();
+    });
+    factoryPicker.append(button);
+    factoryEntries.push({factory, icon, owner, button});
+  }
+}
+
 function renderEconomy() {
   for (const side of Object.keys(game.funds)) {
     document.getElementById(`${side}-funds`).textContent = currency.format(game.funds[side]);
     document.getElementById(`${side}-income`).textContent = currency.format(game.incomeFor(side));
   }
   for (const {city, label} of cityEntries) {
-    const owner = cityOwners[city.owner];
+    const owner = ownerNames[city.owner];
     label.dataset.city = city.owner;
     label.textContent = `${coordinate(city.x, city.y)} ${owner}`;
   }
   const healing = document.getElementById('city-healing');
-  const restored = game.cityHealing.map(({side, unit, amount}) => `${cityOwners[side]}${unit} +${amount} HP`);
+  const restored = game.cityHealing.map(({side, unit, amount}) => `${ownerNames[side]}${unit} +${amount} HP`);
   const report = !game.enemyTurn && !game.result && restored.length ? `都市で回復　${restored.join('、')}` : '';
   if (healing.textContent !== report) healing.textContent = report;
 }
@@ -118,8 +162,8 @@ function render() {
   const enemyBase = game.headquarters?.enemy;
   const captureReady = Boolean(enemyBase && game.playerUnit.id === 'infantry' && movementTargets.has(`${enemyBase.x},${enemyBase.y}`));
   const actingEnemy = game.enemyTurn?.action?.enemy;
-  const cityCapture = game.friendlyCityCapture;
-  const announcedCapture = cityCapture?.turn === game.turn && cityCapture.unit === game.activeUnit.name && !game.attacked;
+  const facilityCapture = game.friendlyCapture;
+  const announcedCapture = facilityCapture?.turn === game.turn && facilityCapture.unit === game.activeUnit.name && !game.attacked;
   if (game.isCrossing) {
     extendRoster(roster, rosterEntries, game.friendlyUnits, true);
     extendRoster(enemyRoster, enemyRosterEntries, game.enemyUnits, false);
@@ -146,6 +190,7 @@ function render() {
     button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
     if (city) button.dataset.city = city.owner;
+    if (factory) button.dataset.factory = factory.owner;
     terrainLabel.textContent = captured ? '占領済' : base ? '本拠地' : factory ? '工場' : city ? '都市' : terrain.name;
     terrainLabel.hidden = !base && !factory && !city && terrain.id === 'plains';
     const friendly = game.friendlyAt(x, y);
@@ -155,8 +200,9 @@ function render() {
     const enemy = game.enemyAt(x, y);
     const target = !waiting && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
+    const facility = factory ?? city;
     const captureTarget = reachable && game.playerUnit.id === 'infantry'
-      && (base === 'enemy' || Boolean(city && city.owner !== 'friendly'));
+      && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly'));
     button.classList.toggle('occupied', occupied);
     button.classList.toggle('enemy', Boolean(enemy));
     button.classList.toggle('enemy-acting', Boolean(enemy && enemy === actingEnemy));
@@ -169,8 +215,8 @@ function render() {
     button.classList.toggle('spent', tileSpent);
     button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
       base ? `${base === 'friendly' ? '味方' : '敵'}の本拠地` : '', captured ? '占領済み' : '',
-      factory ? `${factory === 'friendly' ? '味方' : '敵'}の工場` : '',
-      city ? `${cityOwners[city.owner]}の都市` : '',
+      factory ? `${ownerNames[factory.owner]}の工場` : '',
+      city ? `${ownerNames[city.owner]}の都市` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       terrain.cost === Infinity ? '通行不可' : terrain.cost ? `消費移動力${terrain.cost}` : '',
       target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
@@ -226,8 +272,11 @@ function render() {
     state.textContent = '占領可能';
     message.textContent = '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
   } else if (announcedCapture) {
-    state.textContent = game.canAttack ? '攻撃可能' : '都市占領';
-    message.textContent = `${coordinate(cityCapture.x, cityCapture.y)} の都市を占領しました。次のターンから収入が入ります。`
+    const factory = facilityCapture.facility === 'factory';
+    const site = factory ? '工場' : '都市';
+    const update = factory ? '工場マスが空くと生産できます。' : '次のターンから収入が入ります。';
+    state.textContent = game.canAttack ? '攻撃可能' : `${site}占領`;
+    message.textContent = `${coordinate(facilityCapture.x, facilityCapture.y)} の${site}を占領しました。${update}`
       + (game.canAttack ? '印のある敵を攻撃できます。' : '');
   } else if (game.canAttack) {
     state.textContent = '攻撃可能';
@@ -256,19 +305,18 @@ function render() {
 function renderBattleStatus() {
   const report = document.getElementById('enemy-report');
   if (game.isCrossing) {
-    const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured}) => {
+    const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured}) => {
       const origin = coordinate(from.x, from.y);
       const destination = coordinate(to.x, to.y);
       if (origin === destination) {
         return `敵${enemy} ${destination}${friendly ? `から味方${friendly}を攻撃` : 'で待機'}`;
       }
-      const capture = captured ? '、本拠地を占領' : cityCaptured ? '、都市を占領' : '';
+      const capture = captured ? '、本拠地を占領' : cityCaptured ? '、都市を占領' : factoryCaptured ? '、工場を占領' : '';
       const attack = friendly ? `、味方${friendly}を攻撃` : '';
       return `敵${enemy} ${origin} → ${destination}${capture}${attack}`;
     });
-    if (game.production.enemy) {
-      const {x, y} = game.factories.enemy;
-      lines.push(`敵は工場（${coordinate(x, y)}）で${game.production.enemy.unit}を生産`);
+    for (const {x, y, unit} of game.enemyProductions) {
+      lines.push(`敵は工場（${coordinate(x, y)}）で${unit}を生産`);
     }
     report.hidden = lines.length === 0;
     report.textContent = lines.join('\n');
@@ -308,7 +356,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '歩兵で都市を占領すると、次のターンから収入が入ります。ターン開始時、自軍の都市にいる部隊はHPを2回復します（最大10）。工場では資金を使って1ターンに1部隊を生産でき、次のターンから操作できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: '歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、開始時に自軍部隊のHPを2回復します（最大10）。工場は自軍所有で空いていれば、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;
@@ -318,22 +366,19 @@ function showMission() {
   document.getElementById('terrain-legend').hidden = !game.isBattle;
   document.getElementById('crossing-legend').hidden = !game.isCrossing;
   document.getElementById('base-legend').hidden = !game.headquarters;
-  document.getElementById('factory-legend').hidden = !game.factories;
+  factoryLegend.hidden = !game.factories.length;
   document.getElementById('city-economy').hidden = !game.isCrossing;
-  document.getElementById('production-controls').hidden = !game.factories;
+  document.getElementById('production-controls').hidden = !game.factories.length;
   document.getElementById('crossing-objective').hidden = !game.headquarters;
   if (game.headquarters) {
     for (const [side, {x, y}] of Object.entries(game.headquarters)) {
       document.getElementById(`${side}-base-coordinate`).textContent = coordinate(x, y);
     }
-    for (const [side, {x, y}] of Object.entries(game.factories)) {
-      document.getElementById(`${side}-factory-coordinate`).textContent = coordinate(x, y);
-    }
-    document.getElementById('production-title-coordinate').textContent = coordinate(game.factories.friendly.x, game.factories.friendly.y);
     for (const button of productionButtons) {
       button.querySelector('small').textContent = currency.format(game.productionCost(button.dataset.produce));
     }
   }
+  buildFactories();
   cityEntries.length = 0;
   cityOverview.replaceChildren();
   for (const city of game.cities) {
@@ -398,7 +443,6 @@ function addTile(x, y) {
   const factory = game.factoryAt(x, y);
   const city = game.cityAt(x, y);
   if (base) button.dataset.base = base;
-  if (factory) button.dataset.factory = factory;
   button.classList.toggle('last-column', x === game.width - 1);
   button.classList.toggle('last-row', y === game.height - 1);
   const terrainLabel = document.createElement('span');
@@ -417,7 +461,9 @@ function addTile(x, y) {
       presentAttack(acting, {attacker: 'player', enemy, resolve: () => acting.choose(x, y)});
       return;
     }
+    const capturedFactory = factory?.owner === 'enemy';
     game.choose(x, y);
+    if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
     if (game.capturedBy) restoreBoardFocus(game, 'player', true);
     else render();
   });
@@ -515,7 +561,7 @@ document.getElementById('end').addEventListener('keydown', (event) => {
 });
 for (const button of productionButtons) {
   button.addEventListener('click', () => {
-    if (!combatScreen.active && game.produce(button.dataset.produce)) render();
+    if (!combatScreen.active && game.produce(button.dataset.produce, selectedFactory)) render();
   });
 }
 document.getElementById('help').addEventListener('click', () => {

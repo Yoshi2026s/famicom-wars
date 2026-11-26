@@ -96,8 +96,8 @@ h2 { font-size: 16px; font-weight: 850; }
 .tile[data-terrain="marsh"], .marsh-key { --terrain-image: url("./assets/terrain-marsh.png"); }
 .tile[data-base="friendly"], .friendly-base-key { --facility-image: url("./assets/headquarters-friendly.png"); --facility-color: #234e60; }
 .tile[data-base="enemy"], .enemy-base-key { --facility-image: url("./assets/headquarters-enemy.png"); --facility-color: #723b2a; }
-.tile[data-factory="friendly"], .friendly-factory-key { --facility-image: url("./assets/factory-friendly.png"); --facility-color: #164454; }
-.tile[data-factory="enemy"], .enemy-factory-key { --facility-image: url("./assets/factory-enemy.png"); --facility-color: #703526; }
+.tile[data-factory="friendly"], .factory-key[data-factory="friendly"] { --facility-image: url("./assets/factory-friendly.png"); --facility-color: #164454; }
+.tile[data-factory="enemy"], .factory-key[data-factory="enemy"] { --facility-image: url("./assets/factory-enemy.png"); --facility-color: #703526; }
 [data-city="friendly"] { --facility-image: url("./assets/city-friendly.png"); --facility-color: #234e60; }
 [data-city="enemy"] { --facility-image: url("./assets/city-enemy.png"); --facility-color: #723b2a; }
 [data-city="neutral"] { --facility-image: url("./assets/city-neutral.png"); --facility-color: #5b5037; }
@@ -178,6 +178,9 @@ dd span { font-family: sans-serif; font-size: 12px; }
 .production h3 b { margin-inline-start: 4px; font-family: Consolas, monospace; }
 .production-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px; }
 .production-heading span { font-size: 12px; white-space: nowrap; }
+.factory-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.factory-picker button { min-width: 56px; min-height: 48px; border: 1px solid #9ba99a; border-radius: 4px; background: #f4f2e7; color: #23413a; font: bold 14px Consolas, monospace; }
+.factory-picker button[aria-pressed="true"] { background: #2d5a54; color: #fff9eb; border-color: #2d5a54; }
 .orders .production p { padding: 4px 0 7px; font-size: 12px; }
 .production-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .production-choices button { min-width: 48px; min-height: 48px; padding: 4px 2px; border: 1px solid #2d5a54; border-radius: 4px; background: #cfebe0; color: #203d37; font-size: 12px; font-weight: 800; }
