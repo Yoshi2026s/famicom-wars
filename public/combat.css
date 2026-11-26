@@ -94,53 +94,90 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 .formation[data-terrain="forest"] { --cover-image: url("./assets/volley-cover-forest.png"); }
 .formation[data-terrain="mountain"] { --cover-image: url("./assets/volley-cover-mountain.png"); }
 .formation[data-terrain="marsh"] { --cover-image: url("./assets/volley-cover-marsh.png"); }
+.formation {
+  --fire-motion: infantry-fire; --hit-motion: infantry-hit; --loss-motion: infantry-down;
+  --hit-frames: infantry-hit-frames;
+  --fire-time: .28s; --muzzle-x: 85%; --muzzle-y: 45%; --muzzle-size: 29%;
+}
+.formation[data-kind="scout"] {
+  --fire-motion: scout-fire; --hit-motion: scout-hit; --loss-motion: scout-down;
+  --fire-time: .41s; --muzzle-x: 84%; --muzzle-y: 30%; --muzzle-size: 29%;
+}
+.formation:not([data-kind="infantry"]) { --hit-frames: vehicle-hit-frames; }
+.formation[data-kind="support"] {
+  --fire-motion: support-fire; --hit-motion: support-hit; --loss-motion: support-down;
+  --fire-time: .56s; --muzzle-x: 63%; --muzzle-y: 5%; --muzzle-size: 39%;
+}
+.formation[data-kind="tank"] {
+  --fire-motion: tank-fire; --hit-motion: tank-hit; --loss-motion: tank-down;
+  --fire-time: .40s; --muzzle-x: 93%; --muzzle-y: 30%; --muzzle-size: 49%;
+}
 .fighter {
-  position: absolute; left: 47%; bottom: 12%; width: 39%; max-width: 134px; aspect-ratio: 8/7;
-  background: url("./assets/volley-ally.png") 50% 0 / 100% 600% no-repeat;
+  --pose-aim: 16.6667%; --pose-fire: 33.3333%; --pose-recoil: 50%; --pose-hit: 66.6667%; --pose-duck: 83.3333%;
+  position: absolute; left: 37%; bottom: 11%; width: 58%; max-width: 164px; aspect-ratio: 8/7;
+  background: url("./assets/volley-ally.png?v=unit-combat") 50% 0 / 100% 700% no-repeat;
   filter: drop-shadow(1px 2px 0 #241e2e9e);
 }
-.fighter::before { content: ""; position: absolute; inset: 90% 11% 0 3%; background: #291f32a6; border-radius: 50%; filter: blur(2px); z-index: -1; }
-.foe .fighter { background-image: url("./assets/volley-foe.png"); }
-.formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png?v=river-motion"); }
-.formation[data-unit="enemy-scout"] .fighter { background-image: url("./assets/volley-enemy-scout.png?v=river-motion"); }
-.formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png?v=river-motion"); }
-.formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png?v=river-motion"); }
-.formation[data-unit="tank"] .fighter { background-image: url("./assets/volley-tank.png?v=river-motion"); }
-.formation[data-unit="enemy-tank"] .fighter { background-image: url("./assets/volley-enemy-tank.png?v=river-motion"); }
-.platoon .formation[data-unit="infantry"] .fighter {
-  left: calc(74% - var(--column) * 17% + var(--rank) * 3%);
+.fighter::before { content: ""; position: absolute; inset: 87% 10% 2% 6%; background: #291f32a6; border-radius: 50%; filter: blur(2px); z-index: -1; }
+.foe .fighter { background-image: url("./assets/volley-foe.png?v=unit-combat"); }
+.formation[data-unit="scout"] .fighter { background-image: url("./assets/volley-scout.png?v=unit-combat"); }
+.formation[data-unit="enemy-scout"] .fighter { background-image: url("./assets/volley-enemy-scout.png?v=unit-combat"); }
+.formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png?v=unit-combat"); }
+.formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png?v=unit-combat"); }
+.formation[data-unit="tank"] .fighter { background-image: url("./assets/volley-tank.png?v=unit-combat"); }
+.formation[data-unit="enemy-tank"] .fighter { background-image: url("./assets/volley-enemy-tank.png?v=unit-combat"); }
+.formation[data-kind="tank"] .fighter { left: 30%; width: 65%; max-width: 176px; }
+.platoon .formation[data-kind="infantry"] .fighter {
+  left: calc(72% - var(--column) * 16% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);
-  width: 23%; max-width: min(86px, 16dvh); z-index: calc(2 - var(--rank));
+  width: 25%; max-width: min(86px, 16dvh); z-index: calc(2 - var(--rank));
 }
 [data-phase="entry"] .fighter { animation: take-position .42s steps(5, end) both; animation-delay: calc(var(--column) * 12ms); }
 @keyframes take-position { from { opacity: .25; transform: translateX(-24%); } to { opacity: 1; transform: none; } }
-[data-attacker="player"][data-phase="aim"] .ally .fighter,
-[data-attacker="enemy"][data-phase="aim"] .foe .fighter { animation: raise-sights .25s steps(1, end) both; animation-delay: calc(var(--column) * 12ms); }
-@keyframes raise-sights { 0% { background-position-y: 0%; } 60%, 100% { background-position-y: 20%; transform: translate(8%, 2%); } }
-#combat-screen[data-attacker="player"][data-phase="attack"] .ally .fighter,
-#combat-screen[data-attacker="enemy"][data-phase="attack"] .foe .fighter { animation: brace-and-fire .26s var(--fire-delay) steps(1, end) both; }
-@keyframes brace-and-fire {
-  0% { background-position-y: 40%; transform: translate(8%, 1%); }
-  23% { background-position-y: 60%; transform: translate(-7%, -2%); }
-  58%, 100% { background-position-y: 20%; transform: translate(8%, 2%); }
+[data-phase="aim"] .formation[data-role="attacking"] .fighter { animation: raise-sights .25s steps(1, end) both; }
+@keyframes raise-sights { from { background-position-y: 0%; } 65%, to { background-position-y: var(--pose-aim); } }
+[data-phase="attack"] .formation[data-role="attacking"] .fighter {
+  animation: var(--fire-motion) var(--fire-time) var(--fire-delay) steps(1, end) both;
 }
-[data-attacker="player"]:is([data-phase="aim"],[data-phase="attack"]) .foe .fighter,
-[data-attacker="enemy"]:is([data-phase="aim"],[data-phase="attack"]) .ally .fighter { background-position-y: 100%; }
+:is([data-phase="aim"], [data-phase="attack"]) .formation[data-role="defending"][data-kind="infantry"] .fighter { background-position-y: var(--pose-duck); }
+@keyframes infantry-fire {
+  from { background-position-y: var(--pose-fire); transform: translate(6%, 1%); }
+  24% { background-position-y: var(--pose-recoil); transform: translate(-7%, -2%); }
+  53%, to { background-position-y: var(--pose-aim); transform: translate(3%, 2%); }
+}
+@keyframes scout-fire {
+  0%, 20%, 40% { background-position-y: var(--pose-fire); transform: translateX(5%) rotate(-1deg); }
+  12%, 32%, 52% { background-position-y: var(--pose-recoil); transform: translateX(-2%) rotate(1deg); }
+  70%, to { background-position-y: var(--pose-aim); transform: translateX(4%); }
+}
+@keyframes support-fire {
+  0%, 22% { background-position-y: var(--pose-fire); transform: translateY(2%); }
+  12%, 34% { background-position-y: var(--pose-recoil); transform: translate(-2%, 4%); }
+  55%, to { background-position-y: var(--pose-aim); }
+}
+@keyframes tank-fire {
+  from { background-position-y: var(--pose-fire); transform: translateX(2%); }
+  13% { background-position-y: var(--pose-recoil); transform: translateX(-14%) rotate(-2.5deg); }
+  45% { background-position-y: var(--pose-aim); transform: translateX(-4%); }
+  70%, to { background-position-y: var(--pose-aim); transform: none; }
+}
 .fighter::after {
-  content: ""; position: absolute; left: 84%; top: 43%; width: 34%; aspect-ratio: 1; opacity: 0;
+  content: ""; position: absolute; left: var(--muzzle-x); top: var(--muzzle-y); width: var(--muzzle-size); aspect-ratio: 1; opacity: 0;
   background: radial-gradient(circle at 18% 51%, #fffbe2 20%, var(--shot) 44%, var(--shot-edge) 78%);
   clip-path: polygon(0 45%, 44% 35%, 75% 0, 72% 32%, 100% 46%, 76% 58%, 94% 91%, 45% 67%, 0 63%);
 }
-[data-attacker="player"][data-phase="attack"] .ally .fighter::after,
-[data-attacker="enemy"][data-phase="attack"] .foe .fighter::after { animation: muzzle .094s var(--fire-delay) ease-out both; }
-@keyframes muzzle {
-  0% { opacity: 0; transform: scale(.45); }
-  19% { opacity: 1; }
-  100% { opacity: 0; transform: scale(1.45); }
+[data-phase="attack"] .formation[data-role="attacking"] .fighter::after { animation: muzzle .105s var(--fire-delay) ease-out both; }
+[data-phase="attack"] .formation[data-role="attacking"][data-kind="scout"] .fighter::after { animation: muzzle 82ms ease-out 3; }
+[data-phase="attack"] .formation[data-role="attacking"][data-kind="support"] .fighter::after {
+  animation: muzzle 120ms ease-out 2; background: radial-gradient(circle at 24% 62%, #fffbd5 20%, #ff9a65 49%, transparent 76%);
 }
+@keyframes muzzle { from { opacity: .85; transform: scale(.44); } 24% { opacity: 1; } to { opacity: 0; transform: scale(1.45); } }
+[data-armament="tank"][data-phase="attack"] .combat-camera { animation: cannon-kick .31s ease-out; }
+@keyframes cannon-kick { 12% { translate: calc(var(--pan) * -5px) 2px; } 35% { translate: calc(var(--pan) * 3px) -1px; } }
+
 .combat-volley { position: absolute; z-index: 6; inset: 0; pointer-events: none; }
 .combat-volley i {
-  position: absolute; left: var(--from-x); top: var(--from-y); width: clamp(12px,5%,48px); height: 2px; opacity: 0;
+  position: absolute; left: var(--from-x); top: var(--from-y); width: clamp(12px, 5%, 48px); height: 2px; opacity: 0;
   transform: rotate(var(--angle)) translateX(-100%); transform-origin: left center;
 }
 .combat-volley i::before {
@@ -149,80 +186,124 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
   box-shadow: 0 0 8px var(--shot-edge); border-radius: 2px;
 }
 .combat-volley i::after {
-  content: ""; position: absolute; right: -5px; top: -5px; width: 12px; height: 12px; opacity: 0;
+  content: ""; position: absolute; right: -5px; top: -5px; width: 12px; height: 12px;
   background: radial-gradient(circle, #fff6c9 12%, var(--shot) 30%, transparent 68%);
 }
-[data-phase="attack"] .combat-volley i { animation: shot-trail .29s var(--shot-delay) linear both; }
-[data-phase="attack"] .combat-volley i::before { animation: trail-glow .29s var(--shot-delay) linear both; }
-[data-phase="attack"] .combat-volley i::after { animation: trail-spark .29s var(--shot-delay) ease-out both; }
-@keyframes shot-trail {
-  0% { opacity: 0; }
-  12%, 92% { opacity: 1; }
-  76%, 100% { left: var(--to-x); top: var(--to-y); }
-  100% { opacity: 0; }
+[data-phase="attack"] .combat-volley i { animation: shot-trail var(--flight) var(--shot-delay) linear both; }
+[data-armament="scout"] .combat-volley i { width: clamp(22px, 9%, 63px); height: 2px; }
+[data-armament="scout"] .combat-volley i::before {
+  background: linear-gradient(90deg, transparent, var(--shot-edge) 36%, transparent 51% 62%, #ffcf85 74%, #fff4c2);
 }
-@keyframes trail-glow { 0%, 66% { opacity: 1; } 82%, 100% { opacity: 0; } }
-@keyframes trail-spark { 0%, 71% { opacity: 0; transform: scale(.35); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.9); } }
+[data-armament="tank"] .combat-volley i { height: 5px; width: clamp(22px, 10%, 78px); }
+[data-armament="tank"] .combat-volley i::before { box-shadow: 0 0 12px var(--shot-edge), -12px 1px 7px #efae6885; }
+[data-armament="support"] .combat-volley i { width: clamp(26px, 11%, 78px); height: 5px; }
+[data-armament="support"] .combat-volley i::before {
+  background: linear-gradient(90deg, transparent, #d5c7bbc7 35%, #f0b381 69%, #fff4bb 94%);
+  box-shadow: 1px 2px 5px #48364399, 0 0 9px #fedeb880;
+}
+[data-armament="support"] .combat-volley i::after { background: radial-gradient(circle, #ffffff 12%, #ffd68e 33%, transparent 68%); }
+[data-armament="support"][data-phase="attack"] .combat-volley i { animation-name: rocket-trail; }
+@keyframes shot-trail {
+  from { opacity: 0; }
+  10%, 84% { opacity: 1; }
+  to { left: var(--to-x); top: var(--to-y); opacity: 0; }
+}
+@keyframes rocket-trail {
+  from { opacity: 0; transform: rotate(var(--launch)) translateX(-100%); }
+  12%, 88% { opacity: 1; }
+  50% {
+    left: calc((var(--from-x) + var(--to-x)) / 2);
+    top: calc((var(--from-y) + var(--to-y)) / 2 - var(--arc-rise));
+    transform: rotate(var(--angle)) translateX(-100%);
+  }
+  to { left: var(--to-x); top: var(--to-y); transform: rotate(var(--fall)) translateX(-100%); opacity: 0; }
+}
+
 .combat-hit { position: absolute; z-index: 7; inset: 0; pointer-events: none; }
-.combat-impact, .combat-smoke, .combat-sparks, .combat-damage {
+.combat-impact, .combat-smoke, .combat-sparks, .combat-wreck, .combat-damage {
   position: absolute; left: var(--hit-x); top: var(--hit-y); opacity: 0;
 }
 .combat-impact {
-  width: clamp(29px, 10%, 78px); aspect-ratio: 1; border: 1px solid #ffd4a5;
+  --impact-size: clamp(27px, 9%, 70px);
+  width: var(--impact-size); aspect-ratio: 1; border: 1px solid #ffd4a5;
   translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, #fff5cde9, #f8a9606e 55%, transparent 71%);
-  box-shadow: 0 0 28px #fba560a6;
+  box-shadow: 0 0 23px #fba560a6;
 }
 .combat-impact::after {
   content: ""; position: absolute; inset: 10%; background: #fff2cf;
   clip-path: polygon(50% 0,61% 31%,92% 15%,76% 43%,100% 48%,76% 62%,92% 89%,61% 73%,50% 100%,41% 72%,8% 90%,22% 60%,0 49%,23% 40%,9% 13%,41% 32%);
 }
 .combat-smoke {
-  translate: -68% 46%; width: clamp(30px, 9%, 68px); height: 17px; border-radius: 50%;
+  translate: -68% 36%; width: clamp(26px, 9%, 68px); height: 16px; border-radius: 50%;
   background: #e0b894; box-shadow: 16px -8px #ae8b8d, -16px 4px #ccb096, 28px 3px #d4a489; filter: blur(2px);
 }
 .combat-sparks {
   width: 4px; height: 2px; background: #ffe9bf; color: #eca05e;
   box-shadow: 7px -7px #ffe9b6, 15px 2px currentColor, -6px 0 #ffd3a5, -13px -4px currentColor, 4px 8px currentColor, 12px -9px currentColor, -15px 5px #ffddad;
 }
+.combat-wreck {
+  width: clamp(28px, 13%, 96px); aspect-ratio: 1; translate: -50% -75%; border-radius: 50%;
+  background: radial-gradient(circle at 52% 64%, #f7e3a8 0 12%, #f6a55d 17% 28%, #bb6e63c7 38%, transparent 64%);
+}
+.combat-wreck::before {
+  content: ""; position: absolute; inset: 18% 26% 44%; border-radius: 50%;
+  background: #524653c7; box-shadow: -10px 4px #655361a8, 11px -5px #383d4cae, 3px -11px #594c5299;
+  filter: blur(3px);
+}
+[data-defender="scout"] .combat-wreck::before { inset: 37% 15% 31%; background: #a78c779e; }
+[data-defender="tank"] .combat-wreck::before { inset: 1% 21% 49%; background: #39333bcf; }
 .combat-damage {
   translate: -50% calc(-100% - 19px); display: grid; justify-items: center; gap: 2px; color: #fff0bb; white-space: nowrap;
   text-shadow: -2px -1px #1c222b, 2px 2px #1c222b, -1px 2px #1c222b, 1px -1px #1c222b;
 }
 .combat-damage b { font: 900 clamp(30px, 7vw, 64px)/1 Consolas, monospace; }
 .combat-damage small { padding: 2px 5px; font-size: 11px; font-weight: bold; background: #24303be8; border: 1px solid #a7bda6; border-radius: 4px; }
-[data-phase="impact"] .combat-impact { animation: burst .42s steps(4, end) both; }
+[data-phase="impact"] .combat-impact { animation: burst .42s ease-out both; }
 [data-phase="impact"] .combat-smoke { animation: dust .78s ease-out both; }
 [data-phase="impact"] .combat-sparks { animation: scattering .45s ease-out both; }
 [data-phase="impact"] .combat-damage { opacity: 1; animation: damage-rise .8s ease-out both; }
-[data-ordnance="shell"] .combat-volley i { height: 4px; width: clamp(18px, 8%, 66px); }
-[data-ordnance="shell"] .combat-volley i::before { box-shadow: 0 0 10px var(--shot-edge), -12px 1px 5px #e8ce8c75; }
-[data-ordnance="shell"] .combat-impact { width: clamp(36px, 14%, 100px); }
+[data-phase="impact"] .formation[data-role="defending"] .fighter:not(.retreating) {
+  animation: var(--hit-motion) .55s ease-out both, var(--hit-frames) .55s steps(1, end) both;
+}
+[data-phase="impact"] .fighter.retreating { animation: var(--loss-motion) .89s ease-out both, defeated-frames .89s steps(1, end) both; }
+[data-defender="infantry"] .combat-impact { --impact-size: clamp(15px, 6%, 48px); }
+[data-defender="scout"] .combat-smoke { height: 9px; translate: -45% 115%; }
+[data-defender="support"] .combat-smoke { background: #8d7881; box-shadow: 14px -17px #ae8b8d, -14px -9px #767480; }
+[data-defender="tank"] .combat-impact { --impact-size: clamp(32px, 12%, 98px); }
+[data-defender="tank"] .combat-sparks { height: 4px; color: #ffe0a3; }
 .combat-impact::before {
-  content: ""; position: absolute; inset: 16%; border: 2px solid #ffebba;
-  border-radius: 50%; box-shadow: inset 0 0 13px #ee916c, 0 0 15px #ffd59788; opacity: 0;
+  content: ""; position: absolute; inset: 10%; border: 2px solid #ffebba; border-radius: 50%; opacity: 0;
+  box-shadow: inset 0 0 13px #ee916c, 0 0 15px #ffd59788;
 }
-.combat-sparks::after {
-  content: ""; position: absolute; inset: 0; background: #e9b477; opacity: 0;
-  box-shadow: 13px 8px #ba855e, -7px 4px #f9cf89, 4px -13px #df9f67, -17px -2px #af7b65;
-}
-@media (prefers-reduced-motion: no-preference) {
-  [data-phase="impact"][data-ordnance="shell"] .combat-impact::before { animation: impact-ring .42s ease-out both; }
-  [data-phase="impact"] .combat-sparks::after { animation: earth-chips .48s ease-out both; }
-  @keyframes impact-ring { from { opacity: .9; transform: scale(.55); } to { opacity: 0; transform: scale(2.4); } }
-  @keyframes earth-chips { from { opacity: 1; transform: scale(.5); } to { opacity: 0; transform: translateY(9px) scale(2.2) rotate(22deg); } }
-}
-[data-phase="impact"][data-attacker="player"] .foe .fighter:not(.retreating),
-[data-phase="impact"][data-attacker="enemy"] .ally .fighter:not(.retreating) {
-  animation: flinch .5s ease-out both, hit-pose .5s steps(1, end) both;
-}
-[data-phase="impact"] .fighter.retreating { animation: retreat .64s ease-out both, hit-pose .64s steps(1, end) both; }
-@keyframes burst { 0% { opacity: 1; transform: scale(.42); } 36% { opacity: .87; transform: scale(1); } 100% { opacity: 0; transform: scale(1.65); } }
-@keyframes dust { from { opacity: .8; transform: scale(.5); } to { opacity: 0; transform: translate(calc(var(--pan) * 32px), -26px) scale(2.15); } }
-@keyframes scattering { from { opacity: 1; transform: scale(.65); } to { opacity: 0; transform: translate(calc(var(--pan) * 19px), -28px) scale(3) rotate(18deg); } }
-@keyframes damage-rise { from { opacity: .85; transform: translateY(5px) scale(.75); } 33%, 100% { opacity: 1; transform: translateY(-12px); } }
-@keyframes hit-pose { 0% { background-position-y: 80%; } 35% { background-position-y: 100%; } 85%, 100% { background-position-y: 0%; } }
-@keyframes flinch { 0% { transform: translate(-14%, -3%); } 35% { transform: translate(-12%, 3%); } 100% { transform: none; } }
-@keyframes retreat { 0% { opacity: 1; transform: translate(-9%, -3%); } 50% { opacity: .79; } 100% { opacity: 0; transform: translate(-66%, 11%) scale(.78); } }
+[data-phase="impact"][data-armament="tank"] .combat-impact::before { animation: impact-ring .47s ease-out both; }
+[data-phase="impact"][data-defender="scout"] .combat-smoke { animation-name: skid-dust; }
+[data-phase="impact"][data-defender="support"] .combat-smoke { animation-name: equipment-smoke; }
+[data-phase="impact"][data-defender="tank"] .combat-sparks { animation-name: armor-sparks; }
+[data-phase="impact"][data-lethal="true"][data-defender="scout"] .combat-wreck { animation: scout-wreck .79s ease-out both; }
+[data-phase="impact"][data-lethal="true"][data-defender="support"] .combat-wreck { animation: support-wreck .91s ease-out both; }
+[data-phase="impact"][data-lethal="true"][data-defender="tank"] .combat-wreck { animation: tank-wreck .95s ease-out both; }
+@keyframes burst { from { opacity: .96; transform: scale(.42); } 36% { opacity: .87; transform: scale(1); } to { opacity: 0; transform: scale(1.62); } }
+@keyframes dust { from { opacity: .8; transform: scale(.5); } to { opacity: 0; transform: translate(calc(var(--pan) * 28px), -19px) scale(1.8); } }
+@keyframes skid-dust { from { opacity: .7; transform: scale(.45); } to { opacity: 0; transform: translateX(calc(var(--pan) * 38px)) scale(2.1, 1.3); } }
+@keyframes equipment-smoke { from { opacity: .9; transform: scale(.48); } to { opacity: 0; transform: translateY(-45px) scale(2.1); } }
+@keyframes scattering { from { opacity: 1; transform: scale(.65); } to { opacity: 0; transform: translate(calc(var(--pan) * 19px), -28px) scale(2.7) rotate(18deg); } }
+@keyframes armor-sparks { from { opacity: 1; transform: scale(.62); } to { opacity: 0; transform: translate(calc(var(--pan) * 14px), -32px) scale(2.9, 1.5) rotate(32deg); } }
+@keyframes damage-rise { from { opacity: .85; transform: translateY(5px) scale(.75); } 33%, to { opacity: 1; transform: translateY(-12px); } }
+@keyframes impact-ring { from { opacity: .9; transform: scale(.55); } to { opacity: 0; transform: scale(2.4); } }
+@keyframes infantry-hit-frames { from { background-position-y: var(--pose-hit); } 30% { background-position-y: var(--pose-duck); } 82%, to { background-position-y: 0%; } }
+@keyframes vehicle-hit-frames { from { background-position-y: var(--pose-hit); } 50%, to { background-position-y: 0%; } }
+@keyframes defeated-frames { from { background-position-y: var(--pose-hit); } 24%, to { background-position-y: 100%; } }
+@keyframes infantry-hit { from { transform: translate(-11%, -3%); } 74%, to { transform: none; } }
+@keyframes scout-hit { from { transform: translateX(-17%) rotate(8deg); } 56% { transform: translateX(-9%) rotate(-3deg); } to { transform: none; } }
+@keyframes support-hit { from { transform: translate(-6%, -5%) rotate(-5deg); } 47% { transform: translateY(5%) rotate(3deg); } to { transform: none; } }
+@keyframes tank-hit { from { transform: translateX(-7%) rotate(2deg); } 43% { transform: translateX(-2%); } to { transform: none; } }
+@keyframes infantry-down { from { transform: translate(-9%, -2%); } 59% { opacity: .94; } to { opacity: .44; transform: translate(-34%, 9%); } }
+@keyframes scout-down { from { transform: translateX(-6%); } 30% { transform: translateX(-32%) rotate(15deg); } to { transform: translateX(-38%) rotate(7deg); filter: saturate(.57); } }
+@keyframes support-down { from { transform: translateY(-5%); } 25% { transform: translate(-9%, -9%) rotate(-9deg); } to { transform: translate(-10%, 4%) rotate(4deg); filter: saturate(.54); } }
+@keyframes tank-down { from { transform: translateX(-8%); } 19% { transform: translateX(-6%) rotate(-3deg); } to { transform: translate(-7%, 5%); filter: saturate(.38); } }
+@keyframes scout-wreck { from { opacity: .95; transform: scale(.43); } to { opacity: 0; transform: translate(calc(var(--pan) * 31px), 12px) scale(1.42, .83); } }
+@keyframes support-wreck { from { opacity: .9; transform: scale(.37); } 26% { opacity: .71; transform: translateY(-10px) scale(1.3); } to { opacity: 0; transform: translateY(-43px) scale(1.84, 2.14); } }
+@keyframes tank-wreck { from { opacity: .96; transform: scale(.29); } 23% { opacity: .82; transform: scale(1.24); } to { opacity: 0; transform: translateY(-17px) scale(2.3, 1.85); } }
 .combat-outcome {
   --verdict-light: #ffe7a7; --verdict-rim: #edbc6c; --verdict-bg: #2a1c17ec;
   position: absolute; inset: 0; z-index: 13; display: grid; align-content: center; justify-items: center;
