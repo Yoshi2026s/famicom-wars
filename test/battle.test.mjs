@@ -47,6 +47,19 @@ test('味方が先手なら敵は1回反撃し、撃破された側は反撃し�
   assert.deepEqual(final.map.crossingSnapshot(), settled);
 });
 
+test('攻撃の確認は反撃後まで予測し、確定までHPや行動状況を変えない', () => {
+  const {map, enemy} = adjacentInfantry();
+  const before = map.crossingSnapshot();
+  const prediction = map.previewAttack(enemy);
+  assert.deepEqual(prediction.map(({damage, playerHP, enemyHP}) => [damage, playerHP, enemyHP]), [
+    [3, 10, 7], [2, 8, 7],
+  ]);
+  assert.deepEqual(map.crossingSnapshot(), before);
+  assert.deepEqual(map.previewAttack(map.enemyUnits[1]), []);
+  assert.deepEqual(map.choose(enemy.x, enemy.y), prediction);
+  assert.deepEqual(map.previewAttack(enemy), []);
+});
+
 test('全滅で敗北すると行動もターンも止まる', () => {
   const {map, friendly} = adjacentInfantry();
   friendly.hp = 2;

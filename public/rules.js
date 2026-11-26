@@ -287,6 +287,11 @@ class BattleMap {
       : this.enemyUnits.some(target => target.hp > 0 && inRange(unit.type, unit, target)));
   }
 
+  previewAttack(enemy) {
+    if (!enemy || !this.canUnitAttack(this.activeUnit, enemy)) return [];
+    return this.#exchange('player', {...this.activeUnit}, {...enemy});
+  }
+
   get canMove() {
     return !this.enemyTurn && !this.result && this.playerHP > 0 && this.activeUnit.readyTurn <= this.turn && !this.moved && !this.attacked;
   }

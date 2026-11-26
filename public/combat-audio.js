@@ -5,6 +5,8 @@ const combatAudio = (() => {
   const sources = new Set();
   const effects = new Map();
   let context;
+  let resuming;
+  let cueId = 0;
   let enabled = true;
   try {
     enabled = localStorage.getItem(preferenceKey) !== 'off';
@@ -25,13 +27,16 @@ const combatAudio = (() => {
     if (!enabled || !Audio) return;
     try {
       context ??= new Audio();
-      if (context.state !== 'running') context.resume().catch(() => {});
+      if (context.state !== 'running' && !resuming) {
+        resuming = context.resume().catch(() => {}).finally(() => { resuming = undefined; });
+      }
     } catch {
       // Audio is optional, including when the device denies playback.
     }
   }
 
   function makeEffect(kind) {
+    if (kind === 'turn-friendly' || kind === 'turn-enemy') return makeTurnEffect(kind === 'turn-friendly');
     const impact = kind === 'impact';
     const duration = impact ? 0.32 : 0.14;
     const rate = context.sampleRate;
@@ -51,6 +56,23 @@ const combatAudio = (() => {
       const envelope = Math.min(1, time / 0.0025, (duration - time) / .015) * Math.exp(-time * (impact ? 18 : 27));
       const tail = noise * Math.max(0, 1 - progress) ** 5 * .027;
       samples[i] = envelope * (impact ? .35 * tone + .25 * smoothNoise : .25 * (noise - smoothNoise) + .11 * tone) + tail;
+    }
+    return buffer;
+  }
+
+  function makeTurnEffect(friendly) {
+    const rate = context.sampleRate;
+    const frequencies = friendly ? [523.25, 783.99] : [349.23, 261.63];
+    const buffer = context.createBuffer(1, Math.ceil(rate * .4), rate);
+    const samples = buffer.getChannelData(0);
+    for (const [index, frequency] of frequencies.entries()) {
+      const start = Math.round(index * .12 * rate);
+      for (let i = start; i < samples.length; i++) {
+        const time = (i - start) / rate;
+        const phase = 2 * Math.PI * frequency * time;
+        const envelope = Math.min(1, time / .012, (samples.length - i) / (.045 * rate)) * Math.exp(-9 * time);
+        samples[i] += .17 * envelope * (Math.sin(phase) + .24 * Math.sin(phase * 2));
+      }
     }
     return buffer;
   }
@@ -78,11 +100,21 @@ const combatAudio = (() => {
   }
 
   function stop() {
+    cueId++;
     for (const source of sources) {
       source.disconnect();
       source.stop();
     }
     sources.clear();
+  }
+
+  function playTurn(side) {
+    const id = ++cueId;
+    const kind = `turn-${side}`;
+    if (context?.state === 'running') play(kind);
+    else resuming?.then(() => {
+      if (id === cueId) play(kind);
+    });
   }
 
   document.addEventListener('click', (event) => {
@@ -112,5 +144,5 @@ const combatAudio = (() => {
     if (document.hidden) stop();
   });
   syncButtons();
-  return {play, stop};
+  return {play, playTurn, stop};
 })();
