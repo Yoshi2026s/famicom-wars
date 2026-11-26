@@ -10,9 +10,9 @@ function leaveEnemySupport(game, x, y) {
   return support;
 }
 
-test('新作戦は10×8で、川を避けて橋を渡り、湿地には移動力2を使う', () => {
+test('水辺の攻防は14×10で、川を避けて橋を渡り、湿地には移動力2を使う', () => {
   const game = new TrainingMap('crossing');
-  assert.deepEqual([game.width, game.height, game.x, game.y], [10, 8, 1, 6]);
+  assert.deepEqual([game.width, game.height, game.x, game.y], [14, 10, 1, 6]);
   assert.equal(game.playerUnit.id, 'scout');
   assert.deepEqual(game.enemyUnits.map(unit => [unit.type.id, unit.x, unit.y]), [
     ['infantry', 7, 1], ['scout', 7, 5], ['support', 7, 2],
@@ -25,7 +25,7 @@ test('新作戦は10×8で、川を避けて橋を渡り、湿地には移動力
   assert.equal(paths.get('3,5').cost, 4);
   assert.equal(game.canMoveTo(4, 5), false);
   assert.equal(game.canMoveTo(4, 6), false);
-  assert.equal(game.canMoveTo(1, 8), false);
+  assert.equal(game.canMoveTo(1, 10), false);
   game.choose(3, 5);
   game.endTurn();
   game.choose(3, 5);
@@ -34,6 +34,20 @@ test('新作戦は10×8で、川を避けて橋を渡り、湿地には移動力
   assert.equal(game.canMoveTo(7, 5), true);
   game.choose(7, 5);
   assert.deepEqual([game.x, game.y], [7, 5]);
+});
+
+test('南に延びた川にはE9の橋があり、東へ渡って追加されたエリアに進める', () => {
+  const game = new TrainingMap('crossing');
+  game.x = 3;
+  game.y = 8;
+  game.choose(3, 8);
+  assert.equal(game.terrainAt(4, 8).id, 'bridge');
+  assert.equal(game.terrainAt(4, 9).id, 'river');
+  assert.equal(game.canMoveTo(4, 9), false);
+  assert.equal(game.movementTargets().get('6,8').cost, 4);
+  game.choose(6, 8);
+  assert.deepEqual([game.x, game.y], [6, 8]);
+  assert.equal(game.terrainAt(13, 9).id, 'mountain');
 });
 
 test('支援車は川・湿地を避けて橋を目指し、射程に入るとその場で攻撃する', () => {
@@ -257,20 +271,20 @@ test('最後の味方が撃破された時点で、残りの敵は行動しな�
 test('歩兵が敵本拠地を移動先に選ぶと、敵が残っていてもその場で勝利する', () => {
   const game = new TrainingMap('crossing');
   const infantry = game.friendlyUnits[1];
-  Object.assign(infantry, {x: 8, y: 5});
-  assert.deepEqual(game.headquarters, {friendly: {x: 0, y: 6}, enemy: {x: 9, y: 5}});
+  Object.assign(infantry, {x: 12, y: 7});
+  assert.deepEqual(game.headquarters, {friendly: {x: 0, y: 6}, enemy: {x: 13, y: 7}});
   assert.equal(game.headquartersAt(0, 6), 'friendly');
-  assert.equal(game.headquartersAt(9, 5), 'enemy');
-  game.choose(8, 5);
-  assert.equal(game.canMoveTo(9, 5), true);
-  game.choose(9, 5);
+  assert.equal(game.headquartersAt(13, 7), 'enemy');
+  game.choose(12, 7);
+  assert.equal(game.canMoveTo(13, 7), true);
+  game.choose(13, 7);
   assert.equal(game.capturedBy, 'friendly');
   assert.equal(game.result, 'victory');
   assert.equal(game.canAttack, false);
   assert.ok(game.enemyUnits.every(unit => unit.hp === 10));
-  game.choose(8, 5);
+  game.choose(12, 7);
   game.endTurn();
-  assert.deepEqual([infantry.x, infantry.y, game.turn], [9, 5, 1]);
+  assert.deepEqual([infantry.x, infantry.y, game.turn], [13, 7, 1]);
   assert.equal(new TrainingMap('crossing').capturedBy, null);
   assert.equal(new TrainingMap('battle').headquartersAt(0, 6), null);
 });
@@ -280,21 +294,21 @@ test('偵察車や支援車が敵本拠地に止まっても占領できず、�
     const game = new TrainingMap('crossing');
     const vehicle = game.friendlyUnits[index];
     const infantry = game.friendlyUnits[1];
-    Object.assign(vehicle, {x: 8, y: 5});
-    Object.assign(infantry, {x: 9, y: 4});
-    game.choose(8, 5);
-    game.choose(9, 5);
-    assert.equal(game.friendlyAt(9, 5), vehicle);
+    Object.assign(vehicle, {x: 12, y: 7});
+    Object.assign(infantry, {x: 13, y: 6});
+    game.choose(12, 7);
+    game.choose(13, 7);
+    assert.equal(game.friendlyAt(13, 7), vehicle);
     assert.equal(game.result, null);
-    game.choose(9, 4);
-    assert.equal(game.canMoveTo(9, 5), false);
+    game.choose(13, 6);
+    assert.equal(game.canMoveTo(13, 7), false);
   }
   const game = new TrainingMap('crossing');
-  Object.assign(game.friendlyUnits[1], {x: 8, y: 5});
-  Object.assign(game.enemyUnits[1], {x: 9, y: 5, hp: 1});
-  game.choose(8, 5);
-  assert.equal(game.canMoveTo(9, 5), false);
-  assert.equal(game.choose(9, 5).length, 1);
+  Object.assign(game.friendlyUnits[1], {x: 12, y: 7});
+  Object.assign(game.enemyUnits[1], {x: 13, y: 7, hp: 1});
+  game.choose(12, 7);
+  assert.equal(game.canMoveTo(13, 7), false);
+  assert.equal(game.choose(13, 7).length, 1);
   assert.equal(game.capturedBy, null);
   assert.equal(game.result, null);
 });

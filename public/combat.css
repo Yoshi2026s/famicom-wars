@@ -105,6 +105,8 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 .formation[data-unit="enemy-scout"] .fighter { background-image: url("./assets/volley-enemy-scout.png"); }
 .formation[data-unit="support"] .fighter { background-image: url("./assets/volley-support.png"); }
 .formation[data-unit="friendly-support"] .fighter { background-image: url("./assets/volley-friendly-support.png"); }
+.formation[data-unit="tank"] .fighter { background-image: url("./assets/volley-tank.png"); }
+.formation[data-unit="enemy-tank"] .fighter { background-image: url("./assets/volley-enemy-tank.png"); }
 .platoon .formation[data-unit="infantry"] .fighter {
   left: calc(74% - var(--column) * 17% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);

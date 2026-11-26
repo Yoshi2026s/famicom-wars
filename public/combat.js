@@ -216,7 +216,7 @@ const combatScreen = (() => {
         formations[side].dataset.terrain = terrain.id;
         const {id} = unit.type;
         const sprite = side === 'player' && id === 'support' ? 'friendly-support'
-          : side === 'enemy' && id === 'scout' ? 'enemy-scout' : id;
+          : side === 'enemy' && (id === 'scout' || id === 'tank') ? `enemy-${id}` : id;
         formations[side].dataset.unit = sprite;
       }
       document.getElementById('combat-turn').textContent = 'ターン ' + map.turn;

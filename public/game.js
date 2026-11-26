@@ -4,6 +4,8 @@ let game = missions.training;
 const pendingEnemyTurns = new Set();
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
+const mapScrollNote = document.getElementById('map-scroll-note');
+const mapNumbers = document.getElementById('map-numbers');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
@@ -234,10 +236,11 @@ function render() {
     image.hidden = !occupied && !enemy;
     if (occupied || enemy) showImage(image, unitImage((enemy ?? friendly).type, Boolean(enemy)));
   }
-  const {movement, minRange, maxRange} = game.playerUnit;
+  const {movement, minRange, maxRange, attackBonus} = game.playerUnit;
   document.getElementById('unit-name').textContent = game.activeUnit.name;
   document.getElementById('unit-movement').textContent = movement;
   document.getElementById('unit-range').textContent = minRange === maxRange ? maxRange : `${minRange}〜${maxRange}`;
+  document.getElementById('unit-trait').hidden = !attackBonus;
   showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
   const position = coordinate(game.x, game.y);
   document.getElementById('position').textContent = game.playerHP ? position : '—';
@@ -364,7 +367,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '歩兵で都市や工場を占領できます。都市は次のターンから収入を生みます。ターン開始時、自軍の都市や工場にいる部隊はHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: '戦車は移動力3、射程1で、攻撃と反撃が通常より1ダメージ強力です。歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、ターン開始時に自軍の都市や工場にいる部隊はHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;
@@ -395,10 +398,10 @@ function showMission() {
     cityOverview.append(label);
   }
   document.getElementById('enemy-range').hidden = !game.isCrossing;
-  document.getElementById('map-scroll-note').hidden = !game.isCrossing;
   document.getElementById('friendly-legend').textContent = game.isCrossing ? '味方部隊' : '味方歩兵';
   document.getElementById('enemy-legend').textContent = game.isCrossing ? '敵部隊' : '敵歩兵';
   buildBoard();
+  updateMapScrollNote();
   rosterEntries.length = 0;
   enemyRosterEntries.length = 0;
   roster.replaceChildren();
@@ -412,8 +415,13 @@ function showMission() {
 function revealTile(button) {
   const viewport = mapSurround.getBoundingClientRect();
   const tile = button.getBoundingClientRect();
-  if (tile.left < viewport.left) mapSurround.scrollLeft += tile.left - viewport.left - 12;
+  const visibleLeft = viewport.left + (game.isCrossing ? mapNumbers.offsetWidth : 0);
+  if (tile.left < visibleLeft) mapSurround.scrollLeft += tile.left - visibleLeft - 12;
   if (tile.right > viewport.right) mapSurround.scrollLeft += tile.right - viewport.right + 12;
+}
+
+function updateMapScrollNote() {
+  mapScrollNote.hidden = !game.isCrossing || mapSurround.scrollWidth <= mapSurround.clientWidth;
 }
 
 function setBoardTabStop(button) {
@@ -424,6 +432,7 @@ function buildBoard() {
   board.replaceChildren();
   cells.length = 0;
   const {width, height} = game;
+  document.querySelector('main').dataset.mode = game.mode;
   board.dataset.mode = game.mode;
   mapSurround.dataset.mode = game.mode;
   mapSurround.style.setProperty('--columns', width);
@@ -588,4 +597,5 @@ window.addEventListener('hashchange', () => {
   document.getElementById('mission-title').focus({preventScroll: true});
   window.scrollTo(0, 0);
 });
+new ResizeObserver(updateMapScrollNote).observe(mapSurround);
 showMission();

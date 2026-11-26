@@ -35,8 +35,9 @@ test('味方は工場で3種から1部隊ずつ生産でき、次のターンに
 test('敵も空いている工場で毎ターン1部隊を補充し、その部隊は次の敵ターンから行動する', () => {
   const game = new TrainingMap('crossing');
   const home = game.factoryAt(1, 5);
+  game.funds.enemy = 8000;
   let previous;
-  for (const expected of ['infantry', 'scout', 'support']) {
+  for (const expected of ['tank', 'infantry', 'scout', 'support']) {
     assert.equal(game.beginEnemyTurn(), true);
     assert.equal(game.productionStatus(home), 'waiting');
     assert.equal(game.produce('infantry', home), null);
@@ -85,9 +86,9 @@ test('増援の歩兵も次のターンに本拠地を占領でき、決着後�
   const factory = game.factoryAt(1, 5);
   const infantry = game.produce('infantry', factory);
   game.endTurn();
-  Object.assign(infantry, {x: 8, y: 5});
-  game.choose(8, 5);
-  game.choose(9, 5);
+  Object.assign(infantry, {x: 12, y: 7});
+  game.choose(12, 7);
+  game.choose(13, 7);
   assert.equal(game.activeUnit, infantry);
   assert.equal(game.result, 'victory');
   assert.equal(game.produce('support', factory), null);
@@ -169,10 +170,33 @@ test('敵歩兵に占領された工場も、敵の部隊がマスを空ける�
 test('敵も2工場を所有すると、空いている両工場から同じターンに生産できる', () => {
   const game = new TrainingMap('crossing');
   game.factoryAt(1, 5).owner = 'enemy';
+  game.funds.enemy = 6000;
   const budget = game.funds.enemy;
   game.endTurn();
-  assert.deepEqual(game.enemyProductions.map(({x, y, cost}) => [x, y, cost]), [[1, 5, 1000], [8, 4, 2500]]);
-  assert.equal(game.enemyAt(1, 5).type.id, 'infantry');
-  assert.equal(game.enemyAt(8, 4).type.id, 'scout');
-  assert.equal(game.funds.enemy, budget - 3500 + game.incomeFor('enemy'));
+  assert.deepEqual(game.enemyProductions.map(({x, y, cost}) => [x, y, cost]), [[1, 5, 4000], [8, 4, 1000]]);
+  assert.equal(game.enemyAt(1, 5).type.id, 'tank');
+  assert.equal(game.enemyAt(8, 4).type.id, 'infantry');
+  assert.equal(game.funds.enemy, budget - 5000 + game.incomeFor('enemy'));
+});
+
+test('両工場で生産した戦車は次のターンから、移動力3・射程1と攻撃力補正を使う', () => {
+  const game = new TrainingMap('crossing');
+  const friendlyTank = game.produce('tank', game.factoryAt(1, 5));
+  assert.equal(game.funds.friendly, 500);
+  game.choose(1, 5);
+  assert.equal(game.canMove, false);
+  game.endTurn();
+  const enemyTank = game.enemyAt(8, 4);
+  assert.equal(enemyTank.type.id, 'tank');
+  assert.deepEqual([friendlyTank.readyTurn, enemyTank.readyTurn, game.turn], [2, 2, 2]);
+  assert.deepEqual([friendlyTank.type.movement, friendlyTank.type.minRange, friendlyTank.type.maxRange], [3, 1, 1]);
+  Object.assign(friendlyTank, {x: 10, y: 7});
+  Object.assign(enemyTank, {x: 11, y: 7});
+  game.choose(10, 7);
+  assert.equal(game.canMoveTo(12, 6), true);
+  assert.equal(game.canMoveTo(13, 6), false);
+  assert.deepEqual(game.choose(11, 7), [
+    {attacker: 'player', damage: 4, terrain: '草原', mitigation: 0, playerHP: 10, enemyHP: 6},
+    {attacker: 'enemy', damage: 2, terrain: '森', mitigation: 1, playerHP: 8, enemyHP: 6},
+  ]);
 });

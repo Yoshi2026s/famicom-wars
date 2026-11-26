@@ -458,13 +458,49 @@ function drawVehicle(image, top, name, pose) {
   if (pose === 4) paint(27, 28, 9, 2, 'fff5c1');
 }
 
-for (const name of Object.keys(vehiclePalettes)) {
+function drawTank(image, top, {body, light, shade}, pose) {
+  const shift = pose === 3 ? -3 : pose === 4 ? -1 : 0;
+  const turret = pose === 5 ? 3 : 0;
+  const paint = (x, y, width, height, color) => image.rect(x + shift, top + y, width, height, color);
+  const outline = '20262e';
+  paint(7, 34, 50, 15, outline);
+  paint(11, 32, 42, 19, outline);
+  paint(9, 38, 46, 9, '3b4144');
+  for (const x of [10, 20, 30, 40, 50]) {
+    paint(x, 39, 6, 7, '535c5d');
+    paint(x + 1, 40, 4, 4, '777b71');
+    paint(x + 2, 41, 2, 2, shade);
+  }
+  paint(5, 29, 54, 9, outline);
+  paint(8, 27, 48, 7, body);
+  paint(8, 29, 48, 2, light);
+  paint(13, 33, 41, 3, shade);
+  paint(16, 21 + turret, 29, 9, outline);
+  paint(20, 18 + turret, 21, 9, body);
+  paint(20, 18 + turret, 16, 2, light);
+  paint(24, 15 + turret, 12, 3, outline);
+  paint(40, 24 + turret, pose === 3 ? 18 : 23, 6, outline);
+  paint(42, 25 + turret, pose === 3 ? 15 : 19, 2, light);
+  if (pose === 2) paint(59, 23, 5, 7, 'ffe4a1');
+  if (pose === 4) paint(12, 29, 17, 2, 'fff5c1');
+}
+
+function saveVehicle(name, draw) {
   const icon = new Pixels(64, 56);
-  drawVehicle(icon, 0, name, 0);
+  draw(icon, 0, 0);
   icon.save(`${name}.png`);
   const atlas = new Pixels(64, 56 * poses.length);
-  for (const index of poses.keys()) drawVehicle(atlas, index * 56, name, index);
+  for (const index of poses.keys()) draw(atlas, index * 56, index);
   atlas.save(`volley-${name}.png`);
+}
+for (const name of Object.keys(vehiclePalettes)) {
+  saveVehicle(name, (image, top, pose) => drawVehicle(image, top, name, pose));
+}
+for (const [name, palette] of Object.entries({
+  tank: {body: '397299', light: '8ecbd5', shade: '284c6b'},
+  'enemy-tank': {body: 'aa6144', light: 'efb577', shade: '733735'},
+})) {
+  saveVehicle(name, (image, top, pose) => drawTank(image, top, palette, pose));
 }
 
 const vista = new Pixels(360, 168);
