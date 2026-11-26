@@ -169,8 +169,9 @@ dd span { font-family: sans-serif; font-size: 12px; }
 #unit-terrain { font-family: inherit; font-size: 18px; line-height: 1.7; }
 .orders { padding: 16px 18px 18px; }
 .enemy-report { margin-top: 9px; border-left: 3px solid #a9583f; padding: 5px 8px; background: #faebd8; color: #633a2c; font-size: 13px; line-height: 1.5; white-space: pre-line; }
-.orders:has(.production:not([hidden])) .enemy-report { max-height: 9em; overflow-y: auto; }
-.orders .end[aria-disabled="true"] { background: #eee4ca; border-color: #b0aa92; color: #5d604f; cursor: wait; }
+main[data-mode="crossing"] .enemy-report { max-height: 9em; overflow-y: auto; }
+.orders-actions button[aria-disabled="true"] { background: #eee4ca; border-color: #b0aa92; color: #5d604f; cursor: wait; }
+.production-launch { display: none; }
 .orders .replay.primary { background: var(--gold); border-color: #92651d; font-size: 16px; }
 .orders p { font-size: 14px; line-height: 1.65; padding: 10px 0 16px; }
 .orders .crossing-objective { padding: 7px 0 0; color: #53442b; font-weight: bold; }
@@ -182,7 +183,7 @@ dd span { font-family: sans-serif; font-size: 12px; }
 .factory-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .factory-picker button { min-width: 56px; min-height: 48px; border: 1px solid #9ba99a; border-radius: 4px; background: #f4f2e7; color: #23413a; font: bold 14px Consolas, monospace; }
 .factory-picker button[aria-pressed="true"] { background: #2d5a54; color: #fff9eb; border-color: #2d5a54; }
-.orders .production p { padding: 4px 0 7px; font-size: 12px; }
+.production #production-status { padding: 4px 0 7px; font-size: 12px; line-height: 1.65; margin: 0; }
 .production-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .production-choices button { min-width: 48px; min-height: 48px; padding: 4px 2px; border: 1px solid #2d5a54; border-radius: 4px; background: #cfebe0; color: #203d37; font-size: 12px; font-weight: 800; }
 .production-choices small { display: block; margin-top: 2px; font: bold 13px Consolas, monospace; }
@@ -200,6 +201,8 @@ dialog ol { padding-left: 1.5em; line-height: 1.7; }
 dialog li + li { margin-top: 8px; }
 dialog p { font-size: 13px; line-height: 1.65; margin-bottom: 16px; }
 dialog .end { justify-content: center; }
+.production-dialog { width: min(420px, 100% - 24px); margin: auto auto max(12px, env(safe-area-inset-bottom)); padding: 14px; }
+.production-dialog .production { margin: 0; padding: 0; border: 0; background: transparent; }
 .portrait-notice { width: min(370px, 90vw); padding: clamp(14px, 5dvh, 28px); color: #fff9eb; background: #273348; border-color: #aea182; text-align: center; box-shadow: 0 12px 32px #09162480; }
 .portrait-notice::backdrop { background: #172234; }
 .portrait-notice h2 { font-size: clamp(17px, 4.5dvh, 22px); }
@@ -216,8 +219,10 @@ body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *) { animati
   main[data-mode="crossing"] .layout { grid-template-columns: minmax(0, 1fr) minmax(270px, 29%); }
 }
 @media (max-width: 720px) {
+  html:has(.orders-actions:not([hidden])) { --mobile-actions-height: calc(65px + env(safe-area-inset-bottom)); scroll-padding-block-end: var(--mobile-actions-height); }
   main, .mast-inner { width: min(100% - 24px, 510px); }
   main { padding-top: 16px; }
+  main:has(.orders-actions:not([hidden])) { padding-bottom: calc(var(--mobile-actions-height) + 16px); }
   .mast-inner { min-height: 52px; }
   .brand { font-size: 16px; gap: 8px; }
   .brand-icon { width: 29px; height: 29px; font-size: 23px; }
@@ -232,6 +237,14 @@ body:has(#portrait-notice[open]) :is(#combat-screen, #combat-screen *) { animati
   .sidebar { gap: 12px; }
   .orders { grid-row: 1; padding: 12px 14px; }
   .orders p { padding: 4px 0 10px; }
+  .orders-actions { position: fixed; z-index: 10; inset-inline: 0; bottom: 0; display: grid; grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr); gap: 8px; padding: 8px max(12px, env(safe-area-inset-right), calc((100% - 510px) / 2))
+      calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left), calc((100% - 510px) / 2));
+    border-top: 1px solid #887d69; background: #252d40; box-shadow: 0 -4px 14px #13182532; }
+  .orders-actions .end { min-width: 48px; padding-inline: 8px; justify-content: center; gap: 8px; }
+  .production-launch { display: block; min-width: 48px; min-height: 48px; padding: 6px; border: 1px solid #2d5a54;
+    border-bottom-width: 3px; border-radius: 5px; background: #cfebe0; color: #203d37; font-weight: 850; }
+  .production-launch:not([aria-disabled="true"]):active { background: #b4dbce; }
   .portrait { height: 110px; }
 }
 @media (max-height: 480px) and (min-width: 640px) and (pointer: fine) {

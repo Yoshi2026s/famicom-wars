@@ -11,6 +11,13 @@ const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
 const rosterEntries = [];
 const enemyRosterEntries = [];
+const ordersActions = document.getElementById('orders-actions');
+const endTurn = document.getElementById('end');
+const productionControls = document.getElementById('production-controls');
+const productionLaunch = document.getElementById('production-launch');
+const productionDialog = document.getElementById('production-dialog');
+const canOpenProductionDialog = typeof productionDialog.showModal === 'function';
+const compactControls = window.matchMedia('(max-width: 720px)');
 const productionButtons = [...document.querySelectorAll('[data-produce]')];
 const productionStatus = document.getElementById('production-status');
 const factoryLegend = document.getElementById('factory-legend');
@@ -250,11 +257,10 @@ function render() {
   const message = document.getElementById('message');
   state.classList.toggle('spent', spent);
   state.classList.toggle('attack-ready', !waiting && game.canAttack);
-  const end = document.getElementById('end');
-  if (waiting) end.setAttribute('aria-disabled', 'true');
-  else end.removeAttribute('aria-disabled');
+  endTurn.setAttribute('aria-disabled', String(waiting));
+  productionLaunch.setAttribute('aria-disabled', String(waiting));
   document.getElementById('help').setAttribute('aria-disabled', String(Boolean(game.enemyTurn)));
-  end.hidden = Boolean(game.result);
+  ordersActions.hidden = Boolean(game.result);
   const replay = document.getElementById('replay');
   const enemiesRemain = game.enemyUnits.some(unit => unit.hp > 0);
   replay.hidden = game.isBattle ? !game.result : enemiesRemain;
@@ -352,6 +358,7 @@ function renderBattleStatus() {
 }
 
 function showMission() {
+  if (productionDialog.open) productionDialog.close();
   const hash = location.hash.slice(1);
   const mode = Object.hasOwn(missions, hash) ? hash : 'training';
   game = missions[mode];
@@ -379,7 +386,8 @@ function showMission() {
   document.getElementById('base-legend').hidden = !game.headquarters;
   factoryLegend.hidden = !game.factories.length;
   document.getElementById('city-economy').hidden = !game.isCrossing;
-  document.getElementById('production-controls').hidden = !game.factories.length;
+  productionControls.hidden = !game.factories.length;
+  productionLaunch.hidden = productionControls.hidden || !canOpenProductionDialog;
   document.getElementById('crossing-objective').hidden = !game.headquarters;
   if (game.headquarters) {
     for (const [side, {x, y}] of Object.entries(game.headquarters)) {
@@ -498,7 +506,7 @@ function addTile(x, y) {
   board.append(button);
 }
 
-document.getElementById('end').addEventListener('click', (event) => {
+endTurn.addEventListener('click', (event) => {
   if (inputBlocked()) return;
   const ending = game;
   if (ending.isCrossing) {
@@ -561,7 +569,7 @@ function restoreBoardFocus(acting, attacker, restoreFocus) {
   if (acting.capturedBy) music.setScene(acting.result);
   if (!restoreFocus || document.getElementById('guide').open) return;
   const control = acting.result ? document.getElementById('replay')
-    : attacker === 'player' && !acting.isCrossing ? document.getElementById('end') : tile;
+    : attacker === 'player' && !acting.isCrossing ? endTurn : tile;
   if (control === tile && acting.isCrossing) revealTile(tile);
   control.focus({preventScroll: !acting.capturedBy});
 }
@@ -574,13 +582,32 @@ function finishTurn(ending) {
   if (game.result && !document.getElementById('guide').open) document.getElementById('replay').focus();
 }
 
-document.getElementById('end').addEventListener('keydown', (event) => {
+endTurn.addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
 });
 for (const button of productionButtons) {
   button.addEventListener('click', () => {
     if (!inputBlocked() && game.produce(button.dataset.produce, selectedFactory)) render();
   });
+}
+productionLaunch.addEventListener('click', () => {
+  if (!productionLaunch.hidden && compactControls.matches && !inputBlocked() && !productionDialog.open) {
+    productionDialog.showModal();
+  }
+});
+function positionProductionControls() {
+  const inDialog = productionControls.parentElement === productionDialog;
+  if (!canOpenProductionDialog || portraitMode.blocked || compactControls.matches === inDialog) return;
+  if (compactControls.matches) {
+    const hadFocus = productionControls.contains(document.activeElement);
+    productionDialog.prepend(productionControls);
+    if (hadFocus && !ordersActions.hidden) productionLaunch.focus({preventScroll: true});
+  } else {
+    const hadFocus = productionDialog.contains(document.activeElement) || document.activeElement === productionLaunch;
+    if (productionDialog.open) productionDialog.close();
+    ordersActions.before(productionControls);
+    if (hadFocus && !ordersActions.hidden) endTurn.focus({preventScroll: true});
+  }
 }
 document.getElementById('help').addEventListener('click', () => {
   if (!portraitMode.blocked && !game.enemyTurn) document.getElementById('guide').showModal();
@@ -597,6 +624,8 @@ window.addEventListener('hashchange', () => {
   document.getElementById('mission-title').focus({preventScroll: true});
   window.scrollTo(0, 0);
 });
+compactControls.addEventListener('change', positionProductionControls);
+positionProductionControls();
 showMission();
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);
