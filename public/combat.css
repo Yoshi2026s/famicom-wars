@@ -17,12 +17,12 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 }
 .combat-heading, .combat-teams, .combat-controls { display: flex; align-items: center; justify-content: space-between; }
 .combat-heading { padding: 10px clamp(12px,3vw,24px); border-bottom: 1px solid #81715f; background: linear-gradient(110deg, #2c2b3c, #1d2432); }
-.combat-heading h2 { margin: 0; color: #ffe09b; font-size: clamp(20px,3vw,28px); letter-spacing: .12em; }
+.combat-heading h2 { flex: none; margin: 0; color: #ffe09b; font-size: clamp(20px,3vw,28px); letter-spacing: .12em; white-space: nowrap; }
 .combat-heading h2:focus { outline: none; }
 .combat-heading-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: clamp(4px,2vw,16px); }
-.combat-heading .sound-toggle { background: #243b44; border-color: #65827f; color: #fbf0db; }
-.combat-heading .sound-toggle b { color: #c2d2cd; }
-.combat-heading .sound-toggle[aria-pressed="true"] { background: #284d49; border-color: #85cbb9; }
+.combat-heading .sound-switch { background: #243b44; border-color: #65827f; color: #fbf0db; }
+.combat-heading .sound-switch b { color: #c2d2cd; }
+.combat-heading .sound-toggle[aria-pressed="true"] .sound-switch { background: #284d49; border-color: #85cbb9; }
 .combat-heading .sound-toggle[aria-pressed="true"] b { color: #a5e7ce; }
 #combat-turn, .combat-hp { font-family: Consolas, monospace; font-size: 14px; font-weight: 700; }
 .combat-teams { align-items: stretch; background: #17262e; }

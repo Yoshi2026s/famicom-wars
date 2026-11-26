@@ -5,9 +5,9 @@ const combatAudio = (() => {
   const sources = new Set();
   const effects = new Map();
   let context;
-  let enabled = false;
+  let enabled = true;
   try {
-    enabled = localStorage.getItem(preferenceKey) === 'on';
+    enabled = localStorage.getItem(preferenceKey) !== 'off';
   } catch {
     // The controls still work for this visit when storage is unavailable.
   }
@@ -15,7 +15,8 @@ const combatAudio = (() => {
   function syncButtons() {
     for (const button of buttons) {
       button.setAttribute('aria-pressed', String(enabled && Boolean(Audio)));
-      button.querySelector('b').textContent = enabled && Audio ? 'ON' : 'OFF';
+      button.setAttribute('aria-label', Audio ? '効果音' : '効果音は再生できません');
+      button.querySelector('b').textContent = !Audio ? '再生不可' : enabled ? 'ON' : 'OFF';
       button.disabled = !Audio;
     }
   }
@@ -84,6 +85,10 @@ const combatAudio = (() => {
     sources.clear();
   }
 
+  document.addEventListener('click', (event) => {
+    if (event.isTrusted && !event.target.closest('[data-combat-audio]') && !document.getElementById('portrait-notice').open) unlock();
+  }, true);
+
   for (const button of buttons) {
     button.addEventListener('click', () => {
       enabled = !enabled;
@@ -99,7 +104,7 @@ const combatAudio = (() => {
   }
   window.addEventListener('storage', (event) => {
     if (event.key !== preferenceKey && event.key !== null) return;
-    enabled = event.newValue === 'on';
+    enabled = event.newValue !== 'off';
     syncButtons();
     if (!enabled) stop();
   });
@@ -107,5 +112,5 @@ const combatAudio = (() => {
     if (document.hidden) stop();
   });
   syncButtons();
-  return {unlock, play, stop};
+  return {play, stop};
 })();

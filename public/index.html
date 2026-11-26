@@ -9,16 +9,16 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=main-map">
-    <link rel="stylesheet" href="./combat.css?v=crossing-tanks">
+    <link rel="stylesheet" href="./style.css?v=turn-status">
+    <link rel="stylesheet" href="./combat.css?v=turn-status">
     <link rel="stylesheet" href="./battlefield.css?v=main-map">
     <script defer src="./rules.js?v=main-map"></script>
     <script defer src="./crossing-save.js?v=crossing-save"></script>
-    <script defer src="./combat-audio.js?v=volley"></script>
-    <script defer src="./music.js?v=portrait-factory-recovery"></script>
+    <script defer src="./combat-audio.js?v=turn-status"></script>
+    <script defer src="./music.js?v=turn-status"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
-    <script defer src="./combat.js?v=main-map"></script>
-    <script defer src="./game.js?v=main-map"></script>
+    <script defer src="./combat.js?v=turn-status"></script>
+    <script defer src="./game.js?v=turn-status"></script>
   </head>
   <body>
     <header class="masthead">
@@ -29,15 +29,16 @@
     </header>
     <main>
       <div class="intro">
-        <div>
-          <h1 id="mission-title" tabindex="-1">はじまりの草原</h1>
-          <p id="crossing-save-status" class="crossing-save-status" role="status" aria-atomic="true" hidden></p>
-        </div>
+        <h1 id="mission-title" tabindex="-1">はじまりの草原</h1>
+        <p id="crossing-save-status" class="crossing-save-status" role="status" aria-atomic="true" hidden></p>
         <div class="sound-controls" id="map-sound-controls">
-          <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="false">BGM <b>OFF</b></button>
-          <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="false">効果音 <b>OFF</b></button>
+          <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="true"><span class="sound-switch">BGM <b>ON</b></span></button>
+          <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="true"><span class="sound-switch">効果音 <b>ON</b></span></button>
         </div>
-        <div class="turn"><span>ターン</span><strong id="turn">01</strong></div>
+        <div class="turn" id="turn-indicator" data-side="friendly" role="status" aria-atomic="true">
+          <span class="turn-count">ターン <strong id="turn">01</strong></span>
+          <span id="turn-side" class="turn-side">味方の手番</span>
+        </div>
       </div>
       <div class="layout">
         <section class="map-panel" aria-labelledby="map-title">
@@ -79,6 +80,7 @@
           </div>
           <div id="map-keys">
             <div class="legend"><span><i class="friendly-key"></i>味方部隊</span><span><i class="enemy-key"></i>敵部隊</span><span><i class="range-key"></i>移動できるマス</span></div>
+            <div class="legend action-legend"><span><b class="unit-action" data-action="spent" aria-hidden="true">済</b>行動済み</span><span><b class="unit-action" data-action="attack" aria-hidden="true">攻可</b>攻撃可能</span><span><b class="unit-action" data-action="deployed" aria-hidden="true">次</b>次のターンから</span><span><b class="unit-action" data-action="acting" aria-hidden="true">動</b>敵が行動中</span></div>
             <div class="legend terrain-legend" id="terrain-legend"><span><i class="forest-key"></i>森 ダメージ−1</span><span><i class="mountain-key"></i>山 ダメージ−2</span></div>
             <div class="legend terrain-legend" id="crossing-legend"><span><i class="river-key"></i>川 通行不可</span><span><i class="bridge-key"></i>橋 通行可</span><span><i class="marsh-key"></i>湿地 移動力2・ダメージ−1</span></div>
           </div>
@@ -117,7 +119,7 @@
             </section>
             <div class="orders-actions" id="orders-actions">
               <button class="production-launch" id="production-launch" type="button" aria-haspopup="dialog" aria-controls="production-dialog" hidden>ユニット生産</button>
-              <button id="end" class="end" type="button">ターン終了 <span aria-hidden="true">→</span></button>
+              <button id="end" class="end" type="button"><span id="end-label">ターン終了</span><span aria-hidden="true">→</span></button>
             </div>
             <button id="replay" class="replay primary" type="button" hidden>もう一度対戦する</button>
           </section>
@@ -171,8 +173,8 @@
           <div class="combat-heading-actions">
             <span id="combat-turn"></span>
             <div class="sound-controls">
-              <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="false">BGM <b>OFF</b></button>
-              <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="false">効果音 <b>OFF</b></button>
+              <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="true"><span class="sound-switch">BGM <b>ON</b></span></button>
+              <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="true"><span class="sound-switch">効果音 <b>ON</b></span></button>
             </div>
           </div>
         </header>
