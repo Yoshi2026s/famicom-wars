@@ -29,7 +29,7 @@ const crossingHeadquarters = Object.freeze({
 });
 const startingFunds = 4500;
 const cityIncome = 1000;
-const cityRecovery = 2;
+const facilityRecovery = 2;
 const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1, cost: 1000});
 const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1, cost: 2500});
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3, cost: 3000});
@@ -63,7 +63,7 @@ class TrainingMap {
   funds = {friendly: 0, enemy: 0};
   cities = [];
   friendlyCapture = null;
-  cityHealing = [];
+  facilityHealing = [];
 
   constructor(mode = 'training') {
     this.mode = mode;
@@ -329,14 +329,17 @@ class TrainingMap {
     if (this.result) return;
     this.turn += 1;
     if (!this.isCrossing) return;
-    this.cityHealing = [];
+    this.facilityHealing = [];
     for (const [side, units] of [['friendly', this.friendlyUnits], ['enemy', this.enemyUnits]]) {
       this.funds[side] += this.incomeFor(side);
       for (const unit of units) {
-        if (!unit.hp || unit.hp >= this.maxHP || this.cityAt(unit.x, unit.y)?.owner !== side) continue;
-        const amount = Math.min(cityRecovery, this.maxHP - unit.hp);
+        if (!unit.hp || unit.hp >= this.maxHP) continue;
+        const factory = this.factoryAt(unit.x, unit.y);
+        const facility = factory ?? this.cityAt(unit.x, unit.y);
+        if (facility?.owner !== side) continue;
+        const amount = Math.min(facilityRecovery, this.maxHP - unit.hp);
         unit.hp += amount;
-        this.cityHealing.push({side, unit: unit.name, amount});
+        this.facilityHealing.push({side, unit: unit.name, amount, facility: factory ? 'factory' : 'city'});
       }
     }
   }

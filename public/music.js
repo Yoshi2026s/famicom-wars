@@ -12,6 +12,7 @@ const music = (() => {
   let enabled = false;
   let unavailable = false;
   let interacted = false;
+  let orientationBlocked = false;
   let scene = 'map';
   let loadedScene;
   player.volume = .45;
@@ -31,7 +32,7 @@ const music = (() => {
   }
 
   function updatePlayback() {
-    if (unavailable || !enabled || !interacted || document.hidden) {
+    if (unavailable || !enabled || !interacted || document.hidden || orientationBlocked) {
       player.pause();
       return;
     }
@@ -109,6 +110,10 @@ const music = (() => {
   });
   updateButtons();
   return {
+    setOrientationBlocked(blocked) {
+      orientationBlocked = blocked;
+      updatePlayback();
+    },
     setScene(nextScene) {
       if (scene !== nextScene && loadedScene === scene) {
         if (scene === 'map') mapPosition = player.currentTime;

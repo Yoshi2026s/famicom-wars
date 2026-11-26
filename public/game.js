@@ -46,6 +46,10 @@ function waitingForEnemy() {
   return Boolean(game.enemyTurn) || pendingEnemyTurns.has(game);
 }
 
+function inputBlocked() {
+  return portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(game.result);
+}
+
 function extendRoster(container, entries, units, interactive) {
   for (const unit of units.slice(entries.length)) {
     const card = document.createElement(interactive ? 'button' : 'div');
@@ -57,7 +61,7 @@ function extendRoster(container, entries, units, interactive) {
     if (interactive) {
       card.type = 'button';
       card.addEventListener('click', () => {
-        if (combatScreen.active || waitingForEnemy() || game.result) return;
+        if (inputBlocked()) return;
         game.choose(unit.x, unit.y);
         setBoardTabStop(friendlyTile());
         revealTile(friendlyTile());
@@ -129,6 +133,7 @@ function buildFactories() {
     button.textContent = spot;
     button.setAttribute('aria-label', `${spot} の工場`);
     button.addEventListener('click', () => {
+      if (portraitMode.blocked) return;
       selectedFactory = factory;
       renderProduction();
     });
@@ -147,9 +152,12 @@ function renderEconomy() {
     label.dataset.city = city.owner;
     label.textContent = `${coordinate(city.x, city.y)} ${owner}`;
   }
-  const healing = document.getElementById('city-healing');
-  const restored = game.cityHealing.map(({side, unit, amount}) => `${ownerNames[side]}${unit} +${amount} HP`);
-  const report = !game.enemyTurn && !game.result && restored.length ? `都市で回復　${restored.join('、')}` : '';
+  const healing = document.getElementById('facility-healing');
+  const restored = game.facilityHealing.map(({side, unit, amount, facility}) => {
+    const site = facility === 'factory' ? '工場' : '都市';
+    return `${ownerNames[side]}${unit}（${site}） +${amount} HP`;
+  });
+  const report = !game.enemyTurn && !game.result && restored.length ? `回復　${restored.join('、')}` : '';
   if (healing.textContent !== report) healing.textContent = report;
 }
 
@@ -356,7 +364,7 @@ function showMission() {
   const rules = {
     training: '歩兵訓練では上下左右に合計2マスまで移動できます。HP1で始まり、敵はその場で待機します。',
     battle: '歩兵は上下左右に合計2マスまで移動できます。敵は毎ターン最大1マス近づき、隣接すると攻撃します。',
-    crossing: '歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、開始時に自軍部隊のHPを2回復します（最大10）。工場は自軍所有で空いていれば、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
+    crossing: '歩兵で都市や工場を占領できます。都市は次のターンから収入を生みます。ターン開始時、自軍の都市や工場にいる部隊はHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。空いている敵本拠地に歩兵を移動させるか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。',
   };
   document.getElementById('mission-rules').textContent = rules[mode];
   document.getElementById('battle-health').hidden = !game.isBattle || game.isCrossing;
@@ -454,7 +462,7 @@ function addTile(x, y) {
   button.append(terrainLabel, image);
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', () => {
-    if (combatScreen.active || waitingForEnemy() || game.result) return;
+    if (inputBlocked()) return;
     const enemy = game.enemyAt(x, y);
     if (enemy && game.canUnitAttack(game.activeUnit, enemy)) {
       const acting = game;
@@ -468,6 +476,7 @@ function addTile(x, y) {
     else render();
   });
   button.addEventListener('keydown', (event) => {
+    if (portraitMode.blocked) return;
     const offsets = {ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1]};
     if (!Object.hasOwn(offsets, event.key)) return;
     event.preventDefault();
@@ -481,7 +490,7 @@ function addTile(x, y) {
 }
 
 document.getElementById('end').addEventListener('click', (event) => {
-  if (combatScreen.active || waitingForEnemy() || game.result) return;
+  if (inputBlocked()) return;
   const ending = game;
   if (ending.isCrossing) {
     if (event.detail <= 1 && ending.beginEnemyTurn()) runEnemyTurn(ending);
@@ -499,7 +508,7 @@ document.getElementById('end').addEventListener('click', (event) => {
   }
   pendingEnemyTurns.add(ending);
   render();
-  window.setTimeout(() => {
+  portraitMode.schedule(() => {
     pendingEnemyTurns.delete(ending);
     finishTurn(ending);
   }, 450);
@@ -513,7 +522,7 @@ function runEnemyTurn(acting, restoreFocus = true) {
     return;
   }
   if (game === acting) render();
-  window.setTimeout(() => {
+  portraitMode.schedule(() => {
     if (game === acting && action.friendly) {
       presentAttack(acting, {
         attacker: 'enemy', enemy: action.enemy, friendly: action.friendly, enemyPosition: action.to,
@@ -561,13 +570,14 @@ document.getElementById('end').addEventListener('keydown', (event) => {
 });
 for (const button of productionButtons) {
   button.addEventListener('click', () => {
-    if (!combatScreen.active && game.produce(button.dataset.produce, selectedFactory)) render();
+    if (!inputBlocked() && game.produce(button.dataset.produce, selectedFactory)) render();
   });
 }
 document.getElementById('help').addEventListener('click', () => {
-  if (!game.enemyTurn) document.getElementById('guide').showModal();
+  if (!portraitMode.blocked && !game.enemyTurn) document.getElementById('guide').showModal();
 });
 document.getElementById('replay').addEventListener('click', () => {
+  if (portraitMode.blocked) return;
   missions[game.mode] = new TrainingMap(game.mode);
   showMission();
   friendlyTile().focus();
