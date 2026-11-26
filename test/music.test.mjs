@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 
 const script = readFileSync(new URL('../public/music.js', import.meta.url), 'utf8');
 
-function audioPage(savedPreference) {
+function audioPage(savedPreference, media = {}) {
   const events = new Map();
   const settings = new Map([['famicom-wars-bgm', savedPreference]]);
   const button = {label: {},
@@ -13,9 +13,16 @@ function audioPage(savedPreference) {
     setAttribute() {},
     querySelector() { return this.label; },
   };
+  let source;
   const player = {
     paused: true, ended: false, currentTime: 0,
-    play() { this.paused = false; return Promise.resolve(); },
+    get src() { return source; },
+    set src(next) { source = next; this.currentTime = 0; },
+    play() {
+      if (media.play) return media.play(this);
+      this.paused = false;
+      return Promise.resolve();
+    },
     pause() { this.paused = true; },
   };
   const document = {
@@ -25,7 +32,9 @@ function audioPage(savedPreference) {
     addEventListener: (type, fn) => events.set(type, fn),
   };
   const music = runInNewContext(script + '\nmusic', {
-    document, location: {protocol: 'file:'},
+    document, location: {protocol: media.fetch ? 'https:' : 'file:'},
+    fetch: media.fetch,
+    URL: {createObjectURL: blob => 'blob:' + blob.path, revokeObjectURL() {}},
     window: {addEventListener: (type, fn) => events.set(type, fn)},
     localStorage: {getItem: key => settings.get(key), setItem: (key, value) => settings.set(key, value)},
   });
@@ -91,4 +100,21 @@ test('敵手番の再開、BGMオフの保持、画面復帰と勝敗曲が現�
     assert.equal(page.track(), result);
     assert.equal(player.loop, false);
   }
+});
+
+test('直接再生できないときは取得済みの音源に切り替えて再生する', async () => {
+  let onPlayback;
+  const played = new Promise(resolve => { onPlayback = resolve; });
+  const page = audioPage(undefined, {
+    fetch: async path => ({ok: true, blob: async () => ({path})}),
+    async play(player) {
+      if (!player.src.startsWith('blob:')) throw Object.assign(new Error(), {name: 'NotSupportedError'});
+      player.paused = false;
+      onPlayback(player.src);
+    },
+  });
+  page.unlock();
+  assert.match(await played, /^blob:.*bgm-map\.mp3/);
+  assert.equal(page.player.paused, false);
+  assert.equal(page.button.label.textContent, 'ON');
 });
