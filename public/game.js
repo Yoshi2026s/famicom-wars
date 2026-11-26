@@ -16,6 +16,14 @@ const endLabel = document.getElementById('end-label');
 const turnIndicator = document.getElementById('turn-indicator');
 const turnNumber = document.getElementById('turn');
 const turnSide = document.getElementById('turn-side');
+const turnChange = document.getElementById('turn-change');
+const turnChangeNumber = document.getElementById('turn-change-number');
+const turnChangeSide = document.getElementById('turn-change-side');
+const actionDialog = document.getElementById('action-dialog');
+const actionTitle = document.getElementById('action-title');
+const actionSummary = document.getElementById('action-summary');
+const actionDetail = document.getElementById('action-detail');
+const actionConfirm = document.getElementById('action-confirm');
 const productionControls = document.getElementById('production-controls');
 const productionLaunch = document.getElementById('production-launch');
 const productionDialog = document.getElementById('production-dialog');
@@ -23,10 +31,14 @@ const canOpenProductionDialog = typeof productionDialog.showModal === 'function'
 const compactControls = window.matchMedia('(max-width: 720px)');
 const productionButtons = [...document.querySelectorAll('[data-produce]')];
 const productionStatus = document.getElementById('production-status');
+const productionMove = document.getElementById('production-move');
 const factoryLegend = document.getElementById('factory-legend');
 const factoryPicker = document.getElementById('factory-picker');
 const factoryEntries = [];
 let selectedFactory;
+let productionOrigin;
+let pendingAction;
+let turnChangeTimer;
 const cityOverview = document.getElementById('city-overview');
 const cityEntries = [];
 const currency = new Intl.NumberFormat('ja-JP');
@@ -187,10 +199,26 @@ function renderTurn(waiting) {
   endLabel.textContent = waiting ? '敵が行動中' : 'ターン終了';
 }
 
+function announceTurn(side, onComplete) {
+  portraitMode.cancel(turnChangeTimer);
+  turnChange.dataset.side = side;
+  turnChangeNumber.textContent = `ターン ${String(game.turn).padStart(2, '0')}`;
+  turnChangeSide.textContent = turnSide.textContent;
+  turnChange.hidden = false;
+  combatAudio.playTurn(side);
+  turnChangeTimer = portraitMode.schedule(() => {
+    turnChange.hidden = true;
+    turnChangeTimer = undefined;
+    onComplete?.();
+  }, 850);
+}
+
 function renderProduction() {
   const owned = game.factories.filter(factory => factory.owner === 'friendly');
   if (!owned.includes(selectedFactory)) selectedFactory = owned[0];
-  factoryPicker.hidden = owned.length < 2;
+  const mapFactory = productionOrigin?.cell;
+  factoryPicker.hidden = owned.length < 2 || Boolean(mapFactory);
+  productionMove.hidden = !mapFactory || !game.canMoveTo(mapFactory.x, mapFactory.y);
   for (const {factory, icon, owner, button} of factoryEntries) {
     icon.dataset.factory = factory.owner;
     owner.textContent = `${ownerNames[factory.owner]}工場`;
@@ -213,6 +241,7 @@ function renderProduction() {
   document.getElementById('production-funds').textContent = currency.format(game.funds.friendly);
   for (const button of productionButtons) {
     const affordable = game.funds.friendly >= game.productionCost(button.dataset.produce);
+    button.hidden = Boolean(mapFactory) && (status !== 'ready' || !affordable);
     button.setAttribute('aria-disabled', String(status !== 'ready' || !affordable));
   }
 }
@@ -310,7 +339,7 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, image, hpBadge, actionBadge, base, factory, city} = cell;
+    const {x, y, button, image, hpBadge, actionBadge, productionBadge, base, factory, city} = cell;
     const terrain = game.terrainAt(x, y);
     button.dataset.terrain = terrain.id;
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
@@ -329,6 +358,11 @@ function render() {
     const facility = factory ?? city;
     const captureTarget = reachable && game.playerUnit.id === 'infantry'
       && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly'));
+    const productionReady = factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
+    productionBadge.hidden = !productionReady;
+    button.classList.toggle('action-pending', pendingAction?.cell === cell);
+    if (productionReady || reachable || target) button.setAttribute('aria-haspopup', 'dialog');
+    else button.removeAttribute('aria-haspopup');
     button.classList.toggle('occupied', occupied);
     button.classList.toggle('enemy', Boolean(enemy));
     button.classList.toggle('enemy-acting', Boolean(enemy && enemy === actingEnemy));
@@ -345,7 +379,7 @@ function render() {
       city ? `${ownerNames[city.owner]}の都市` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       terrain.cost === Infinity ? '通行不可' : terrain.cost ? `消費移動力${terrain.cost}` : '',
-      target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
+      productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
     image.hidden = !occupied && !enemy;
@@ -410,7 +444,7 @@ function render() {
     state.textContent = '攻撃可能';
     const targets = game.enemyUnits.filter(enemy => game.canUnitAttack(game.activeUnit, enemy));
     const target = targets.length === 1 ? `${coordinate(targets[0].x, targets[0].y)} の敵${targets[0].name}` : '印のある敵';
-    message.textContent = `${target}を選ぶと、その場で攻撃できます。`
+    message.textContent = `${target}を選ぶと攻撃の結果を確認できます。`
       + (game.selected ? ' 移動するには印のあるマスを選びます。' : '');
   } else if (spent) {
     state.textContent = '行動済み';
@@ -419,7 +453,7 @@ function render() {
     message.textContent = `${friendlyName}は${action}${another ? '別の味方を選べます。' : 'ターンを終了できます。'}`;
   } else if (game.selected) {
     state.textContent = '選択中';
-    message.textContent = '印のあるマスを選んで移動します。敵が射程に入ると攻撃できます。';
+    message.textContent = '印のあるマスを選ぶと移動先を確認できます。敵が射程に入ると攻撃できます。';
   } else {
     state.textContent = '行動可能';
     message.textContent = `ターン ${game.turn}。動かす部隊を選んでください。`;
@@ -455,7 +489,14 @@ function renderBattleStatus() {
 }
 
 function showMap() {
+  if (turnChangeTimer) portraitMode.cancel(turnChangeTimer);
+  turnChangeTimer = undefined;
+  turnChange.hidden = true;
+  pendingAction = undefined;
+  productionOrigin = undefined;
+  if (actionDialog.open) actionDialog.close();
   if (productionDialog.open) productionDialog.close();
+  positionProductionControls();
   closeFieldDialogs();
   renderSaveStatus();
   setMobileFieldLayout();
@@ -619,20 +660,21 @@ function addTile(x, y) {
   actionBadge.className = 'unit-action';
   actionBadge.setAttribute('aria-hidden', 'true');
   button.append(actionBadge);
+  const productionBadge = document.createElement('span');
+  productionBadge.className = 'tile-production';
+  productionBadge.setAttribute('aria-hidden', 'true');
+  productionBadge.textContent = '生産';
+  button.append(productionBadge);
+  const cell = {x, y, button, image, hpBadge, actionBadge, productionBadge, base, factory, city};
   button.addEventListener('focus', () => setBoardTabStop(button));
-  button.addEventListener('click', () => {
+  button.addEventListener('click', (event) => {
     if (inputBlocked()) return;
-    const enemy = game.enemyAt(x, y);
-    if (enemy && game.canUnitAttack(game.activeUnit, enemy)) {
-      presentAttack({attacker: 'player', enemy, resolve: () => game.choose(x, y)});
-      return;
-    }
-    const capturedFactory = factory?.owner === 'enemy';
+    if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
+    if (previewAction(cell, event)) return;
+    if (!game.friendlyAt(x, y)) return;
     game.choose(x, y);
     saveProgress();
-    if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
-    if (game.capturedBy) restoreBoardFocus();
-    else render();
+    render();
   });
   button.addEventListener('keydown', (event) => {
     if (portraitMode.blocked) return;
@@ -648,16 +690,88 @@ function addTile(x, y) {
       revealTile(next);
     } else next.focus();
   });
-  cells.push({x, y, button, image, hpBadge, actionBadge, base, factory, city});
+  cells.push(cell);
   board.append(button);
 }
+
+function repeatedTap(event, opener) {
+  return event.detail > 0 && opener?.detail > 0 && event.timeStamp - opener.timeStamp < 320
+    && Math.hypot(event.clientX - opener.clientX, event.clientY - opener.clientY) < 24;
+}
+
+function previewAction(cell, opener) {
+  const {x, y, base, factory, city} = cell;
+  const unit = game.activeUnit;
+  const enemy = game.enemyAt(x, y);
+  const strikes = game.previewAttack(enemy);
+  const destination = coordinate(x, y);
+  let verb;
+  if (strikes.length) {
+    const [hit, counter] = strikes;
+    verb = '攻撃';
+    actionSummary.textContent = `${unit.name} → 敵${enemy.name}（${destination}）`;
+    const reply = counter ? `反撃で味方 HP ${unit.hp} → ${counter.playerHP}` : '反撃なし';
+    actionDetail.textContent = `敵 HP ${enemy.hp} → ${hit.enemyHP} ／ ${reply}`;
+  } else {
+    const route = game.movementTargets().get(`${x},${y}`);
+    if (!route) return false;
+    const site = factory ?? city;
+    let capture = '';
+    if (unit.type.id === 'infantry') {
+      if (base === 'enemy') capture = '敵本拠地を占領すると勝利';
+      else if (site && site.owner !== 'friendly') capture = `${factory ? '工場' : '都市'}を占領`;
+    }
+    verb = capture ? '占領' : '移動';
+    actionSummary.textContent = `${unit.name}  ${coordinate(unit.x, unit.y)} → ${destination}`;
+    actionDetail.textContent = [game.terrainAt(x, y).name, `移動力 ${route.cost} 消費`, capture].filter(Boolean).join(' ／ ');
+  }
+  actionTitle.textContent = `${verb}を確認`;
+  actionConfirm.textContent = `${verb}する`;
+  pendingAction = {cell, unit, enemy: strikes.length ? enemy : null, opener};
+  cell.button.classList.add('action-pending');
+  actionDialog.showModal();
+  return true;
+}
+
+actionConfirm.addEventListener('click', (event) => {
+  if (!pendingAction || inputBlocked() || repeatedTap(event, pendingAction.opener)) return;
+  const {cell, unit, enemy} = pendingAction;
+  const {x, y, factory} = cell;
+  if (unit !== game.activeUnit || (enemy
+    ? enemy !== game.enemyAt(x, y) || !game.canUnitAttack(unit, enemy)
+    : !game.canMoveTo(x, y))) {
+    actionDialog.close();
+    return;
+  }
+  pendingAction = undefined;
+  cell.button.classList.remove('action-pending');
+  actionDialog.close();
+  if (enemy) {
+    presentAttack({attacker: 'player', enemy, resolve: () => game.choose(x, y)});
+    return;
+  }
+  const capturedFactory = factory?.owner === 'enemy';
+  game.choose(x, y);
+  if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
+  saveProgress();
+  restoreBoardFocus();
+});
+
+actionDialog.addEventListener('close', () => {
+  if (actionDialog.open || !pendingAction) return;
+  const {button} = pendingAction.cell;
+  pendingAction = undefined;
+  button.classList.remove('action-pending');
+  button.focus({preventScroll: true});
+});
 
 endTurn.addEventListener('click', (event) => {
   if (event.detail > 1 || inputBlocked() || !game.beginEnemyTurn()) return;
   playerScrollTop = window.scrollY;
   saveProgress();
   music.setTurn('enemy');
-  runEnemyTurn();
+  render();
+  announceTurn('enemy', runEnemyTurn);
 });
 
 function openEnemyMenu(menu, title, choices) {
@@ -794,6 +908,7 @@ function runEnemyTurn(restoreFocus = true) {
   if (playerScrollTop !== null) window.scrollTo(0, playerScrollTop);
   playerScrollTop = null;
   restoreBoardFocus(restoreFocus);
+  if (!game.result) announceTurn('friendly');
 }
 
 function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPosition = enemy, resolve, onReturn = restoreBoardFocus}) {
@@ -823,8 +938,8 @@ endTurn.addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
 });
 for (const button of productionButtons) {
-  button.addEventListener('click', () => {
-    if (inputBlocked() || !game.produce(button.dataset.produce, selectedFactory)) return;
+  button.addEventListener('click', event => {
+    if (inputBlocked() || repeatedTap(event, productionOrigin?.event) || !game.produce(button.dataset.produce, selectedFactory)) return;
     saveProgress();
     render();
   });
@@ -860,21 +975,46 @@ for (const button of fieldOverview.querySelectorAll('[data-jump]')) {
   });
 }
 mapSurround.addEventListener('scroll', updateOverviewWindow, {passive: true});
-productionLaunch.addEventListener('click', () => {
-  if (!productionLaunch.hidden && compactControls.matches && !inputBlocked() && !productionDialog.open) {
-    productionDialog.showModal();
-  }
+productionLaunch.addEventListener('click', event => {
+  if (!productionLaunch.hidden && compactControls.matches) openProduction(event);
 });
-function positionProductionControls() {
+
+function openProduction(event, cell) {
+  if (!canOpenProductionDialog || inputBlocked() || productionDialog.open) return false;
+  if (cell) selectedFactory = cell.factory;
+  productionOrigin = {event, cell};
+  positionProductionControls(true);
+  renderProduction();
+  productionDialog.showModal();
+  return true;
+}
+
+productionMove.addEventListener('click', event => {
+  const cell = productionOrigin?.cell;
+  if (!cell || inputBlocked() || repeatedTap(event, productionOrigin.event) || !game.canMoveTo(cell.x, cell.y)) return;
+  productionDialog.close();
+  previewAction(cell, event);
+});
+
+productionDialog.addEventListener('close', () => {
+  if (productionDialog.open || !productionOrigin) return;
+  const {cell} = productionOrigin;
+  productionOrigin = undefined;
+  positionProductionControls();
+  renderProduction();
+  if (cell && !actionDialog.open && !portraitMode.blocked) cell.button.focus({preventScroll: true});
+});
+
+function positionProductionControls(opening = false) {
   const inDialog = productionControls.parentElement === productionDialog;
-  if (!canOpenProductionDialog || portraitMode.blocked || compactControls.matches === inDialog) return;
-  if (compactControls.matches) {
+  const useDialog = compactControls.matches || productionDialog.open || opening;
+  if (!canOpenProductionDialog || portraitMode.blocked || useDialog === inDialog) return;
+  if (useDialog) {
     const hadFocus = productionControls.contains(document.activeElement);
     productionDialog.prepend(productionControls);
-    if (hadFocus && !ordersActions.hidden) productionLaunch.focus({preventScroll: true});
+    if (!opening && hadFocus && !ordersActions.hidden) productionLaunch.focus({preventScroll: true});
   } else {
     const hadFocus = productionDialog.contains(document.activeElement) || document.activeElement === productionLaunch;
-    if (productionDialog.open) productionDialog.close();
     ordersActions.before(productionControls);
     if (hadFocus && !ordersActions.hidden) endTurn.focus({preventScroll: true});
   }
@@ -907,7 +1047,6 @@ function resizeGame() {
 window.addEventListener('resize', resizeGame);
 compactControls.addEventListener('change', resizeGame);
 portraitMode.onChange(resizeGame);
-positionProductionControls();
 showMap();
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);

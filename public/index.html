@@ -9,16 +9,16 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=enemy-preview">
+    <link rel="stylesheet" href="./style.css?v=turn-orders">
     <link rel="stylesheet" href="./combat.css?v=turn-status">
     <link rel="stylesheet" href="./battlefield.css?v=main-map">
-    <script defer src="./rules.js?v=enemy-preview"></script>
+    <script defer src="./rules.js?v=turn-orders"></script>
     <script defer src="./crossing-save.js?v=crossing-save"></script>
-    <script defer src="./combat-audio.js?v=turn-status"></script>
+    <script defer src="./combat-audio.js?v=turn-orders"></script>
     <script defer src="./music.js?v=turn-score"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
     <script defer src="./combat.js?v=turn-score"></script>
-    <script defer src="./game.js?v=turn-score"></script>
+    <script defer src="./game.js?v=turn-orders"></script>
   </head>
   <body>
     <header class="masthead">
@@ -133,6 +133,10 @@
         </aside>
       </div>
       <noscript>ゲームを遊ぶにはJavaScriptを有効にしてください。</noscript>
+      <div class="turn-change" id="turn-change" aria-hidden="true" hidden>
+        <span id="turn-change-number"></span>
+        <strong id="turn-change-side"></strong>
+      </div>
     </main>
     <dialog class="field-dialog" id="field-roster-dialog" aria-labelledby="field-roster-title">
       <header><h2 id="field-roster-title">味方部隊</h2><form method="dialog"><button type="submit" autofocus>閉じる</button></form></header>
@@ -155,7 +159,19 @@
       <div id="field-intel-content" class="field-dialog-content"></div>
     </dialog>
     <dialog class="production-dialog" id="production-dialog" aria-labelledby="production-title">
-      <form method="dialog"><button class="replay" autofocus>閉じる</button></form>
+      <form method="dialog" class="order-dialog-buttons">
+        <button class="replay" id="production-move" type="button" hidden>このマスへ移動</button>
+        <button class="replay" autofocus>閉じる</button>
+      </form>
+    </dialog>
+    <dialog class="action-dialog" id="action-dialog" aria-labelledby="action-title" aria-describedby="action-summary action-detail">
+      <h2 id="action-title"></h2>
+      <p id="action-summary"></p>
+      <p id="action-detail"></p>
+      <form method="dialog" class="order-dialog-buttons">
+        <button class="replay" autofocus>キャンセル</button>
+        <button class="end" id="action-confirm" type="button"></button>
+      </form>
     </dialog>
     <dialog class="portrait-notice" id="portrait-notice" aria-labelledby="portrait-title" aria-describedby="portrait-description">
       <span class="portrait-phone" aria-hidden="true"></span>
@@ -164,10 +180,10 @@
     </dialog>
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>
-      <ol><li>青い味方部隊を選ぶと、移動できるマスに印が付きます。</li><li>印のあるマスを選んで移動します。各部隊は1ターンに1回、上下左右へ移動でき、部隊がいるマスは通れません。</li><li>敵が射程内にいると「攻撃」の印が付きます。敵を選ぶと戦闘が始まり、その部隊の行動が終わります。</li><li>「ターン終了」で次に進みます。敵が射程内なら、移動せずに攻撃できます。</li></ol>
+      <ol><li>味方部隊を選び、印のあるマスを押すと移動先や占領先を確認できます。</li><li>「攻撃」の印がある敵を選ぶと、攻撃と反撃で変わるHPを確認できます。実行する場合は「攻撃する」を押します。</li><li>「生産」の印がある工場を押すと、その工場で現在生産できるユニットを選べます。</li><li>「ターン終了」を押すと敵の手番に切り替わります。</li></ol>
       <p>攻撃する側のHPが8〜10なら3、4〜7なら2、1〜3なら1ダメージです。生き残った側は、相手が射程内にいると被弾後のHPで1回だけ反撃します。</p>
       <p>森と湿地はダメージを1、山は2減らします。反撃を受けるときも同じで、ダメージは最低1です。</p>
-      <p>「BGM」と「効果音」は別々に切り替えられます。味方の手番は明るい旋律、敵の手番は低音と太鼓が目印です。マップ・戦闘・勝敗で曲が切り替わります。</p>
+      <p>手番が変わると中央に手番名が出て、効果音が鳴ります。「BGM」と「効果音」は個別に切り替えられます。</p>
       <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。戦車は移動力3、射程1で、攻撃と反撃の基礎ダメージが1高くなります。</p>
       <p>歩兵で都市や工場を占領できます。都市は次のターンから収入を生み、自軍の都市や工場にいる部隊はターン開始時にHPを2回復します（最大10）。空いている自軍工場では、1か所につき1ターンに1部隊を生産できます。敵本拠地を占領するか、敵を全滅させると勝利です。川は橋で渡り、湿地は移動力を2消費します。</p>
       <p>選択を取り消すには味方部隊をもう一度選びます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
