@@ -580,7 +580,7 @@ function render() {
       button.style.removeProperty('--capture-done');
     }
     const productionReady = !ordersLocked && factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
-    productionBadge.hidden = !productionReady;
+    setHidden(productionBadge, !productionReady);
     button.classList.toggle('action-pending', pendingAction?.cell === cell);
     if (productionReady || reachable || target || captureHere) button.setAttribute('aria-haspopup', 'dialog');
     else button.removeAttribute('aria-haspopup');
@@ -610,8 +610,8 @@ function render() {
     button.classList.toggle('detail-attack', Boolean(detailReach?.attack.has(`${x},${y}`)));
     const unit = enemy ?? friendly;
     const motion = unit && unitMotion(unit.type.id);
-    image.hidden = !unit;
-    idleSprite.hidden = !motion;
+    setHidden(image, !unit);
+    setHidden(idleSprite, !motion);
     button.toggleAttribute('data-static-unit', Boolean(unit && !motion));
     if (unit) {
       showImage(image, unitImage(unit.type, Boolean(enemy)));
@@ -621,9 +621,9 @@ function render() {
         idleSprite.style.setProperty('--atlas-row', motion.row);
       }
     }
-    hpBadge.hidden = !mobileField || image.hidden;
+    setHidden(hpBadge, !mobileField || image.hidden);
     if (!hpBadge.hidden) hpBadge.textContent = (enemy ?? friendly).hp;
-    actionBadge.hidden = !actionInfo?.marker;
+    setHidden(actionBadge, !actionInfo?.marker);
     if (!actionBadge.hidden) {
       actionBadge.dataset.action = action;
       actionBadge.textContent = actionInfo.marker;
@@ -636,10 +636,10 @@ function render() {
   document.getElementById('unit-movement').textContent = noUnit ? '—' : movement;
   document.getElementById('unit-range').textContent = noUnit ? '—' : rangeLabel(game.playerUnit);
   const traitLabel = document.getElementById('unit-trait');
-  traitLabel.hidden = noUnit || (!trait && !attackBonus);
+  setHidden(traitLabel, noUnit || (!trait && !attackBonus));
   traitLabel.textContent = trait ? `攻撃力 ${firepower} · ${trait}` : attackBonus ? `攻撃力 ＋${attackBonus}` : '';
   const portrait = document.getElementById('unit-portrait');
-  portrait.hidden = noUnit;
+  setHidden(portrait, noUnit);
   if (!noUnit) showImage(portrait, unitImage(game.playerUnit));
   const shownPosition = movingFriendly?.position ?? game.activeUnit;
   const position = placeName(shownPosition.x, shownPosition.y);
@@ -653,17 +653,17 @@ function render() {
   endTurn.setAttribute('aria-disabled', String(ordersLocked));
   productionLaunch.setAttribute('aria-disabled', String(ordersLocked));
   document.getElementById('help').setAttribute('aria-disabled', String(ordersLocked));
-  ordersActions.hidden = Boolean(result) && !mobileField;
+  setHidden(ordersActions, Boolean(result) && !mobileField);
   document.documentElement.classList.toggle('orders-visible', !ordersActions.hidden);
   // The gentle idle motion rests while units move or the enemy acts, so it costs nothing then.
   document.documentElement.classList.toggle('map-busy', ordersLocked);
-  endTurn.hidden = Boolean(result);
-  productionLaunch.hidden = !canOpenProductionDialog || Boolean(result);
-  replay.hidden = !result;
+  setHidden(endTurn, Boolean(result));
+  setHidden(productionLaunch, !canOpenProductionDialog || Boolean(result));
+  setHidden(replay, !result);
   renderBattleStatus();
   renderUnitDetail(detailReach);
   renderMoveConfirm(waiting);
-  for (const opener of detailOpeners) opener.hidden = noUnit || Boolean(result) || waiting;
+  for (const opener of detailOpeners) setHidden(opener, noUnit || Boolean(result) || waiting);
   if (movingFriendly) {
     state.textContent = '移動中';
     message.textContent = `${friendlyName}が移動中です。`;
@@ -1009,10 +1009,29 @@ function addTile(x, y) {
   return button;
 }
 
+// Assigning the value an element already has still makes the browser restyle it, and render()
+// touches every tile, so only write .hidden when it changes.
+function setHidden(element, hidden) {
+  if (element.hidden !== hidden) element.hidden = hidden;
+}
+
 function repeatedTap(event, opener) {
   return event.detail > 0 && opener?.detail > 0 && event.timeStamp - opener.timeStamp < 320
     && Math.hypot(event.clientX - opener.clientX, event.clientY - opener.clientY) < 24;
 }
+
+// A quick second tap on the same spot lands on whatever the first tap revealed there (a dialog's
+// close button, the menu, a sound toggle, a map tile). Swallow it everywhere, before any handler.
+let lastTap = null;
+document.addEventListener('click', event => {
+  if (event.detail === 0) return;
+  if (repeatedTap(event, lastTap)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
+  lastTap = event;
+}, true);
 
 function drawWater(tile, x, y) {
   const directions = [[0,-1], [1,0], [0,1], [-1,0]];
@@ -1570,6 +1589,8 @@ function switchScenario(id) {
   const {save, restored} = openScenario(id);
   if (!restored && id === 'legacy') return;
   crossingSave = save;
+  // Opening a fresh map here is on purpose, so it may replace a save that could not be read.
+  if (!restored) crossingSave.discardUnreadable();
   game = restored ?? BattleMap.newMatch(id);
   currentScenario = id;
   try {

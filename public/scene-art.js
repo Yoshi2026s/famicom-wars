@@ -433,7 +433,16 @@
       canvas.height = CH;
       const ctx = canvas.getContext('2d');
       covers[kind](ctx, rng(kind.length * 977));
-      cache.set(kind, canvas.toDataURL('image/png'));
+      // A blob: URL keeps the battle's inherited --cover-image cheap to restyle (see unit-art.js).
+      const data = canvas.toDataURL('image/png');
+      let url = data;
+      if (typeof Blob !== 'undefined' && URL.createObjectURL) {
+        const binary = atob(data.slice(data.indexOf(',') + 1));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        url = URL.createObjectURL(new Blob([bytes], {type: 'image/png'}));
+      }
+      cache.set(kind, url);
     }
     return cache.get(kind);
   }
@@ -482,7 +491,7 @@
       return;
     }
     try {
-      const worker = new Worker('./scene-worker.js?v=title-art');
+      const worker = new Worker('./scene-worker.js?v=debug2');
       worker.onmessage = ({data}) => {
         worker.terminate();
         if (data instanceof Blob) finish(URL.createObjectURL(data));
