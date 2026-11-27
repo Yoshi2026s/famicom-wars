@@ -332,6 +332,8 @@ function announceTurn(side, onComplete) {
   }, 700);
 }
 
+let productionNotice = '';
+productionDialog.addEventListener('close', () => { productionNotice = ''; });
 function renderProduction() {
   const owned = game.productionSites.filter(factory => factory.owner === 'friendly');
   if (!owned.includes(selectedFactory)) selectedFactory = owned.find(site => game.productionStatus(site) === 'ready') ?? owned[0];
@@ -343,7 +345,14 @@ function renderProduction() {
     icon.dataset.facilityOwner = factory.owner;
     owner.textContent = `${ownerNames[factory.owner]}${facilityNames[factory.kind]}`;
     button.hidden = factory.owner !== 'friendly';
-    if (!button.hidden) button.textContent = siteLabel(factory);
+    if (!button.hidden) {
+      // Sites that already produced (or are blocked) this turn are marked so the next one is easy to find.
+      const state = game.productionStatus(factory);
+      button.textContent = siteLabel(factory);
+      button.dataset.state = state;
+      if (state === 'used') button.setAttribute('aria-label', `${siteLabel(factory)}（生産済み）`);
+      else button.removeAttribute('aria-label');
+    }
     button.setAttribute('aria-pressed', String(factory === selectedFactory));
   }
   document.getElementById('production-title-kind').textContent = selectedFactory ? siteLabel(selectedFactory) : 'ユニット生産';
@@ -358,7 +367,9 @@ function renderProduction() {
     insufficient: '生産に必要な資金が足りません。',
     limit: `出撃できる上限（${fleetLimit}部隊）に達しました。`,
   };
-  if (productionStatus.textContent !== labels[status]) productionStatus.textContent = labels[status];
+  if (status !== 'ready') productionNotice = '';
+  const note = productionNotice || labels[status];
+  if (productionStatus.textContent !== note) productionStatus.textContent = note;
   document.getElementById('production-funds').textContent = currency.format(game.funds.friendly);
   const available = new Set(game.productionChoices(selectedFactory).map(type => type.id));
   for (const button of productionCatalog.children) {
@@ -387,8 +398,19 @@ function buildFactories() {
     button.append(type.name, detail, trait);
     button.addEventListener('click', event => {
       if (inputBlocked() || repeatedTap(event, productionOrigin?.event)) return;
-      const unit = game.produce(type.id, selectedFactory);
+      const site = selectedFactory;
+      const unit = game.produce(type.id, site);
       if (!unit) return;
+      // From the picker, move on to the next site that can still produce this turn.
+      if (!productionOrigin?.cell) {
+        const owned = game.productionSites.filter(other => other.owner === 'friendly');
+        const start = owned.indexOf(site);
+        const next = [...owned.slice(start + 1), ...owned.slice(0, start)].find(other => game.productionStatus(other) === 'ready');
+        if (next) {
+          selectedFactory = next;
+          productionNotice = `${siteLabel(site)}で${unit.name}を生産しました（−${currency.format(site.production.cost)}）。続けて${siteLabel(next)}で生産できます。`;
+        }
+      }
       saveProgress();
       render();
       flashMapTile(unit, 'deploy');
@@ -409,6 +431,7 @@ function buildFactories() {
     button.addEventListener('click', () => {
       if (portraitMode.blocked) return;
       selectedFactory = factory;
+      productionNotice = '';
       renderProduction();
     });
     factoryPicker.append(button);
