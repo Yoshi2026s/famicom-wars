@@ -3,10 +3,10 @@
 // facilities and the same distances. A layout is accepted only when every route the
 // game needs exists (see validateGeneratedMap); otherwise the next seed is tried.
 (() => {
-  const width = 26;
-  const height = 18;
+  const width = 32;
+  const height = 22;
   const half = width / 2;
-  const version = 2;
+  const version = 3;
 
   function rng(seed) {
     let s = seed >>> 0 || 1;
@@ -111,7 +111,7 @@
     fillLakes(mask);
     const grid = mask.map(row => row.map(land => (land ? 'p' : 'o')));
     const landCount = mask.flat().filter(Boolean).length;
-    if (landCount < 95 || landCount > 150) return null;
+    if (landCount < 145 || landCount > 230) return null;
     // Shallows along the coast.
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < half; x++) {
@@ -124,7 +124,7 @@
     for (let y = 0; y < height; y++) for (let x = 0; x < half; x++) if (grid[y][x] === 'p') landTiles.push({x, y});
 
     // Headquarters on the home side, away from the shore.
-    const homeCandidates = landTiles.filter(({x, y}) => x >= 2 && x <= 5 && y >= 4 && y <= height - 6 && !coast(x, y));
+    const homeCandidates = landTiles.filter(({x, y}) => x >= 2 && x <= 6 && y >= 5 && y <= height - 7 && !coast(x, y));
     if (!homeCandidates.length) return null;
     const hq = pick(homeCandidates);
     const taken = new Set([`${hq.x},${hq.y}`]);
@@ -144,16 +144,21 @@
     };
     const ok = place('factory', 'friendly', near(hq, 2, 3))
       && place('city', 'friendly', near(hq, 2, 3))
-      && place('city', 'friendly', spot => near(hq, 3, 6)(spot) && spot.x <= 8)
-      && place('airfield', 'friendly', spot => near(hq, 2, 6)(spot) && spot.x <= 8)
-      && place('port', 'friendly', spot => coast(spot.x, spot.y) && spot.x <= 8)
-      && place('city', 'neutral', spot => spot.x >= 8 && spot.x <= 11)
-      && place('factory', 'neutral', spot => spot.x >= 8 && spot.x <= 11);
+      && place('city', 'friendly', spot => near(hq, 3, 7)(spot) && spot.x <= 10)
+      && place('airfield', 'friendly', spot => near(hq, 2, 7)(spot) && spot.x <= 10)
+      && place('port', 'friendly', spot => coast(spot.x, spot.y) && spot.x <= 10)
+      && place('city', 'neutral', spot => spot.x >= 10 && spot.x <= 14)
+      && place('factory', 'neutral', spot => spot.x >= 10 && spot.x <= 14)
+      // An oil field in contested ground: high income, but no production or repairs.
+      && place('oilfield', 'neutral', spot => spot.x >= 9 && spot.x <= 14);
     if (!ok) return null;
-    if (random() < .6) place('city', 'neutral', spot => spot.x >= 6 && spot.x <= 11);
+    // A supply depot (repairs every kind of unit at half price) on the way to the front.
+    if (random() < .75) place('depot', 'neutral', spot => spot.x >= 7 && spot.x <= 13);
+    if (random() < .7) place('city', 'neutral', spot => spot.x >= 7 && spot.x <= 14);
+    if (random() < .4) place('city', 'neutral', spot => spot.x >= 8 && spot.x <= 14);
     if (random() < .5) {
       const kind = random() < .5 ? 'airfield' : 'port';
-      place(kind, 'neutral', spot => spot.x >= 7 && spot.x <= 11 && (kind === 'airfield' || coast(spot.x, spot.y)));
+      place(kind, 'neutral', spot => spot.x >= 9 && spot.x <= 14 && (kind === 'airfield' || coast(spot.x, spot.y)));
     }
 
     // Roads from headquarters to the factory, the cities and the centre line.
@@ -169,11 +174,11 @@
 
     // A river that runs from the coast into the land, crossed by bridges where roads meet it.
     if (random() < .7) {
-      const mouths = landTiles.filter(({x, y}) => coast(x, y) && grid[y][x] === 'p' && x <= 9 && (y <= 3 || y >= height - 5));
+      const mouths = landTiles.filter(({x, y}) => coast(x, y) && grid[y][x] === 'p' && x <= 11 && (y <= 4 || y >= height - 6));
       if (mouths.length) {
         let at = pick(mouths);
-        const goingDown = at.y <= 3;
-        for (let length = 0; length < 7; length++) {
+        const goingDown = at.y <= 4;
+        for (let length = 0; length < 9; length++) {
           if (!inside(at.x, at.y) || isWater(grid[at.y][at.x]) && length) break;
           const id = grid[at.y][at.x];
           if (taken.has(`${at.x},${at.y}`)) break;
@@ -195,6 +200,11 @@
     for (const {x, y} of ranked(({x, y}) => ridge(x, y) - .62, Math.round(landTiles.length / 11), ({x, y}) => !coast(x, y))) grid[y][x] = 'm';
     for (const {x, y} of ranked(({x, y}) => cover(x, y) - .58, Math.round(landTiles.length / 5), () => true)) grid[y][x] = 'f';
     for (const {x, y} of ranked(({x, y}) => .2 - cover(x, y), Math.round(landTiles.length / 30), ({x, y}) => coast(x, y))) grid[y][x] = 's';
+    // Hills on the lower slopes around the ridges, ruins in the contested middle, beaches on open shores.
+    for (const {x, y} of ranked(({x, y}) => ridge(x, y) - .5, Math.round(landTiles.length / 12), ({x, y}) => !coast(x, y))) grid[y][x] = 'k';
+    const rubble = noiseField(random, 1.6);
+    for (const {x, y} of ranked(({x, y}) => rubble(x, y) - .55, Math.round(landTiles.length / 40), ({x}) => x >= 8)) grid[y][x] = 'u';
+    for (const {x, y} of ranked(({x, y}) => cover(x, y) - .2, Math.round(landTiles.length / 14), ({x, y}) => coast(x, y))) grid[y][x] = 'a';
 
     const west = grid.map(row => row.join(''));
     const terrain = west.map(row => row + [...row].reverse().join(''));

@@ -1,4 +1,6 @@
 const combatScreen = (() => {
+  // Foot soldiers show one figure per HP; vehicles, aircraft and ships one per 2 HP.
+  const footKinds = new Set(['infantry', 'antitank']);
   const dialog = document.getElementById('combat-screen');
   const advance = document.getElementById('combat-advance');
   const status = document.getElementById('combat-status');
@@ -30,6 +32,10 @@ const combatScreen = (() => {
     patrol: {profile: 'scout', muzzle: [.78, .50], hit: .58, attack: '速射砲を連射'},
     destroyer: {profile: 'support', muzzle: [.76, .45], hit: .57, flight: 410, attack: '誘導弾を発射'},
     battleship: {profile: 'tank', slots: [[0, 0], [0, 125]], muzzle: [.78, .43], hit: .58, flight: 395, attack: '艦砲を斉射'},
+    antitank: {profile: 'infantry', attack: '対戦車ロケットを発射'},
+    heavytank: {profile: 'tank', attack: '主砲を発射'},
+    drone: {profile: 'scout', hit: .5, attack: '誘導ミサイルを発射'},
+    submarine: {profile: 'support', hit: .62, flight: 460, attack: '魚雷を発射'},
   };
 
   function attackTactics(kind) {
@@ -73,7 +79,7 @@ const combatScreen = (() => {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
       document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = formations[side];
-      const count = formation.dataset.kind === 'infantry' ? hp : Math.ceil(hp / 2);
+      const count = footKinds.has(formation.dataset.kind) ? hp : Math.ceil(hp / 2);
       for (const fighter of [...formation.children].slice(count)) {
         if (animateLoss && !motion.matches) fighter.classList.add('retreating');
         else fighter.remove();
@@ -93,7 +99,7 @@ const combatScreen = (() => {
         fighter.style.setProperty('--rank', rank);
         const delay = column < 3 ? rank * 154 + column * 19 : 308 + (column - 3) * 23 + rank * 22;
         fighter.style.setProperty('--fire-delay', delay + 'ms');
-        if (formation.dataset.kind !== 'infantry') {
+        if (!footKinds.has(formation.dataset.kind)) {
           const place = machineSlots[slot] ?? machineSlots[0];
           fighter.style.setProperty('--vx', place.x + '%');
           fighter.style.setProperty('--vy', place.y + '%');
@@ -143,7 +149,7 @@ const combatScreen = (() => {
     const {slots, muzzle, flight, attack} = attackTactics(dialog.dataset.armament);
     const hitHeight = attackTactics(dialog.dataset.defender).hit;
     const attackers = formations[fromPlayer ? 'player' : 'enemy'].children;
-    const squadron = formations[fromPlayer ? 'player' : 'enemy'].dataset.kind !== 'infantry';
+    const squadron = !footKinds.has(formations[fromPlayer ? 'player' : 'enemy'].dataset.kind);
     const defenders = formations[fromPlayer ? 'enemy' : 'player'].children;
     const view = camera.getBoundingClientRect();
     const point = (unit, x, y) => {

@@ -223,6 +223,7 @@ function endCelebration() {
 }
 celebration.addEventListener('click', endCelebration);
 
+const captureBenefit = {city: '収入が増えます', oilfield: '収入が大きく増えます', depot: '全部隊を半額で回復できます'};
 function celebrateCapture(step, side) {
   if (!step?.site) return;
   if (!step.completed) {
@@ -235,7 +236,7 @@ function celebrateCapture(step, side) {
   }
   const name = facilityNames[step.site.kind];
   celebrate(side === 'friendly' ? 'capture' : 'lost', side === 'friendly' ? `${name}占領！` : `${name}を奪われた`,
-    side === 'friendly' ? (step.site.kind === 'city' ? '収入が増えます' : '生産・補給に使えます') : '取り返しましょう', 1700);
+    side === 'friendly' ? captureBenefit[step.site.kind] ?? '生産・補給に使えます' : '取り返しましょう', 1700);
 }
 
 function celebrateResult() {
@@ -507,7 +508,7 @@ function render() {
   const friendlyName = '味方' + game.activeUnit.name;
   const movementTargets = waiting ? new Map() : game.movementTargets();
   const enemyBase = game.headquarters.enemy;
-  const captureReady = game.playerUnit.id === 'infantry' && movementTargets.has(`${enemyBase.x},${enemyBase.y}`);
+  const captureReady = capturesSites(game.playerUnit) && movementTargets.has(`${enemyBase.x},${enemyBase.y}`);
   const actingEnemy = game.enemyTurn?.action?.enemy;
   const actedEnemies = new Set(waiting ? game.enemyActions.map(action => action.enemy) : []);
   const enemyAction = unit => {
@@ -567,7 +568,7 @@ function render() {
     const target = !ordersLocked && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
     const captureHere = active && game.selected && !ordersLocked && game.canCaptureHere;
-    const captureTarget = captureHere || (reachable && game.playerUnit.id === 'infantry'
+    const captureTarget = captureHere || (reachable && capturesSites(game.playerUnit)
       && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly')));
     const progress = game.scenario && facility ? game.captureProgress(facility) : null;
     button.classList.toggle('capturing', Boolean(progress));
@@ -700,7 +701,7 @@ function render() {
   } else if (announcedCapture) {
     const site = facilityNames[facilityCapture.facility];
     const production = game.productionSiteAt(facilityCapture.x, facilityCapture.y);
-    const update = [facilityCapture.facility === 'city' ? '次のターンから収入が入ります。' : '',
+    const update = [['city', 'oilfield', 'depot'].includes(facilityCapture.facility) ? '次のターンから収入が入ります。' : '',
       production ? 'マスが空くと生産できます。' : ''].filter(Boolean).join('');
     state.textContent = game.canAttack ? '攻撃可能' : `${site}占領`;
     message.textContent = `${site}を占領しました。${update}`
@@ -1243,9 +1244,9 @@ function renderMoveConfirm(waiting) {
   if (!staged) return;
   const {unit, from} = staged;
   const site = game.facilityAt(unit.x, unit.y);
-  const capture = unit.type.id === 'infantry' && site && site.owner !== 'friendly'
+  const capture = capturesSites(unit.type) && site && site.owner !== 'friendly'
     ? captureForecast(site, unit)
-    : !game.scenario && unit.type.id === 'infantry' && game.headquartersAt(unit.x, unit.y) === 'enemy' ? '敵本拠地を占領すると勝利' : '';
+    : !game.scenario && capturesSites(unit.type) && game.headquartersAt(unit.x, unit.y) === 'enemy' ? '敵本拠地を占領すると勝利' : '';
   moveConfirmRoute.textContent = `味方${unit.name}  ${placeName(from.x, from.y)} → ${placeName(unit.x, unit.y)}`;
   moveConfirmHint.textContent = [capture,
     game.canAttack ? '「攻撃」の印がある敵をタップすると、ここから攻撃できます' : 'ここから攻撃できる敵はいません',
@@ -1338,7 +1339,7 @@ function followEnemy(position) {
 function playEnemyAction(action, restoreFocus) {
   const {enemy, from, to, path, friendly} = action;
   const site = game.facilityAt(to.x, to.y);
-  const capture = enemy.type.id === 'infantry' && (game.headquartersAt(to.x, to.y) === 'friendly' || (site && site.owner !== 'enemy'));
+  const capture = capturesSites(enemy.type) && (game.headquartersAt(to.x, to.y) === 'friendly' || (site && site.owner !== 'enemy'));
   const commands = [];
   if (path.length) commands.push({id: 'move', label: '移動'});
   if (capture) commands.push({id: 'capture', label: '占領'});
@@ -1623,12 +1624,17 @@ if (typeof ResizeObserver === 'function') {
 
 // ---- Unit details: stats, traits, matchups and the next move/strike range on the board ----
 
+// Infantry and anti-tank troops (rules.js canCapture).
+function capturesSites(type) {
+  return type.id === 'infantry' || Boolean(type.captures);
+}
+
 function movementNote(type) {
   if (type.domain === 'air') return '地形と部隊を越えて移動';
   if (type.domain === 'sea') return '海と港だけを移動';
   if (!game.scenario) return '川は橋だけ、湿地は2';
-  if (type.id === 'infantry') return '山も通れる。外海・浅瀬は不可';
-  return '山は通れない。森は2。外海・浅瀬は不可';
+  if (type.foot) return '山・丘陵・廃墟も通れる。外海・浅瀬は不可';
+  return '山は通れない。森・丘陵・廃墟は2。外海・浅瀬は不可';
 }
 
 function matchupChips(entries) {
@@ -1676,7 +1682,7 @@ function renderUnitDetail(reach) {
     ['移動', `${type.movement}（${movementNote(type)}）`],
     ['射程', `${rangeLabel(type)}（${ranged ? '間接攻撃。移動したターンは攻撃できない' : '直接攻撃'}）`],
     ['反撃', type.stationary ? 'できない' : 'できる（射程内の相手のみ）'],
-    ['占領', type.id === 'infantry' ? 'できる' : 'できない'],
+    ['占領', capturesSites(type) ? 'できる' : 'できない'],
     ['攻撃対象', type.targets ? type.targets.map(domain => targetNames[domain]).join('・') : '地上'],
     ['現在地', `${[...new Set([placeName(unit.x, unit.y), terrain.name])].join(' · ')}${cover ? `（防御+${cover}）` : ''}`],
   ];

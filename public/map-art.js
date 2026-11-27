@@ -177,7 +177,7 @@
     }
     // Large soft colour patches break up the grass.
     grid.ids.forEach((row, y) => row.forEach((id, x) => {
-      if (waterIds.has(id)) return;
+      if (waterIds.has(id) || id === 'beach') return;
       const r = seeded(x, y, 2);
       const cx = (x + r()) * T, cy = (y + r()) * T, radius = T * (.5 + r() * .4);
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
@@ -345,6 +345,262 @@
     }
   }
 
+
+  // Sand ground: wet sand and a wavy foam line on the water side, a ragged soft edge
+  // that fades into the neighbouring grass.
+  function paintBeach(ctx, grid, T) {
+    const cells = [];
+    grid.ids.forEach((row, y) => row.forEach((id, x) => { if (id === 'beach') cells.push([x, y]); }));
+    if (!cells.length) return;
+    const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    const kind = (x, y) => {
+      if (x < 0 || y < 0 || x >= grid.width || y >= grid.height) return grid.at(x, y);
+      return grid.ids[y][x];
+    };
+    // Soft sand spill into the grass around.
+    for (const [x, y] of cells) {
+      const r = seeded(x, y, 21);
+      dirs.forEach(([dx, dy]) => {
+        const n = kind(x + dx, y + dy);
+        if (waterIds.has(n) || n === 'beach') return;
+        for (let i = 0; i < 4; i++) {
+          const t = (i + .5) / 4 + (r() - .5) * .12;
+          const ex = dx ? (dx > 0 ? x + 1 : x) : x + t, ey = dy ? (dy > 0 ? y + 1 : y) : y + t;
+          const rad = T * (.22 + r() * .14);
+          const g = ctx.createRadialGradient(ex * T, ey * T, 0, ex * T, ey * T, rad);
+          g.addColorStop(0, 'rgba(226,204,146,.95)');
+          g.addColorStop(.55, 'rgba(214,194,134,.55)');
+          g.addColorStop(1, 'rgba(200,190,120,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(ex * T, ey * T, rad, 0, Math.PI * 2); ctx.fill();
+        }
+      });
+    }
+    // Wet sand reaching the waterline, then dry sand.
+    for (const [x, y] of cells) {
+      const {box, radii} = landCorners(grid, x, y, T, 0);
+      ctx.fillStyle = '#c7ad72';
+      roundedTile(ctx, box[0], box[1], box[2], box[3], radii); ctx.fill();
+      const dry = landCorners(grid, x, y, T, T * .08);
+      ctx.fillStyle = '#ead6a2';
+      roundedTile(ctx, dry.box[0], dry.box[1], dry.box[2], dry.box[3], dry.radii); ctx.fill();
+    }
+    // Soft light and dark drifts that ignore the tile grid.
+    for (const [x, y] of cells) {
+      const r = seeded(x, y, 26);
+      ctx.save();
+      const dry = landCorners(grid, x, y, T, T * .08);
+      roundedTile(ctx, dry.box[0], dry.box[1], dry.box[2], dry.box[3], dry.radii); ctx.clip();
+      for (let i = 0; i < 2; i++) {
+        const cx = (x + .3 + r() * .4) * T, cy = (y + .3 + r() * .4) * T, rad = T * (.25 + r() * .15);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        const tone = r() < .6 ? '255,246,214' : '196,166,110';
+        g.addColorStop(0, `rgba(${tone},${tone[0] === '2' ? .45 : .2})`);
+        g.addColorStop(1, `rgba(${tone},0)`);
+        ctx.fillStyle = g; ctx.fillRect(x * T - T, y * T - T, T * 3, T * 3);
+      }
+      ctx.restore();
+    }
+    for (const [x, y] of cells) {
+      const r = seeded(x, y, 22);
+      // Wind ripples, grains, pebbles and the odd shell.
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1, T * .018);
+      for (let i = 0; i < 4; i++) {
+        const cx = (x + .2 + r() * .6) * T, cy = (y + .18 + r() * .64) * T, w = T * (.1 + r() * .1);
+        ctx.strokeStyle = 'rgba(170,140,86,.45)';
+        ctx.beginPath(); ctx.moveTo(cx - w, cy); ctx.quadraticCurveTo(cx, cy - T * .04, cx + w, cy); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,248,220,.55)';
+        ctx.beginPath(); ctx.moveTo(cx - w, cy - T * .02); ctx.quadraticCurveTo(cx, cy - T * .06, cx + w, cy - T * .02); ctx.stroke();
+      }
+      for (let i = 0; i < 18; i++) {
+        ctx.fillStyle = r() < .5 ? 'rgba(150,120,70,.45)' : 'rgba(255,250,230,.6)';
+        ctx.fillRect((x + .08 + r() * .84) * T, (y + .08 + r() * .84) * T, Math.max(1, T * .016), Math.max(1, T * .016));
+      }
+      if (r() < .55) {
+        const sx = (x + .25 + r() * .5) * T, sy = (y + .25 + r() * .5) * T;
+        ctx.fillStyle = 'rgba(90,70,40,.3)';
+        ctx.beginPath(); ctx.ellipse(sx + T * .01, sy + T * .012, T * .035, T * .02, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = r() < .5 ? '#fbeee0' : '#f3c9b4';
+        ctx.beginPath(); ctx.ellipse(sx, sy, T * .03, T * .02, -.4, 0, Math.PI * 2); ctx.fill();
+      }
+      // Foam lapping on every water side.
+      dirs.forEach(([dx, dy]) => {
+        if (!waterIds.has(kind(x + dx, y + dy))) return;
+        ctx.save();
+        ctx.translate((x + .5) * T, (y + .5) * T);
+        ctx.rotate(Math.atan2(dy, dx) - Math.PI / 2);
+        // Local frame: the water side is +y.
+        ctx.strokeStyle = 'rgba(250,255,252,.8)';
+        ctx.lineWidth = Math.max(1, T * .03);
+        ctx.beginPath();
+        const edge = T * .5 + T * .02;
+        ctx.moveTo(-T * .5, edge);
+        for (let i = 0; i < 4; i++) {
+          const x0 = -T * .5 + i * T * .25;
+          ctx.quadraticCurveTo(x0 + T * .125, edge + T * (.05 + r() * .04), x0 + T * .25, edge);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(120,96,58,.28)';
+        ctx.lineWidth = Math.max(1, T * .02);
+        ctx.beginPath(); ctx.moveTo(-T * .45, T * .42); ctx.quadraticCurveTo(0, T * .38 + r() * T * .04, T * .45, T * .42); ctx.stroke();
+        ctx.restore();
+      });
+    }
+  }
+
+  // Low, grassy rolling knolls: green domes lit from the upper left.
+  function hills(ctx, x, y, T) {
+    const r = seeded(x, y, 23);
+    const knolls = [
+      {cx: .32 + r() * .08, by: .52, w: .36, h: .2 + r() * .05},
+      {cx: .72 + r() * .06, by: .6, w: .3, h: .16 + r() * .05},
+      {cx: .46 + r() * .08, by: .92, w: .46, h: .26 + r() * .05},
+    ];
+    for (const k of knolls) {
+      const cx = (x + k.cx) * T, by = (y + k.by) * T, w = k.w * T, h = k.h * T;
+      ctx.fillStyle = 'rgba(30,64,30,.3)';
+      ctx.beginPath(); ctx.ellipse(cx + w * .18, by + T * .01, w * 1.05, h * .32, 0, 0, Math.PI * 2); ctx.fill();
+      const dome = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx - w, by);
+        ctx.bezierCurveTo(cx - w * .7, by - h * 1.05, cx + w * .55, by - h * 1.15, cx + w, by);
+        ctx.quadraticCurveTo(cx, by + h * .22, cx - w, by);
+        ctx.closePath();
+      };
+      const g = ctx.createRadialGradient(cx - w * .35, by - h * .8, w * .05, cx, by - h * .3, w * 1.2);
+      g.addColorStop(0, '#c4e08a'); g.addColorStop(.4, '#8cbf5c'); g.addColorStop(.8, '#5f9a44'); g.addColorStop(1, '#447a36');
+      ctx.fillStyle = g; dome(); ctx.fill();
+      // Shaded east flank.
+      ctx.save(); dome(); ctx.clip();
+      const sh = ctx.createLinearGradient(cx - w * .1, 0, cx + w, 0);
+      sh.addColorStop(0, 'rgba(30,60,40,0)'); sh.addColorStop(1, 'rgba(30,60,40,.38)');
+      ctx.fillStyle = sh; ctx.fillRect(cx - w, by - h * 1.2, w * 2, h * 1.5);
+      // Contour strokes.
+      ctx.strokeStyle = 'rgba(232,248,190,.35)';
+      ctx.lineWidth = Math.max(1, T * .018);
+      ctx.beginPath(); ctx.moveTo(cx - w * .65, by - h * .45); ctx.quadraticCurveTo(cx - w * .2, by - h * .9, cx + w * .25, by - h * .75); ctx.stroke();
+      ctx.restore();
+      // Grass texture follows the slope.
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        const u = r() * 1.6 - .8, tx = cx + u * w, ty = by - h * (1 - u * u) * (.25 + r() * .6), th = T * .028;
+        ctx.strokeStyle = u > .2 ? 'rgba(40,86,40,.4)' : 'rgba(214,240,160,.45)';
+        ctx.lineWidth = Math.max(1, T * .012);
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + th * .2, ty - th); ctx.stroke();
+      }
+    }
+    // A small bush or boulder on some tiles.
+    if (r() < .5) {
+      const bx = (x + .12 + r() * .2) * T, by = (y + .86) * T, s = T * .07;
+      ctx.fillStyle = 'rgba(30,50,30,.3)';
+      ctx.beginPath(); ctx.ellipse(bx + s * .4, by, s * 1.2, s * .4, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createRadialGradient(bx - s * .4, by - s * 1.1, s * .1, bx, by - s * .6, s * 1.3);
+      g.addColorStop(0, '#9fcf62'); g.addColorStop(1, '#2f6a34');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(bx - s * .4, by - s * .5, s * .6, 0, Math.PI * 2); ctx.arc(bx + s * .35, by - s * .55, s * .62, 0, Math.PI * 2); ctx.arc(bx, by - s * 1, s * .66, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Ground of a ruined block: scorched dirt, scattered paving and rubble.
+  function ruinsGround(ctx, x, y, T) {
+    const r = seeded(x, y, 24);
+    const g = ctx.createRadialGradient((x + .5) * T, (y + .55) * T, T * .08, (x + .5) * T, (y + .55) * T, T * .7);
+    g.addColorStop(0, 'rgba(112,96,74,.95)'); g.addColorStop(.65, 'rgba(136,118,88,.8)'); g.addColorStop(1, 'rgba(140,122,92,0)');
+    ctx.fillStyle = g; ctx.fillRect(x * T - T * .2, y * T - T * .2, T * 1.4, T * 1.4);
+    const s = ctx.createRadialGradient((x + .62) * T, (y + .4) * T, 0, (x + .62) * T, (y + .4) * T, T * .22);
+    s.addColorStop(0, 'rgba(40,34,30,.5)'); s.addColorStop(1, 'rgba(40,34,30,0)');
+    ctx.fillStyle = s; ctx.fillRect(x * T, y * T, T, T);
+    // Broken paving slabs.
+    for (let i = 0; i < 5; i++) {
+      const px = (x + .15 + r() * .7) * T, py = (y + .2 + r() * .7) * T, w = T * (.08 + r() * .06);
+      ctx.save(); ctx.translate(px, py); ctx.rotate((r() - .5) * .8);
+      ctx.fillStyle = 'rgba(60,50,40,.35)'; ctx.fillRect(-w / 2 + T * .01, -w * .3 + T * .01, w, w * .6);
+      ctx.fillStyle = r() < .5 ? '#b5ab98' : '#a39780'; ctx.fillRect(-w / 2, -w * .3, w, w * .6);
+      ctx.restore();
+    }
+    for (let i = 0; i < 16; i++) {
+      ctx.fillStyle = ['#6e6356', '#c8bca4', '#8f8370', '#a0583e'][Math.floor(r() * 4)];
+      const d = Math.max(1, T * (.015 + r() * .02));
+      ctx.fillRect((x + .1 + r() * .8) * T, (y + .15 + r() * .8) * T, d, d);
+    }
+    // Weeds pushing through.
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const gx = (x + .1 + r() * .8) * T, gy = (y + .3 + r() * .65) * T, h = T * .06;
+      ctx.strokeStyle = 'rgba(92,132,58,.75)'; ctx.lineWidth = Math.max(1, T * .018);
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx - h * .4, gy - h); ctx.moveTo(gx, gy); ctx.lineTo(gx + h * .35, gy - h * .9); ctx.stroke();
+    }
+  }
+
+  // A broken masonry wall: lit front face, shaded end, ragged top and stone courses.
+  function brokenWall(ctx, x0, by, w, h, depth, r, T) {
+    const steps = 6, tops = [];
+    for (let i = 0; i <= steps; i++) tops.push(h * (i === 0 || i === steps ? .35 + r() * .3 : .45 + r() * .55));
+    ctx.fillStyle = 'rgba(30,26,22,.35)';
+    ctx.beginPath(); ctx.ellipse(x0 + w * .55, by + T * .01, w * .62, T * .05, 0, 0, Math.PI * 2); ctx.fill();
+    const front = () => {
+      ctx.beginPath(); ctx.moveTo(x0, by);
+      tops.forEach((t, i) => ctx.lineTo(x0 + w * i / steps, by - t));
+      ctx.lineTo(x0 + w, by); ctx.closePath();
+    };
+    // Top/side thickness.
+    ctx.fillStyle = '#8c8170';
+    ctx.beginPath(); ctx.moveTo(x0 + w, by); ctx.lineTo(x0 + w, by - tops[steps]); ctx.lineTo(x0 + w + depth, by - tops[steps] - depth * .6); ctx.lineTo(x0 + w + depth, by - depth * .6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#cfc4ab';
+    ctx.beginPath(); ctx.moveTo(x0, by - tops[0]);
+    tops.forEach((t, i) => ctx.lineTo(x0 + w * i / steps, by - t));
+    for (let i = steps; i >= 0; i--) ctx.lineTo(x0 + w * i / steps + depth, by - tops[i] - depth * .6);
+    ctx.closePath(); ctx.fill();
+    const g = ctx.createLinearGradient(x0, by - h, x0 + w, by);
+    g.addColorStop(0, '#e2d6bb'); g.addColorStop(.6, '#bfb196'); g.addColorStop(1, '#9a8c74');
+    ctx.fillStyle = g; front(); ctx.fill();
+    ctx.save(); front(); ctx.clip();
+    ctx.strokeStyle = 'rgba(80,68,54,.45)'; ctx.lineWidth = Math.max(1, T * .012);
+    const course = Math.max(3, T * .06);
+    for (let yy = by - course, row = 0; yy > by - h; yy -= course, row++) {
+      ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + w, yy); ctx.stroke();
+      for (let xx = x0 + (row % 2 ? course : course * 1.8); xx < x0 + w; xx += course * 1.8) { ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy + course); ctx.stroke(); }
+    }
+    // Soot and an empty window.
+    const soot = ctx.createLinearGradient(0, by - h, 0, by);
+    soot.addColorStop(0, 'rgba(40,34,30,.45)'); soot.addColorStop(.5, 'rgba(40,34,30,0)');
+    ctx.fillStyle = soot; ctx.fillRect(x0, by - h, w, h);
+    if (h > T * .2) {
+      ctx.fillStyle = '#3a332c';
+      ctx.fillRect(x0 + w * .38, by - h * .62, w * .2, h * .26);
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(50,42,34,.75)'; ctx.lineWidth = Math.max(1, T * .016); front(); ctx.stroke();
+  }
+
+  function rubblePile(ctx, cx, by, s, r) {
+    ctx.fillStyle = 'rgba(30,26,22,.32)';
+    ctx.beginPath(); ctx.ellipse(cx + s * .1, by, s * 1.1, s * .35, 0, 0, Math.PI * 2); ctx.fill();
+    const colors = ['#b9ae98', '#9a8e78', '#d6cbb2', '#a45f42', '#7d7262'];
+    for (let i = 0; i < 9; i++) {
+      const px = cx + (r() - .5) * s * 1.6, py = by - s * (.08 + r() * .45) * (1 - Math.abs(px - cx) / (s * 1.2)), d = s * (.18 + r() * .22);
+      ctx.fillStyle = colors[Math.floor(r() * colors.length)];
+      ctx.beginPath(); ctx.moveTo(px - d, py); ctx.lineTo(px - d * .3, py - d * .8); ctx.lineTo(px + d * .8, py - d * .5); ctx.lineTo(px + d, py + d * .2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,250,235,.3)';
+      ctx.beginPath(); ctx.moveTo(px - d, py); ctx.lineTo(px - d * .3, py - d * .8); ctx.lineTo(px, py - d * .2); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function ruins(ctx, x, y, T) {
+    const r = seeded(x, y, 25);
+    // L-shaped remains of a house at the back, a lone wall stub and rubble in front.
+    brokenWall(ctx, (x + .14) * T, (y + .5) * T, T * .46, T * (.3 + r() * .08), T * .07, r, T);
+    brokenWall(ctx, (x + .66) * T, (y + .62) * T, T * .2, T * (.18 + r() * .08), T * .06, r, T);
+    // A charred beam leaning on the wall.
+    ctx.strokeStyle = '#4a3626'; ctx.lineWidth = Math.max(2, T * .04); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo((x + .36) * T, (y + .58) * T); ctx.lineTo((x + .56) * T, (y + .3) * T); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,200,140,.25)'; ctx.lineWidth = Math.max(1, T * .012);
+    ctx.beginPath(); ctx.moveTo((x + .35) * T, (y + .57) * T); ctx.lineTo((x + .55) * T, (y + .29) * T); ctx.stroke();
+    rubblePile(ctx, (x + .32) * T, (y + .78) * T, T * .16, r);
+    rubblePile(ctx, (x + .72) * T, (y + .86) * T, T * .13, r);
+  }
+
   function tree(ctx, cx, by, s, r) {
     // Shadow, trunk, then a three-tier conifer or a round broadleaf canopy.
     ctx.fillStyle = 'rgba(24,52,30,.35)';
@@ -419,9 +675,10 @@
     const grid = terrainGrid(ids);
     const canvas = makeCanvas(grid.width * T, grid.height * T);
     const ctx = canvas.getContext('2d');
-    const steps = [() => paintWater(ctx, grid, T), () => paintLand(ctx, grid, T), () => grid.ids.forEach((row, y) => row.forEach((id, x) => {
-      if (id === 'plains' || id === 'forest' || id === 'road') grassDetail(ctx, x, y, T);
+    const steps = [() => paintWater(ctx, grid, T), () => paintLand(ctx, grid, T), () => paintBeach(ctx, grid, T), () => grid.ids.forEach((row, y) => row.forEach((id, x) => {
+      if (id === 'plains' || id === 'forest' || id === 'road' || id === 'hill') grassDetail(ctx, x, y, T);
       if (id === 'marsh') paintMarsh(ctx, x, y, T);
+      if (id === 'ruins') ruinsGround(ctx, x, y, T);
     })), () => paintRivers(ctx, grid, T), () => paintRoads(ctx, grid, T), () => {
       // Tall scenery is drawn back to front so it can overlap the row above.
       const tall = [];
@@ -432,6 +689,8 @@
           for (const [sx, sy] of spots) tall.push({y: y + sy * .9, draw: () => tree(ctx, (x + sx + (r() - .5) * .1) * T, (y + sy * .9) * T, T * (.46 + r() * .12), r)});
         }
         if (id === 'mountain') tall.push({y: y + .9, draw: () => mountain(ctx, x, y, T)});
+        if (id === 'hill') tall.push({y: y + .9, draw: () => hills(ctx, x, y, T)});
+        if (id === 'ruins') tall.push({y: y + .8, draw: () => ruins(ctx, x, y, T)});
       }));
       tall.sort((a, b) => a.y - b.y).forEach(item => item.draw());
     }, () => {
@@ -588,13 +847,121 @@
       ctx.beginPath(); ctx.moveTo(32, 26); ctx.lineTo(32, 44); ctx.moveTo(25, 31); ctx.lineTo(39, 31); ctx.moveTo(24, 39); ctx.quadraticCurveTo(32, 50, 40, 39); ctx.stroke();
       flag(ctx, 52, 52, p, 20);
     },
+    oilfield(ctx, p) {
+      shadow(ctx, 64, 112, 56, 10);
+      // Concrete pad with an owner-coloured hazard edge.
+      ctx.fillStyle = '#9a9a92'; ctx.beginPath(); ctx.ellipse(64, 102, 56, 16, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#bdbcb2'; ctx.beginPath(); ctx.ellipse(62, 100, 52, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = p.roof; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(64, 102, 55, 15, 0, .15, Math.PI - .15); ctx.stroke();
+      ctx.fillStyle = 'rgba(30,26,22,.45)'; ctx.beginPath(); ctx.ellipse(46, 104, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+      // Storage tank (cylinder).
+      const tx = 82, tw = 34, top = 52, bottom = 98;
+      ctx.fillStyle = 'rgba(20,34,26,.3)'; ctx.beginPath(); ctx.ellipse(tx + tw / 2 + 4, bottom + 2, tw / 2 + 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      const body = ctx.createLinearGradient(tx, 0, tx + tw, 0);
+      body.addColorStop(0, '#d8dcd8'); body.addColorStop(.35, '#f4f6f2'); body.addColorStop(1, '#8e958f');
+      ctx.fillStyle = body; ctx.fillRect(tx, top, tw, bottom - top);
+      ctx.beginPath(); ctx.ellipse(tx + tw / 2, bottom, tw / 2, 5, 0, 0, Math.PI); ctx.fill();
+      const band = ctx.createLinearGradient(tx, 0, tx + tw, 0);
+      band.addColorStop(0, p.roof); band.addColorStop(.4, p.roofLight); band.addColorStop(1, p.roofDark);
+      ctx.fillStyle = band; ctx.fillRect(tx, 70, tw, 9);
+      ctx.fillStyle = '#c9cec9'; ctx.beginPath(); ctx.ellipse(tx + tw / 2, top, tw / 2, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = wall.line; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(tx, top); ctx.lineTo(tx, bottom); ctx.ellipse(tx + tw / 2, bottom, tw / 2, 5, 0, Math.PI, 0, true); ctx.lineTo(tx + tw, top); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(tx + tw / 2, top, tw / 2, 5, 0, 0, Math.PI * 2); ctx.stroke();
+      // Ladder.
+      ctx.strokeStyle = '#5d6460'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(tx + 6, top + 4); ctx.lineTo(tx + 6, bottom); ctx.moveTo(tx + 10, top + 4); ctx.lineTo(tx + 10, bottom); ctx.stroke();
+      for (let yy = top + 8; yy < bottom; yy += 5) { ctx.beginPath(); ctx.moveTo(tx + 6, yy); ctx.lineTo(tx + 10, yy); ctx.stroke(); }
+      // Pipe to the well head.
+      ctx.strokeStyle = '#59605c'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(36, 100); ctx.lineTo(60, 100); ctx.lineTo(82, 94); ctx.stroke();
+      // Pumpjack: base skid, A-frame samson post, walking beam, horsehead, crank and counterweight.
+      ctx.fillStyle = '#4a4f4c'; ctx.fillRect(18, 96, 58, 6);
+      ctx.strokeStyle = wall.line; ctx.lineWidth = 2; ctx.strokeRect(18, 96, 58, 6);
+      ctx.strokeStyle = '#3c3f3d'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(34, 96); ctx.lineTo(44, 50); ctx.lineTo(54, 96); ctx.stroke();
+      ctx.strokeStyle = '#6b716d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(37, 82); ctx.lineTo(51, 82); ctx.stroke();
+      // Crank with counterweight.
+      ctx.fillStyle = '#5b605c'; ctx.beginPath(); ctx.arc(66, 82, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = p.roofDark; ctx.strokeStyle = wall.line; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(66, 82); ctx.arc(66, 82, 14, Math.PI * .55, Math.PI * 1.05); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#3c3f3d'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(60, 88); ctx.lineTo(64, 56); ctx.stroke();
+      // Walking beam in the owner's colour.
+      ctx.save(); ctx.translate(44, 50); ctx.rotate(-.12);
+      const beam = ctx.createLinearGradient(0, -5, 0, 5);
+      beam.addColorStop(0, p.roofLight); beam.addColorStop(.5, p.roof); beam.addColorStop(1, p.roofDark);
+      ctx.fillStyle = beam; ctx.fillRect(-26, -4, 50, 8);
+      ctx.strokeStyle = wall.line; ctx.lineWidth = 2; ctx.strokeRect(-26, -4, 50, 8);
+      // Horsehead.
+      ctx.fillStyle = p.roofDark;
+      ctx.beginPath(); ctx.moveTo(-26, -6); ctx.quadraticCurveTo(-38, -4, -36, 10); ctx.lineTo(-30, 12); ctx.quadraticCurveTo(-30, 2, -26, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(44, 50, 3, 0, Math.PI * 2); ctx.fill();
+      // Polished rod and well head.
+      ctx.strokeStyle = '#d9ddd9'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(10, 60); ctx.lineTo(10, 94); ctx.stroke();
+      ctx.fillStyle = '#5b605c'; ctx.fillRect(5, 92, 10, 10); ctx.strokeStyle = wall.line; ctx.strokeRect(5, 92, 10, 10);
+      // Oil drop badge on the tank.
+      ctx.fillStyle = '#2b2320'; ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(99, 82); ctx.quadraticCurveTo(105, 90, 99, 95); ctx.quadraticCurveTo(93, 90, 99, 82); ctx.fill(); ctx.stroke();
+      flag(ctx, 112, 52, p, 26);
+    },
+    depot(ctx, p) {
+      shadow(ctx, 64, 112, 56, 10);
+      // Gravel yard.
+      ctx.fillStyle = '#b4a888'; ctx.beginPath(); ctx.ellipse(64, 100, 56, 15, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(120,108,84,.5)'; for (let i = 0; i < 26; i++) ctx.fillRect(14 + (i * 37) % 100, 92 + (i * 13) % 16, 2, 2);
+      // Supply shed with a curved owner-coloured roof.
+      ctx.fillStyle = 'rgba(20,34,26,.3)'; ctx.fillRect(18, 96, 60, 6);
+      box(ctx, 16, 62, 58, 36, p);
+      ctx.fillStyle = '#4d5a63'; ctx.fillRect(30, 72, 24, 26);
+      ctx.strokeStyle = '#2a3238'; ctx.lineWidth = 1.3; for (let y = 76; y < 98; y += 4) { ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(54, y); ctx.stroke(); }
+      const roof = ctx.createLinearGradient(0, 40, 0, 64);
+      roof.addColorStop(0, p.roofLight); roof.addColorStop(.5, p.roof); roof.addColorStop(1, p.roofDark);
+      ctx.fillStyle = roof;
+      ctx.beginPath(); ctx.moveTo(10, 64); ctx.quadraticCurveTo(45, 32, 80, 64); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = wall.line; ctx.lineWidth = 2.4; ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1.5;
+      for (const x of [24, 36, 48, 60]) { ctx.beginPath(); ctx.moveTo(x, 63); ctx.quadraticCurveTo(x + 2, 52, x + (x < 45 ? 4 : -2), 47); ctx.stroke(); }
+      // Wrench badge on the gable.
+      ctx.save(); ctx.translate(62, 84); ctx.rotate(-Math.PI / 4);
+      ctx.fillStyle = '#fff6d6'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = wall.line; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#6a737a'; ctx.fillRect(-1.6, -3, 3.2, 9);
+      ctx.beginPath(); ctx.arc(0, -4, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff6d6'; ctx.fillRect(-1.2, -8.5, 2.4, 4);
+      ctx.restore();
+      // Stacked crates.
+      const crate = (x, y, s) => {
+        ctx.fillStyle = '#c08a4c'; ctx.fillRect(x, y, s, s);
+        ctx.fillStyle = '#e0ad6a'; ctx.fillRect(x, y, s, s * .25);
+        ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(x + s * .75, y, s * .25, s);
+        ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 1.8; ctx.strokeRect(x, y, s, s);
+        ctx.beginPath(); ctx.moveTo(x, y + s); ctx.lineTo(x + s, y + s * .25); ctx.stroke();
+      };
+      crate(78, 86, 16); crate(94, 86, 16); crate(86, 70, 16);
+      // Fuel drums with owner stripes.
+      const drum = (x, y) => {
+        const g = ctx.createLinearGradient(x, 0, x + 11, 0);
+        g.addColorStop(0, '#5f6b52'); g.addColorStop(.35, '#8c9a76'); g.addColorStop(1, '#3d4636');
+        ctx.fillStyle = g; ctx.fillRect(x, y, 11, 16);
+        ctx.fillStyle = p.roof; ctx.fillRect(x, y + 4, 11, 3); ctx.fillRect(x, y + 10, 11, 2);
+        ctx.fillStyle = '#9fae88'; ctx.beginPath(); ctx.ellipse(x + 5.5, y, 5.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = wall.line; ctx.lineWidth = 1.4; ctx.strokeRect(x, y, 11, 16);
+      };
+      drum(108, 88); drum(114, 92); drum(102, 94);
+      // Fuel pump.
+      ctx.fillStyle = p.roofDark; ctx.fillRect(4, 80, 10, 20); ctx.strokeStyle = wall.line; ctx.lineWidth = 1.8; ctx.strokeRect(4, 80, 10, 20);
+      ctx.fillStyle = '#e9f4f0'; ctx.fillRect(6, 83, 6, 5);
+      flag(ctx, 96, 70, p, 30);
+    },
   };
 
   function facilityCanvas(kind, owner) {
     const canvas = makeCanvas(128, 128);
     const ctx = canvas.getContext('2d');
     ctx.lineJoin = 'round';
-    facilityDrawers[kind](ctx, palettes[owner]);
+    // Unknown kinds or owners fall back to a neutral city rather than failing the sheet.
+    (facilityDrawers[kind] || facilityDrawers.city)(ctx, palettes[owner] || palettes.neutral);
     return canvas;
   }
   function facilityList() {
@@ -634,7 +1001,7 @@
   function askWorker(message, done, fallback) {
     if (!workerBroken && !worker) {
       try {
-        worker = new Worker('./map-worker.js?v=map-worker');
+        worker = new Worker('./map-worker.js?v=more-content');
         worker.onmessage = event => {
           const request = waiting.get(event.data?.id);
           if (!request) return;

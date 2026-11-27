@@ -8,6 +8,10 @@ const terrainTypes = {
   o: Object.freeze({id: 'sea', name: '外海', defense: 0, water: true}),
   h: Object.freeze({id: 'shoal', name: '浅瀬', defense: 0, water: true, cost: 2}),
   d: Object.freeze({id: 'road', name: '道路', defense: 0}),
+  // Rough ground: foot soldiers cross it freely, vehicles at double cost.
+  k: Object.freeze({id: 'hill', name: '丘陵', defense: 1, rough: true}),
+  a: Object.freeze({id: 'beach', name: '砂浜', defense: 0}),
+  u: Object.freeze({id: 'ruins', name: '廃墟', defense: 2, rough: true}),
 };
 const mainTerrain = [
   'pfmffrfmfpfppf',
@@ -40,7 +44,11 @@ const mapGenerator = typeof module === 'undefined' ? self.MapGenerator : require
 // A new match on a generated map starts without units, so each side gets more funds.
 const generatedStartingFunds = 10000;
 // Facility repairs cost a tenth of the unit's price for every HP restored.
-const repairCostPerHP = type => Math.ceil(type.cost / 10);
+const repairCostPerHP = (type, facility) => Math.ceil(type.cost / (facility?.kind === 'depot' ? 20 : 10));
+// Income per owned facility on the coastal maps (headquarters adds a flat 1000).
+const siteIncome = Object.freeze({city: 1000, oilfield: 2000, depot: 500});
+// Foot soldiers (infantry and anti-tank troops) can capture facilities and climb mountains.
+const canCapture = type => type.id === infantry.id || Boolean(type.captures);
 // CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
 // most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
 const difficulties = Object.freeze({
@@ -57,21 +65,29 @@ const land = 'land';
 const air = 'air';
 const sea = 'sea';
 const coastalTypes = new Map([
-  {...infantry, movement: 3, firepower: 3, targets: [land, sea], trait: '歩兵だけが施設を占領できる'},
+  {...infantry, movement: 3, firepower: 3, targets: [land, sea], foot: true, captures: true, trait: '施設を占領できる。安価で山も越えられる'},
+  {id: 'antitank', name: '対戦車兵', movement: 2, minRange: 1, maxRange: 1, cost: 2500, firepower: 3, targets: [land, sea], foot: true, captures: true,
+    bonus: {tank: 3, heavytank: 3, scout: 2, antiair: 2, support: 2, artillery: 2, rocket: 2}, trait: '施設を占領できる。車両に強いが足は遅い'},
   {...scout, movement: 6, firepower: 3, targets: [land], trait: '移動力が高い。山は通れない'},
   {...support, movement: 4, firepower: 4, targets: [land, sea], stationary: true, trait: '射程2〜3。移動したターンは攻撃できない'},
   {...tank, movement: 4, firepower: 5, targets: [land, sea], trait: '装甲車両に強い。山は通れない', bonus: {scout: 1, support: 1, antiair: 1}},
+  {id: 'heavytank', name: '重戦車', movement: 3, minRange: 1, maxRange: 1, cost: 9000, firepower: 7, armor: 1, targets: [land, sea],
+    bonus: {scout: 1, support: 1, antiair: 1, tank: 1}, trait: '装甲が厚く受けるダメージ-1。足は遅く山は通れない'},
   {id: 'artillery', name: '自走砲', movement: 3, minRange: 2, maxRange: 4, cost: 5000, firepower: 5, targets: [land, sea], stationary: true, trait: '射程2〜4。移動したターンは攻撃できない'},
   {id: 'rocket', name: 'ロケット砲', movement: 3, minRange: 3, maxRange: 6, cost: 7500, firepower: 5, targets: [land, sea], stationary: true, trait: '射程3〜6。接近されると攻撃できない'},
   {id: 'antiair', name: '対空車', movement: 4, minRange: 1, maxRange: 2, cost: 4500, firepower: 3, targets: [land, air], bonus: {air: 3}, trait: '航空部隊への攻撃力が高い'},
+  {id: 'drone', name: '無人攻撃機', domain: air, movement: 6, minRange: 1, maxRange: 1, cost: 3000, firepower: 3, targets: [land, sea],
+    bonus: {infantry: 1, antitank: 1}, trait: '安価な航空部隊。歩兵に強い'},
   {id: 'helicopter', name: '攻撃ヘリ', domain: air, movement: 5, minRange: 1, maxRange: 1, cost: 5500, firepower: 4, targets: [land, sea, air], bonus: {air: -2, tank: 1}, trait: '地形を越える。戦車に強く、空戦は苦手'},
   {id: 'fighter', name: '戦闘機', domain: air, movement: 7, minRange: 1, maxRange: 2, cost: 7500, firepower: 6, targets: [air], trait: '航空部隊専用。広い範囲を迎撃できる'},
   {id: 'bomber', name: '爆撃機', domain: air, movement: 6, minRange: 1, maxRange: 1, cost: 9500, firepower: 7, targets: [land, sea], trait: '地上・艦船に大ダメージ。空戦はできない'},
-  {id: 'patrol', name: '哨戒艇', domain: sea, movement: 6, minRange: 1, maxRange: 1, cost: 4000, firepower: 3, targets: [land, sea], bonus: {sea: 1}, trait: '低価格で足の速い小型艦'},
-  {id: 'destroyer', name: '駆逐艦', domain: sea, movement: 5, minRange: 1, maxRange: 2, cost: 6500, firepower: 4, targets: [land, sea, air], bonus: {air: 1, patrol: 1}, trait: '射程1〜2。航空部隊も攻撃可能'},
+  {id: 'patrol', name: '哨戒艇', domain: sea, movement: 6, minRange: 1, maxRange: 1, cost: 4000, firepower: 3, targets: [land, sea], bonus: {sea: 1}, antisub: true, trait: '低価格で足の速い小型艦。潜水艦も攻撃できる'},
+  {id: 'destroyer', name: '駆逐艦', domain: sea, movement: 5, minRange: 1, maxRange: 2, cost: 6500, firepower: 4, targets: [land, sea, air], bonus: {air: 1, patrol: 1, submarine: 2}, antisub: true, trait: '射程1〜2。航空部隊も攻撃でき、潜水艦に強い'},
+  {id: 'submarine', name: '潜水艦', domain: sea, movement: 5, minRange: 1, maxRange: 1, cost: 8000, firepower: 6, targets: [sea], submerged: true, antisub: true,
+    bonus: {battleship: 2}, trait: '艦船だけを魚雷で攻撃。哨戒艇・駆逐艦・潜水艦にしか攻撃されない'},
   {id: 'battleship', name: '戦艦', domain: sea, movement: 4, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
 ].map(type => [type.id, Object.freeze({domain: land, ...type})]));
-const facilityNames = {headquarters: '本拠地', city: '都市', factory: '工場', airfield: '飛行場', port: '港'};
+const facilityNames = {headquarters: '本拠地', city: '都市', factory: '工場', airfield: '飛行場', port: '港', oilfield: '油田', depot: '補給所'};
 const fleetLimit = 14;
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
@@ -367,7 +383,9 @@ class BattleMap {
 
   incomeFor(side) {
     if (!Object.hasOwn(this.funds, side)) return 0;
-    const income = this.cities.filter(city => city.owner === side).length * cityIncome + (this.scenario ? 1000 : 0);
+    const income = this.scenario
+      ? this.sites.reduce((sum, site) => sum + (site.owner === side ? siteIncome[site.kind] ?? 0 : 0), 1000)
+      : this.cities.filter(city => city.owner === side).length * cityIncome;
     if (side !== 'enemy') return income;
     return Math.round(income * difficulties[this.difficulty].income / 100) * 100;
   }
@@ -435,7 +453,7 @@ class BattleMap {
 
   #advanceCapture(unit, side) {
     this.#clearStaleCaptures();
-    if (unit.type.id !== infantry.id || unit.hp <= 0) return null;
+    if (!canCapture(unit.type) || unit.hp <= 0) return null;
     const site = this.facilityAt(unit.x, unit.y);
     if (!site || site.owner === side) return null;
     const current = site.capture?.side === side && site.capture.unit === unit.name ? site.capture.points : capturePoints;
@@ -452,7 +470,7 @@ class BattleMap {
 
   get canCaptureHere() {
     const unit = this.activeUnit;
-    if (!this.scenario || this.enemyTurn || this.result || unit.type.id !== infantry.id || !unit.hp
+    if (!this.scenario || this.enemyTurn || this.result || !canCapture(unit.type) || !unit.hp
       || unit.readyTurn > this.turn || unit.moved || unit.attacked) return false;
     const site = this.facilityAt(unit.x, unit.y);
     return Boolean(site && site.owner !== 'friendly');
@@ -470,13 +488,13 @@ class BattleMap {
 
   #captureHeadquarters(unit, side) {
     const owner = this.headquartersAt(unit.x, unit.y);
-    if (!owner || owner === side || unit.type.id !== infantry.id) return false;
+    if (!owner || owner === side || !canCapture(unit.type)) return false;
     this.capturedBy = side;
     return true;
   }
 
   #captureFacility(unit, side) {
-    if (unit.type.id !== infantry.id) return null;
+    if (!canCapture(unit.type)) return null;
     const site = this.facilityAt(unit.x, unit.y);
     if (!site || site.kind === 'headquarters' || site.owner === side) return null;
     site.owner = side;
@@ -501,14 +519,15 @@ class BattleMap {
     if (type.domain === air) return 1;
     const port = this.facilityAt(x, y)?.kind === 'port';
     if (type.domain === sea) return port || terrain.water ? terrain.cost ?? 1 : Infinity;
-    if (terrain.water && !port || (terrain.id === 'mountain' && type.id !== 'infantry')) return Infinity;
-    if (terrain.id === 'forest' && type.id !== 'infantry') return 2;
+    if (terrain.water && !port || (terrain.id === 'mountain' && !type.foot)) return Infinity;
+    if ((terrain.id === 'forest' || terrain.rough) && !type.foot) return 2;
     return terrain.cost ?? 1;
   }
 
   #canStrike(unit, target, position = unit, moved = unit.moved, counter = false) {
     const {type} = unit;
     if (type.targets && !type.targets.includes(target.type.domain)) return false;
+    if (target.type.submerged && !type.antisub) return false;
     if (type.stationary && (counter || moved)) return false;
     return inRange(type, position, target);
   }
@@ -678,7 +697,7 @@ class BattleMap {
         // Repairs are paid for; with too little money only the affordable HP is restored.
         const amount = this.#affordableRecovery(unit, side);
         if (!amount) continue;
-        const cost = amount * repairCostPerHP(unit.type);
+        const cost = amount * repairCostPerHP(unit.type, facility);
         unit.hp += amount;
         this.funds[side] -= cost;
         this.facilityHealing.push({side, unit: unit.name, amount, facility: facility.kind, cost});
@@ -688,15 +707,17 @@ class BattleMap {
 
   #affordableRecovery(unit, side, funds = this.funds[side]) {
     const wanted = Math.min(facilityRecovery, this.maxHP - unit.hp);
-    return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type))));
+    return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type, this.facilityAt(unit.x, unit.y)))));
   }
 
   repairCost(unit, amount) {
-    return amount * repairCostPerHP(unit.type);
+    return amount * repairCostPerHP(unit.type, this.facilityAt(unit.x, unit.y));
   }
 
   #canRecover(unit, side, facility) {
-    if (facility?.owner !== side) return false;
+    if (facility?.owner !== side || facility.kind === 'oilfield') return false;
+    // Supply depots repair every kind of unit, at half price.
+    if (facility.kind === 'depot') return true;
     if (unit.type.domain === air) return facility.kind === 'airfield';
     if (unit.type.domain === sea) return facility.kind === 'port';
     return true;
@@ -873,7 +894,7 @@ class BattleMap {
       const ratio = attackingUnit.hp / this.maxHP;
       const full = Math.max(1, type.firepower + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0));
       strength = Math.max(1, Math.round(full * ratio));
-      protectedDamage = Math.max(1, Math.round(Math.max(1, full - cover) * ratio));
+      protectedDamage = Math.max(1, Math.round(Math.max(1, full - cover - (defender.type.armor ?? 0)) * ratio));
     } else {
       strength = baseStrength + (type.attackBonus ?? 0);
       protectedDamage = Math.max(1, strength - cover);
@@ -906,12 +927,12 @@ class BattleMap {
       // Stay on the site to continue an unfinished capture.
       return {enemy, from, to: {...from}, path: [], friendly: null};
     }
-    if (type.id === infantry.id && homeRoute?.cost <= type.movement) {
+    if (canCapture(type) && homeRoute?.cost <= type.movement) {
       return {enemy, from, to: {...home}, path: routeSteps(homeRoute), friendly: null};
     }
     const capturable = position => {
       const site = this.facilityAt(position.x, position.y);
-      if (type.id !== infantry.id || !site || site.owner === 'enemy') return 0;
+      if (!canCapture(type) || !site || site.owner === 'enemy') return 0;
       return site.kind === 'headquarters' ? 24 : site.kind === 'city' ? 13 : 10;
     };
     const objectives = living.filter(unit => type.targets.includes(unit.type.domain));
@@ -976,7 +997,7 @@ class BattleMap {
     const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
     const targetAt = position => living.find(unit => inRange(type, position, unit));
     const home = this.headquarters.friendly;
-    if (type.id === infantry.id) {
+    if (canCapture(type)) {
       const route = routes.get(`${home.x},${home.y}`);
       if (route && route.cost <= type.movement) return {enemy, from, to: {...home}, path: routeSteps(route), friendly: null};
       const destination = this.#captureRoute(this.factories, routes, type.movement)
@@ -1012,11 +1033,12 @@ class BattleMap {
 // the attacker cannot target that kind of unit at all.
 BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp = 10, cover = 0} = {}) {
   if (attackerType.targets && !attackerType.targets.includes(defenderType.domain ?? land)) return null;
+  if (defenderType.submerged && !attackerType.antisub) return null;
   const shield = defenderType.domain && defenderType.domain !== land ? 0 : cover;
   if (this.scenario) {
     const ratio = hp / this.maxHP;
     const full = Math.max(1, attackerType.firepower + (attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0));
-    return Math.max(1, Math.round(Math.max(1, full - shield) * ratio));
+    return Math.max(1, Math.round(Math.max(1, full - shield - (defenderType.armor ?? 0)) * ratio));
   }
   const strength = (hp >= 8 ? 3 : hp >= 4 ? 2 : 1) + (attackerType.attackBonus ?? 0);
   return Math.max(1, strength - shield);
