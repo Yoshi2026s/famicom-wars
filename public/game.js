@@ -27,7 +27,17 @@ if (!game && currentScenario === 'legacy') {
   currentScenario = 'coastal';
   ({save: crossingSave, restored: game} = openScenario(currentScenario));
 }
-game ??= BattleMap.newMatch(currentScenario);
+// The CPU strength chosen for the last new match, used again for the next one.
+const levelPreference = 'sumaho-wars:difficulty';
+function preferredLevel() {
+  try {
+    const level = window.localStorage.getItem(levelPreference);
+    return BattleMap.difficulties.includes(level) ? level : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+game ??= BattleMap.newMatch(currentScenario, undefined, {difficulty: preferredLevel()});
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
 const mapScrollNote = document.getElementById('map-scroll-note');
@@ -93,6 +103,14 @@ const enemyPreviewTitle = document.getElementById('enemy-preview-title');
 const enemyPreviewDetail = document.getElementById('enemy-preview-detail');
 const enemyPreviewChoices = document.getElementById('enemy-preview-choices');
 const fieldStatus = document.getElementById('field-status');
+let detailUnit = null;
+let shownDetail = null;
+const unitDetail = document.getElementById('unit-detail');
+const detailOpeners = [document.getElementById('field-detail'), document.getElementById('panel-detail')];
+const domainNames = {land: '地上部隊', air: '航空部隊', sea: '艦船'};
+const targetNames = {land: '地上', sea: '艦船', air: '航空'};
+const newMatchDialog = document.getElementById('new-match-dialog');
+const levelNames = {easy: 'やさしい', normal: 'ふつう', hard: 'つよい'};
 const fieldUnit = document.getElementById('field-unit');
 const fieldFunds = document.getElementById('field-funds');
 const fieldRoster = document.getElementById('field-roster-dialog');
@@ -480,6 +498,9 @@ function render() {
     if (unit === actingEnemy) return 'acting';
     return actedEnemies.has(unit.name) ? 'spent' : '';
   };
+  if (detailUnit && (!detailUnit.hp || waiting || movingFriendly || game.result
+    || ![...game.friendlyUnits, ...game.enemyUnits].includes(detailUnit))) detailUnit = null;
+  const detailReach = detailUnit ? game.unitReach(detailUnit) : null;
   const facilityCapture = game.friendlyCapture;
   const announcedCapture = facilityCapture?.turn === game.turn && facilityCapture.unit === game.activeUnit.name && !game.attacked;
   extendRoster(roster, rosterEntries, game.friendlyUnits, true);
@@ -566,6 +587,8 @@ function render() {
     button.setAttribute('aria-label', info.join('、'));
     cell.info = info.filter(item => item !== '選択中');
     button.classList.toggle('inspected', cell === inspectedCell && !waiting);
+    button.classList.toggle('detail-move', Boolean(detailReach?.move.has(`${x},${y}`)));
+    button.classList.toggle('detail-attack', Boolean(detailReach?.attack.has(`${x},${y}`)));
     const unit = enemy ?? friendly;
     const motion = unit && unitMotion(unit.type.id);
     image.hidden = !unit;
@@ -619,6 +642,8 @@ function render() {
   productionLaunch.hidden = !canOpenProductionDialog || Boolean(result);
   replay.hidden = !result;
   renderBattleStatus();
+  renderUnitDetail(detailReach);
+  for (const opener of detailOpeners) opener.hidden = noUnit || Boolean(result) || waiting;
   if (movingFriendly) {
     state.textContent = '移動中';
     message.textContent = `${friendlyName}が移動中です。`;
@@ -719,6 +744,7 @@ function showMap() {
   turnChangeTimer = undefined;
   turnChange.hidden = true;
   pendingAction = undefined;
+  detailUnit = null;
   highlightFriendlyRoute([]);
   productionOrigin = undefined;
   if (actionDialog.open) actionDialog.close();
@@ -729,6 +755,7 @@ function showMap() {
   setMobileFieldLayout();
   document.getElementById('mission-title').textContent = game.name;
   document.title = `スマホウォーズ｜${game.name}`;
+  renderLevel();
   document.getElementById('coastal-legend').hidden = !game.scenario;
   music.setTurn(game.enemyTurn ? 'enemy' : 'friendly');
   music.setScene(game.result ?? 'map');
@@ -893,10 +920,14 @@ board.addEventListener('click', (event) => {
   if (previewAction(cell, event)) return;
   if (!game.friendlyAt(x, y)) {
     inspectedCell = cell;
+    // Tapping an enemy shows its details and where it can move and strike next.
+    detailUnit = game.enemyAt(x, y) ?? null;
     render();
     return;
   }
   game.choose(x, y);
+  // An open detail panel follows the selected friendly unit.
+  if (detailUnit) detailUnit = game.activeUnit;
   saveProgress();
   render();
 });
@@ -1464,10 +1495,7 @@ replay.addEventListener('click', () => {
     switchScenario('coastal');
     return;
   }
-  game = BattleMap.newMatch(currentScenario);
-  saveProgress();
-  showMap();
-  friendlyTile().focus();
+  openNewMatch();
 });
 function resizeGame() {
   const focused = document.activeElement;
@@ -1499,4 +1527,157 @@ for (const atlas of ['map-idle', 'map-march']) {
 document.addEventListener('visibilitychange', () => board.toggleAttribute('data-map-hidden', document.hidden));
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);
+}
+
+// ---- Unit details: stats, traits, matchups and the next move/strike range on the board ----
+
+function movementNote(type) {
+  if (type.domain === 'air') return '地形と部隊を越えて移動';
+  if (type.domain === 'sea') return '海と港だけを移動';
+  if (!game.scenario) return '川は橋だけ、湿地は2';
+  if (type.id === 'infantry') return '山も通れる。外海・浅瀬は不可';
+  return '山は通れない。森は2。外海・浅瀬は不可';
+}
+
+function matchupChips(entries) {
+  const list = document.createElement('ul');
+  list.className = 'matchup-chips';
+  for (const {name, value} of entries) {
+    const item = document.createElement('li');
+    item.textContent = value === undefined ? name : `${name} ${value}`;
+    list.append(item);
+  }
+  return list;
+}
+
+function renderUnitDetail(reach) {
+  unitDetail.hidden = !detailUnit;
+  if (!detailUnit) {
+    shownDetail = null;
+    return;
+  }
+  if (shownDetail !== detailUnit) {
+    shownDetail = detailUnit;
+    // Keep the unit visible above the panel that covers the bottom of the screen.
+    requestAnimationFrame(() => {
+      if (!detailUnit || unitDetail.hidden) return;
+      const tile = tileAt(detailUnit).getBoundingClientRect();
+      const panelTop = unitDetail.getBoundingClientRect().top;
+      const view = mapSurround.getBoundingClientRect();
+      const visibleBottom = Math.min(view.bottom, panelTop) - 8;
+      if (tile.bottom > visibleBottom) mapSurround.scrollTop += tile.bottom - visibleBottom + tile.height;
+      else if (tile.top < view.top) mapSurround.scrollTop -= view.top - tile.top + 8;
+    });
+  }
+  const unit = detailUnit;
+  const enemy = game.enemyUnits.includes(unit);
+  const {type} = unit;
+  document.getElementById('unit-detail-title').textContent = `${enemy ? '敵' : '味方'}${unit.name}`;
+  document.getElementById('unit-detail-hp').textContent = `HP ${unit.hp}/${game.maxHP}`;
+  document.getElementById('detail-move-count').textContent = reach.move.size;
+  document.getElementById('detail-attack-count').textContent = reach.attack.size;
+  const terrain = game.terrainAt(unit.x, unit.y);
+  const cover = type.domain && type.domain !== 'land' ? 0 : terrain.defense;
+  const ranged = type.minRange > 1 || type.stationary;
+  const rows = [
+    ['種別', `${domainNames[type.domain ?? 'land']}${type.cost ? ` · ${currency.format(type.cost)}` : ''}`],
+    ['移動', `${type.movement}（${movementNote(type)}）`],
+    ['射程', `${rangeLabel(type)}（${ranged ? '間接攻撃。移動したターンは攻撃できない' : '直接攻撃'}）`],
+    ['反撃', type.stationary ? 'できない' : 'できる（射程内の相手のみ）'],
+    ['占領', type.id === 'infantry' ? 'できる' : 'できない'],
+    ['攻撃対象', type.targets ? type.targets.map(domain => targetNames[domain]).join('・') : '地上'],
+    ['現在地', `${[...new Set([placeName(unit.x, unit.y), terrain.name])].join(' · ')}${cover ? `（防御+${cover}）` : ''}`],
+  ];
+  if (!enemy) rows.push(['状態', unitActions[friendlyAction(unit)]?.label ?? '']);
+  if (type.firepower) rows.push(['攻撃力', String(type.firepower)]);
+  if (type.trait) rows.push(['特性', type.trait]);
+  const stats = document.getElementById('unit-detail-stats');
+  stats.replaceChildren(...rows.flatMap(([label, value]) => {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const detail = document.createElement('dd');
+    detail.textContent = value;
+    return [term, detail];
+  }));
+  // Matchups against every enemy kind: damage dealt at the unit's HP, damage taken from a full-strength foe.
+  const foes = game.unitTypes;
+  const dealt = foes.map(other => ({name: other.name, value: game.damageEstimate(type, other, {hp: unit.hp})}));
+  const taken = foes.map(other => ({name: other.name, value: game.damageEstimate(other, type, {cover})}));
+  const top = list => list.filter(entry => entry.value !== null).sort((a, b) => b.value - a.value).slice(0, 4);
+  const section = (title, entries, note) => {
+    const block = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    block.append(heading);
+    if (note) {
+      const small = document.createElement('small');
+      small.textContent = note;
+      heading.append(small);
+    }
+    block.append(entries.length ? matchupChips(entries) : Object.assign(document.createElement('p'), {textContent: 'なし'}));
+    return block;
+  };
+  const unreachable = dealt.filter(entry => entry.value === null).map(({name}) => ({name}));
+  const safe = taken.filter(entry => entry.value === null).map(({name}) => ({name}));
+  document.getElementById('unit-detail-matchups').replaceChildren(
+    section('得意な相手', top(dealt), '与ダメージの目安（今のHP）'),
+    section('苦手な相手', top(taken), '受けるダメージの目安（相手HP10・今の地形）'),
+    section('攻撃できない相手', unreachable),
+    section('攻撃してこない相手', safe),
+  );
+}
+
+for (const opener of detailOpeners) {
+  opener.addEventListener('click', () => {
+    if (inputBlocked() || game.activeUnit.standby) return;
+    detailUnit = detailUnit === game.activeUnit ? null : game.activeUnit;
+    render();
+    if (detailUnit) document.getElementById('unit-detail-title').focus({preventScroll: true});
+  });
+}
+document.getElementById('unit-detail-close').addEventListener('click', () => {
+  detailUnit = null;
+  render();
+  restoreBoardFocus();
+});
+unitDetail.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  detailUnit = null;
+  render();
+  restoreBoardFocus();
+});
+
+// ---- New match with a chosen CPU strength ----
+function renderLevel() {
+  document.getElementById('level-label').textContent = levelNames[game.difficulty] ?? 'ふつう';
+  document.getElementById('level-open').setAttribute('aria-label', `CPUの強さ ${levelNames[game.difficulty] ?? 'ふつう'}。新しい対戦を始める`);
+}
+function openNewMatch() {
+  if (portraitMode.blocked || combatScreen.active || game.enemyTurn || movingFriendly) return;
+  for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
+    choice.setAttribute('aria-pressed', String(choice.dataset.level === game.difficulty));
+  }
+  newMatchDialog.showModal();
+}
+document.getElementById('level-open').addEventListener('click', openNewMatch);
+for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
+  choice.addEventListener('click', () => {
+    const level = choice.dataset.level;
+    newMatchDialog.close();
+    if (portraitMode.blocked || combatScreen.active || game.enemyTurn || movingFriendly) return;
+    try {
+      window.localStorage.setItem(levelPreference, level);
+    } catch {
+      // The strength still applies to this match.
+    }
+    if (currentScenario === 'legacy') {
+      currentScenario = 'coastal';
+      ({save: crossingSave} = openScenario('coastal'));
+      try { window.localStorage.setItem(scenarioPreference, 'coastal'); } catch { /* not stored */ }
+    }
+    game = BattleMap.newMatch(currentScenario, undefined, {difficulty: level});
+    saveProgress();
+    showMap();
+    friendlyTile().focus({preventScroll: true});
+  });
 }
