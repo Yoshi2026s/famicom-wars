@@ -36,6 +36,11 @@ const support = Object.freeze({id: 'support', name: '支援車', movement: 1, mi
 const tank = Object.freeze({id: 'tank', name: '戦車', movement: 3, minRange: 1, maxRange: 1, cost: 4000, attackBonus: 1});
 const productionTypes = [infantry, scout, support, tank];
 const fieldScenario = typeof module === 'undefined' ? coastalScenario : require('./coastal-scenario.js');
+const mapGenerator = typeof module === 'undefined' ? self.MapGenerator : require('./map-generator.js');
+// A new match on a generated map starts without units, so each side gets more funds.
+const generatedStartingFunds = 10000;
+// Facility repairs cost a tenth of the unit's price for every HP restored.
+const repairCostPerHP = type => Math.ceil(type.cost / 10);
 const land = 'land';
 const air = 'air';
 const sea = 'sea';
@@ -96,20 +101,27 @@ class BattleMap {
   friendlyCapture = null;
   facilityHealing = [];
 
-  constructor(scenario = 'legacy') {
-    this.scenario = scenario === fieldScenario.id ? fieldScenario : null;
+  // Starts a new match. The coastal theatre gets a freshly generated map every time.
+  static newMatch(scenario = fieldScenario.id, seed) {
+    if (scenario !== fieldScenario.id) return new BattleMap(scenario);
+    return new BattleMap(scenario, {map: mapGenerator.generateMap(seed)});
+  }
+
+  constructor(scenario = 'legacy', {map} = {}) {
+    this.scenario = scenario !== fieldScenario.id ? null : map ? generatedScenario(map) : fieldScenario;
     if (this.scenario) {
       for (const side of ['friendly', 'enemy']) {
         this[side + 'Units'] = this.scenario.units[side].map(([id, x, y]) => deploy(coastalTypes.get(id), x, y, this.maxHP));
       }
-      this.funds = {friendly: 8000, enemy: 8000};
+      const funds = this.scenario.map ? generatedStartingFunds : 8000;
+      this.funds = {friendly: funds, enemy: funds};
       this.sites = this.scenario.sites.map(site => ({...site, production: null, capture: null}));
       for (const [owner, position] of Object.entries(this.headquarters)) {
         this.sites.push({...position, owner, kind: 'headquarters', production: null, capture: null});
       }
       this.cities = this.sites.filter(site => site.kind === 'city');
       this.factories = this.sites.filter(site => site.kind === 'factory');
-      this.activeUnit = this.friendlyUnits[0];
+      this.activeUnit = this.friendlyUnits[0] ?? this.#standby();
       return;
     }
     this.friendlyUnits = [deploy(scout, 1, 6, this.maxHP), deploy(infantry, 3, 1, this.maxHP), deploy(support, 2, 1, this.maxHP)];
@@ -148,6 +160,7 @@ class BattleMap {
     };
     if (this.scenario) {
       snapshot.scenario = this.scenario.id;
+      if (this.scenario.map) snapshot.map = this.scenario.map;
       snapshot.sites = this.sites.map(({owner, production, capture}) => ({owner, production, capture: capture ?? null}));
     }
     return snapshot;
@@ -156,7 +169,8 @@ class BattleMap {
   static fromCrossingSnapshot(saved) {
     if (!saved || !integerBetween(saved.turn, 1, Number.MAX_SAFE_INTEGER - 1)) return null;
     if (saved.scenario !== undefined && saved.scenario !== fieldScenario.id) return null;
-    const game = new BattleMap(saved.scenario);
+    if (saved.map !== undefined && (saved.scenario !== fieldScenario.id || !validSavedMap(saved.map))) return null;
+    const game = new BattleMap(saved.scenario, {map: saved.map});
     const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
       enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
     const validPosition = position => position && integerBetween(position.x, 0, game.width - 1)
@@ -179,7 +193,10 @@ class BattleMap {
     };
     const friendlyUnits = restoreUnits(saved.friendlyUnits);
     const enemyUnits = restoreUnits(saved.enemyUnits);
-    if (!friendlyUnits || !enemyUnits?.length || !integerBetween(activeUnit, 0, friendlyUnits.length - 1)
+    // Generated maps start without units, so an empty roster (and no active unit) is valid there.
+    const emptyStart = Boolean(game.scenario?.map);
+    if (!friendlyUnits || !enemyUnits || (!emptyStart && !enemyUnits.length)
+      || !(integerBetween(activeUnit, 0, friendlyUnits.length - 1) || (emptyStart && !friendlyUnits.length && activeUnit === -1))
       || (nextEnemy !== null && !integerBetween(nextEnemy, 0, enemyUnits.length))
       || (capturedBy !== null && !isSide(capturedBy)) || typeof selected !== 'boolean'
       || !funds || !integerBetween(funds.friendly, 0, Number.MAX_SAFE_INTEGER)
@@ -204,7 +221,8 @@ class BattleMap {
         && isFacility(friendlyCapture.facility) && integerBetween(friendlyCapture.turn, 1, turn)
         && (friendlyCapture.points === undefined || integerBetween(friendlyCapture.points, 0, capturePoints - 1))))
       || !validEntries(facilityHealing, entry => isSide(entry.side) && names.has(entry.unit)
-        && isFacility(entry.facility) && integerBetween(entry.amount, 1, facilityRecovery))) return null;
+        && isFacility(entry.facility) && integerBetween(entry.amount, 1, facilityRecovery)
+        && (entry.cost === undefined || integerBetween(entry.cost, 0, Number.MAX_SAFE_INTEGER)))) return null;
 
     if (game.scenario) {
       const validCapture = capture => capture === undefined || capture === null
@@ -219,7 +237,7 @@ class BattleMap {
         Object.assign(site, {owner, production, capture: capture && {...capture}});
       }
     }
-    Object.assign(game, {turn, selected, capturedBy, friendlyUnits, enemyUnits, activeUnit: friendlyUnits[activeUnit],
+    Object.assign(game, {turn, selected, capturedBy, friendlyUnits, enemyUnits, activeUnit: friendlyUnits[activeUnit] ?? game.activeUnit,
       funds: {friendly: funds.friendly, enemy: funds.enemy}, enemyActions, enemyProductions, friendlyCapture, facilityHealing});
     if (!game.scenario) game.factories.forEach((site, index) => {
       const {owner, production} = factories[index];
@@ -257,8 +275,9 @@ class BattleMap {
   get result() {
     if (this.capturedBy === 'friendly') return 'victory';
     if (this.capturedBy === 'enemy') return 'defeat';
-    if (this.friendlyUnits.every(unit => unit.hp === 0)) return 'defeat';
-    if (this.enemyUnits.every(unit => unit.hp === 0)) return 'victory';
+    // A side that has not fielded any unit yet (generated maps start empty) is not wiped out.
+    if (this.friendlyUnits.length && this.friendlyUnits.every(unit => unit.hp === 0)) return 'defeat';
+    if (this.enemyUnits.length && this.enemyUnits.every(unit => unit.hp === 0)) return 'victory';
     return null;
   }
 
@@ -336,6 +355,13 @@ class BattleMap {
     return this.#deployReinforcement(factory, type);
   }
 
+  // Stands in for the active unit before the player has fielded any unit. It is not on the
+  // roster, has no HP and cannot act; the first produced unit replaces it.
+  #standby() {
+    const {x, y} = this.headquarters.friendly;
+    return {type: this.unitTypes[0], name: '', x, y, hp: 0, readyTurn: 1, moved: true, attacked: true, standby: true};
+  }
+
   #deployReinforcement(factory, type) {
     const {x, y, owner: side} = factory;
     if (type.cost > this.funds[side]) return null;
@@ -343,6 +369,7 @@ class BattleMap {
     const number = units.filter(unit => unit.type.id === type.id).length + 1;
     const unit = deploy(type, x, y, this.maxHP, number, this.turn + 1);
     units.push(unit);
+    if (side === 'friendly' && this.activeUnit?.standby) this.activeUnit = unit;
     this.funds[side] -= type.cost;
     factory.production = {unit: unit.name, turn: this.turn, cost: type.cost};
     return unit;
@@ -565,11 +592,24 @@ class BattleMap {
         if (!unit.hp || unit.hp >= this.maxHP) continue;
         const facility = this.facilityAt(unit.x, unit.y);
         if (!this.#canRecover(unit, side, facility)) continue;
-        const amount = Math.min(facilityRecovery, this.maxHP - unit.hp);
+        // Repairs are paid for; with too little money only the affordable HP is restored.
+        const amount = this.#affordableRecovery(unit, side);
+        if (!amount) continue;
+        const cost = amount * repairCostPerHP(unit.type);
         unit.hp += amount;
-        this.facilityHealing.push({side, unit: unit.name, amount, facility: facility.kind});
+        this.funds[side] -= cost;
+        this.facilityHealing.push({side, unit: unit.name, amount, facility: facility.kind, cost});
       }
     }
+  }
+
+  #affordableRecovery(unit, side, funds = this.funds[side]) {
+    const wanted = Math.min(facilityRecovery, this.maxHP - unit.hp);
+    return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type))));
+  }
+
+  repairCost(unit, amount) {
+    return amount * repairCostPerHP(unit.type);
   }
 
   #canRecover(unit, side, facility) {
@@ -655,7 +695,9 @@ class BattleMap {
   #planCoastalProduction() {
     const units = this.enemyUnits.filter(unit => unit.hp);
     if (units.length >= fleetLimit) return null;
-    const foes = this.friendlyUnits.filter(unit => unit.hp);
+    // Before the player has fielded anything, plan against the player's headquarters.
+    const living = this.friendlyUnits.filter(unit => unit.hp);
+    const foes = living.length ? living : [{...this.headquarters.friendly, type: {domain: land}}];
     const numbers = id => units.filter(unit => unit.type.id === id).length;
     const opposing = domain => foes.filter(unit => unit.type.domain === domain).length;
     const coastDistance = new Map(foes.map(foe => [foe, this.#distanceToSea(foe)]));
@@ -817,7 +859,8 @@ class BattleMap {
       const site = this.facilityAt(route.x, route.y);
       const capture = capturable(route);
       const moved = route.cost > 0;
-      const recover = this.#canRecover(enemy, 'enemy', site) ? Math.min(facilityRecovery, this.maxHP - enemy.hp) : 0;
+      const recover = this.#canRecover(enemy, 'enemy', site)
+        ? this.#affordableRecovery(enemy, 'enemy', this.funds.enemy + this.incomeFor('enemy')) : 0;
       const holdingProduction = site?.owner === 'enemy' && this.domainAtSite(site);
       const baseScore = capture + recover * 1.55 - (holdingProduction ? 2 : 0) - route.cost * .12
         + (moved && route === approach ? 4.5 : 0);
@@ -876,6 +919,31 @@ class BattleMap {
     const to = goal ? {x: goal.x, y: goal.y} : from;
     return {enemy, from, to, path: routeSteps(goal), friendly: targetAt(to) ?? null};
   }
+}
+
+function validSavedMap(map) {
+  const ids = new Set(Object.keys(terrainTypes));
+  const position = (spot, map) => spot && integerBetween(spot.x, 0, map.width - 1) && integerBetween(spot.y, 0, map.height - 1);
+  return Boolean(map && integerBetween(map.width, 4, 40) && integerBetween(map.height, 4, 40)
+    && Number.isSafeInteger(map.seed) && Array.isArray(map.terrain) && map.terrain.length === map.height
+    && map.terrain.every(row => typeof row === 'string' && row.length === map.width && [...row].every(id => ids.has(id)))
+    && map.headquarters && position(map.headquarters.friendly, map) && position(map.headquarters.enemy, map)
+    && validEntries(map.sites, site => Object.hasOwn(facilityNames, site.kind) && site.kind !== 'headquarters'
+      && ['friendly', 'enemy', 'neutral'].includes(site.owner) && position(site, map))
+    && mapGenerator.validateGeneratedMap(map));
+}
+
+// A scenario object (like coastal-scenario.js) for a generated map.
+function generatedScenario(map) {
+  const copy = {
+    version: map.version, seed: map.seed, width: map.width, height: map.height, terrain: map.terrain.slice(),
+    headquarters: {friendly: {...map.headquarters.friendly}, enemy: {...map.headquarters.enemy}},
+    sites: map.sites.map(({kind, x, y, owner}) => ({kind, x, y, owner})),
+  };
+  return {
+    id: fieldScenario.id, name: fieldScenario.name, map: copy, terrain: copy.terrain,
+    headquarters: copy.headquarters, sites: copy.sites, units: {friendly: [], enemy: []},
+  };
 }
 
 if (typeof module !== 'undefined') module.exports = BattleMap;

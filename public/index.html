@@ -9,20 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=board-build">
-    <link rel="stylesheet" href="./combat.css?v=board-build">
-    <link rel="stylesheet" href="./battlefield.css?v=board-build">
+    <link rel="stylesheet" href="./style.css?v=random-map">
+    <link rel="stylesheet" href="./combat.css?v=random-map">
+    <link rel="stylesheet" href="./battlefield.css?v=random-map">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./rules.js?v=capture"></script>
+    <script defer src="./map-generator.js?v=random-map"></script>
+    <script defer src="./rules.js?v=random-map"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=board-build"></script>
-    <script defer src="./unit-art.js?v=board-build"></script>
-    <script defer src="./scene-art.js?v=board-build"></script>
-    <script defer src="./combat.js?v=board-build"></script>
-    <script defer src="./map-art.js?v=board-build"></script>
-    <script defer src="./game.js?v=board-build"></script>
+    <script defer src="./orientation.js?v=random-map"></script>
+    <script defer src="./unit-art.js?v=random-map"></script>
+    <script defer src="./scene-art.js?v=random-map"></script>
+    <script defer src="./combat.js?v=random-map"></script>
+    <script defer src="./map-art.js?v=random-map"></script>
+    <script defer src="./game.js?v=random-map"></script>
   </head>
   <body>
     <header class="masthead">
@@ -201,8 +202,8 @@
         <li>「ターン終了」で敵の手番になります。敵本拠地を歩兵で占領するか、敵部隊を全滅させると勝利です。</li>
       </ol>
       <h3>湾岸の攻防</h3>
-      <p>26列×18行のマップに陸・空・海の13兵種が登場します。歩兵だけが施設を占領できます。施設の占領値は10で、1回の占領で歩兵のHP分だけ減ります（HP10なら1回）。足りないときは施設に残し、次のターンに歩兵を選んで自分のマスを選ぶと占領を続けられます。離れると進行は戻ります。地上部隊は外海や浅瀬へ進めません。航空部隊は地形と他の部隊のいるマスを越えられます。</p>
-      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが2回復します。都市を占領すると収入が増えます。</p>
+      <p>マップは新しい対戦ごとに26列×18行でランダムに作られ、左右対称なので両軍の地形・施設・距離は同じです。両軍とも部隊なし、資金10,000から始まるので、最初のターンに部隊を生産します。陸・空・海の13兵種が登場します。歩兵だけが施設を占領できます。施設の占領値は10で、1回の占領で歩兵のHP分だけ減ります（HP10なら1回）。足りないときは施設に残し、次のターンに歩兵を選んで自分のマスを選ぶと占領を続けられます。離れると進行は戻ります。地上部隊は外海や浅瀬へ進めません。航空部隊は地形と他の部隊のいるマスを越えられます。</p>
+      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが最大2回復します。回復には1HPあたり兵種価格の1割の資金を使い、足りないときは払える分だけ回復します。都市を占領すると収入が増えます。</p>
       <p>自走砲や戦艦などの間接攻撃は、移動したターンには使えません。兵種ごとの射程と特性は「部隊情報」で確認できます。</p>
       <h3>マップの操作</h3>
       <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。移動や攻撃の対象ではないマスを選ぶと、地形や防御などのマス情報を表示します。味方部隊のマスは通過できますが、止まれません。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>

@@ -27,7 +27,7 @@ if (!game && currentScenario === 'legacy') {
   currentScenario = 'coastal';
   ({save: crossingSave, restored: game} = openScenario(currentScenario));
 }
-game ??= new BattleMap(currentScenario);
+game ??= BattleMap.newMatch(currentScenario);
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
 const mapScrollNote = document.getElementById('map-scroll-note');
@@ -427,9 +427,9 @@ function renderEconomy() {
     label.textContent = owner;
   }
   const healing = document.getElementById('facility-healing');
-  const restored = game.facilityHealing.map(({side, unit, amount, facility}) => {
+  const restored = game.facilityHealing.map(({side, unit, amount, facility, cost}) => {
     const site = facilityNames[facility];
-    return `${ownerNames[side]}${unit}（${site}） +${amount} HP`;
+    return `${ownerNames[side]}${unit}（${site}） +${amount} HP${cost ? `（${currency.format(cost)}）` : ''}`;
   });
   const report = !game.enemyTurn && !game.result && restored.length ? `回復　${restored.join('、')}` : '';
   if (healing.textContent !== report) healing.textContent = report;
@@ -564,14 +564,18 @@ function render() {
       actionBadge.textContent = actionInfo.marker;
     }
   }
+  // Before the first unit is produced there is no unit to describe.
+  const noUnit = Boolean(game.activeUnit.standby);
   const {movement, attackBonus, trait, firepower} = game.playerUnit;
-  document.getElementById('unit-name').textContent = game.activeUnit.name;
-  document.getElementById('unit-movement').textContent = movement;
-  document.getElementById('unit-range').textContent = rangeLabel(game.playerUnit);
+  document.getElementById('unit-name').textContent = noUnit ? '部隊なし' : game.activeUnit.name;
+  document.getElementById('unit-movement').textContent = noUnit ? '—' : movement;
+  document.getElementById('unit-range').textContent = noUnit ? '—' : rangeLabel(game.playerUnit);
   const traitLabel = document.getElementById('unit-trait');
-  traitLabel.hidden = !trait && !attackBonus;
+  traitLabel.hidden = noUnit || (!trait && !attackBonus);
   traitLabel.textContent = trait ? `攻撃力 ${firepower} · ${trait}` : attackBonus ? `攻撃力 ＋${attackBonus}` : '';
-  showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
+  const portrait = document.getElementById('unit-portrait');
+  portrait.hidden = noUnit;
+  if (!noUnit) showImage(portrait, unitImage(game.playerUnit));
   const shownPosition = movingFriendly?.position ?? game.activeUnit;
   const position = placeName(shownPosition.x, shownPosition.y);
   document.getElementById('position').textContent = game.playerHP ? position : '—';
@@ -586,6 +590,8 @@ function render() {
   document.getElementById('help').setAttribute('aria-disabled', String(ordersLocked));
   ordersActions.hidden = Boolean(result) && !mobileField;
   document.documentElement.classList.toggle('orders-visible', !ordersActions.hidden);
+  // The gentle idle motion rests while units move or the enemy acts, so it costs nothing then.
+  document.documentElement.classList.toggle('map-busy', ordersLocked);
   endTurn.hidden = Boolean(result);
   productionLaunch.hidden = !canOpenProductionDialog || Boolean(result);
   replay.hidden = !result;
@@ -604,6 +610,11 @@ function render() {
   } else if (waiting) {
     state.textContent = '敵のターン';
     message.textContent = actingEnemy ? `敵${actingEnemy.name}が行動します。` : '敵部隊が行動します。';
+  } else if (noUnit) {
+    state.textContent = '部隊なし';
+    message.textContent = canOpenProductionDialog
+      ? '部隊がまだいません。「生産」の印がある本拠地・工場などを選んで部隊を生産してください。'
+      : '部隊がまだいません。「ユニット生産」で部隊を生産してください。';
   } else if (game.activeUnit.readyTurn > game.turn) {
     state.textContent = '生産直後';
     message.textContent = `${friendlyName}は次のターンから操作できます。`;
@@ -648,7 +659,7 @@ function render() {
   const inspection = inspectedCell && !waiting && !game.result ? `マス情報：${inspectedCell.info.join(' · ')}` : '';
   if (inspection) message.textContent = inspection;
   if (mobileField) {
-    let summary = inspection || `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`;
+    let summary = inspection || (noUnit ? state.textContent : `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`);
     if (waiting) summary = actingEnemy ? `敵${actingEnemy.name}が行動中` : state.textContent;
     if (game.result) summary = state.textContent;
     if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
@@ -909,7 +920,10 @@ function addTile(x, y) {
   if (facility) button.dataset.facilityKind = facility.kind;
   if (x === game.width - 1) button.classList.add('last-column');
   if (y === game.height - 1) button.classList.add('last-row');
-  idleSprite.style.setProperty('--idle-delay', `${-(x * 371 + y * 587) % 1600}ms`);
+  // Set on the leaves (not the tile) so tiles keep sharing their computed styles.
+  const idleDelay = `${-(x * 371 + y * 587) % 1600}ms`;
+  idleSprite.style.setProperty('--idle-delay', idleDelay);
+  image.style.setProperty('--idle-delay', idleDelay);
   const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city, facility};
   cellOfButton.set(button, cell);
   cells.push(cell);
@@ -1406,7 +1420,7 @@ function switchScenario(id) {
   const {save, restored} = openScenario(id);
   if (!restored && id === 'legacy') return;
   crossingSave = save;
-  game = restored ?? new BattleMap(id);
+  game = restored ?? BattleMap.newMatch(id);
   currentScenario = id;
   try {
     window.localStorage.setItem(scenarioPreference, id);
@@ -1427,7 +1441,7 @@ replay.addEventListener('click', () => {
     switchScenario('coastal');
     return;
   }
-  game = new BattleMap(currentScenario);
+  game = BattleMap.newMatch(currentScenario);
   saveProgress();
   showMap();
   friendlyTile().focus();
