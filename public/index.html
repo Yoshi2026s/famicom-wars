@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=confirm-orders">
-    <link rel="stylesheet" href="./combat.css?v=confirm-orders">
-    <link rel="stylesheet" href="./battlefield.css?v=confirm-orders">
+    <link rel="stylesheet" href="./style.css?v=random-map-offer">
+    <link rel="stylesheet" href="./combat.css?v=random-map-offer">
+    <link rel="stylesheet" href="./battlefield.css?v=random-map-offer">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=confirm-orders"></script>
-    <script defer src="./rules.js?v=confirm-orders"></script>
+    <script defer src="./map-generator.js?v=random-map-offer"></script>
+    <script defer src="./rules.js?v=random-map-offer"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=confirm-orders"></script>
-    <script defer src="./unit-art.js?v=confirm-orders"></script>
-    <script defer src="./scene-art.js?v=confirm-orders"></script>
-    <script defer src="./combat.js?v=confirm-orders"></script>
-    <script defer src="./map-art.js?v=confirm-orders"></script>
-    <script defer src="./game.js?v=confirm-orders"></script>
+    <script defer src="./orientation.js?v=random-map-offer"></script>
+    <script defer src="./unit-art.js?v=random-map-offer"></script>
+    <script defer src="./scene-art.js?v=random-map-offer"></script>
+    <script defer src="./combat.js?v=random-map-offer"></script>
+    <script defer src="./map-art.js?v=random-map-offer"></script>
+    <script defer src="./game.js?v=random-map-offer"></script>
   </head>
   <body>
     <header class="masthead">
@@ -218,7 +218,7 @@
         <button type="button" data-level="normal"><b>ふつう</b><small>標準の収入と判断</small></button>
         <button type="button" data-level="hard"><b>つよい</b><small>CPUの収入125%。反撃をより慎重に避ける</small></button>
       </div>
-      <form method="dialog"><button class="replay" autofocus>やめる</button></form>
+      <form method="dialog"><button class="replay" id="new-match-cancel" autofocus>やめる</button></form>
     </dialog>
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>

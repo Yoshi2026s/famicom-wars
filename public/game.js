@@ -1734,14 +1734,39 @@ function renderLevel() {
   document.getElementById('level-label').textContent = levelNames[game.difficulty] ?? 'ふつう';
   document.getElementById('level-open').setAttribute('aria-label', `CPUの強さ ${levelNames[game.difficulty] ?? 'ふつう'}。新しい対戦を始める`);
 }
-function openNewMatch() {
+const newMatchNote = document.getElementById('new-match-note');
+const newMatchCancel = document.getElementById('new-match-cancel');
+const newMatchNoteText = newMatchNote.textContent;
+// Saves from before random maps resume on the old fixed map; offer the new map once.
+const fixedMapNoticeKey = 'sumaho-wars:fixed-map-notice';
+let fixedMapNotice = false;
+function openNewMatch(fromFixedMap = false) {
   if (portraitMode.blocked || combatScreen.active || game.enemyTurn || movingFriendly) return;
+  fixedMapNotice = fromFixedMap === true;
+  newMatchNote.textContent = fixedMapNotice
+    ? '以前の固定マップの対戦を再開しました。CPUの強さを選ぶと、毎回変わるランダムマップ（両軍とも部隊なし）で新しく始めます。今の対戦は上書きされます。'
+    : newMatchNoteText;
+  newMatchCancel.textContent = fixedMapNotice ? '今の対戦を続ける' : 'やめる';
   for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     choice.setAttribute('aria-pressed', String(choice.dataset.level === game.difficulty));
   }
   newMatchDialog.showModal();
 }
-document.getElementById('level-open').addEventListener('click', openNewMatch);
+newMatchDialog.addEventListener('close', () => {
+  if (!fixedMapNotice) return;
+  fixedMapNotice = false;
+  try { window.localStorage.setItem(fixedMapNoticeKey, '1'); } catch { /* shown again next visit */ }
+});
+function offerRandomMap() {
+  if (game.scenario?.map || game.result) return;
+  try {
+    if (window.localStorage.getItem(fixedMapNoticeKey)) return;
+  } catch {
+    return;
+  }
+  openNewMatch(true);
+}
+document.getElementById('level-open').addEventListener('click', () => openNewMatch());
 for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
   choice.addEventListener('click', () => {
     const level = choice.dataset.level;
@@ -1763,3 +1788,5 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     friendlyTile().focus({preventScroll: true});
   });
 }
+// Runs after the board is set up, so the fixed-map offer sits on top of the restored match.
+offerRandomMap();
