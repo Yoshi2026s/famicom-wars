@@ -60,6 +60,7 @@ node dev-server.mjs
 - `test/` に自動テストを置きます。変更後は `node --test` を実行します。
 
 - 盤面・補助背景・部隊やホーム画面アイコンのドット絵の編集元は `scripts/draw-assets.mjs` です。`node scripts/draw-assets.mjs` でPNGを再生成できます。歩兵・偵察車・支援車・戦車の戦闘用画像は待機・構え・発射・反動・被弾・防御・撃破の7コマを1ファイルに格納しています。
+- 作戦マップの地形（道路・川のつながり、海岸線、水深、森、山）と施設の絵は `public/map-art.js` がブラウザー上で描きます。マップごとに1枚のキャンバスへ描くため追加の画像ファイルはありません。描けない環境では従来のドット絵（`scripts/draw-assets.mjs` 製）で表示します。地形の凡例と全体図は従来の素材を使います。
 - 戦闘背景 `public/assets/highland-dusk.webp` は組み込みの画像生成で制作し、WebPに変換した素材です。
 - BGMの曲データとMP3生成は `scripts/compose-bgm.mjs` にあります。`pnpm install --frozen-lockfile` で生成用の依存関係を取得し、`node scripts/compose-bgm.mjs` でオリジナルの6曲を再生成できます。
 
