@@ -28,6 +28,8 @@ const mainHeadquarters = Object.freeze({
 const startingFunds = 4500;
 const cityIncome = 1000;
 const facilityRecovery = 2;
+// Capturing takes 10 points; each attempt removes as many points as the infantry has HP.
+const capturePoints = 10;
 const infantry = Object.freeze({id: 'infantry', name: '歩兵', movement: 2, minRange: 1, maxRange: 1, cost: 1000});
 const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRange: 1, maxRange: 1, cost: 2500});
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3, cost: 3000});
@@ -101,9 +103,9 @@ class BattleMap {
         this[side + 'Units'] = this.scenario.units[side].map(([id, x, y]) => deploy(coastalTypes.get(id), x, y, this.maxHP));
       }
       this.funds = {friendly: 8000, enemy: 8000};
-      this.sites = this.scenario.sites.map(site => ({...site, production: null}));
+      this.sites = this.scenario.sites.map(site => ({...site, production: null, capture: null}));
       for (const [owner, position] of Object.entries(this.headquarters)) {
-        this.sites.push({...position, owner, kind: 'headquarters', production: null});
+        this.sites.push({...position, owner, kind: 'headquarters', production: null, capture: null});
       }
       this.cities = this.sites.filter(site => site.kind === 'city');
       this.factories = this.sites.filter(site => site.kind === 'factory');
@@ -146,7 +148,7 @@ class BattleMap {
     };
     if (this.scenario) {
       snapshot.scenario = this.scenario.id;
-      snapshot.sites = this.sites.map(({owner, production}) => ({owner, production}));
+      snapshot.sites = this.sites.map(({owner, production, capture}) => ({owner, production, capture: capture ?? null}));
     }
     return snapshot;
   }
@@ -199,18 +201,22 @@ class BattleMap {
         && [entry.captured, entry.cityCaptured, entry.factoryCaptured].every(flag => typeof flag === 'boolean'))
       || !validEntries(enemyProductions, entry => validProduction(entry) && game.productionSiteAt(entry.x, entry.y))
       || (friendlyCapture !== null && !(validPosition(friendlyCapture) && names.has(friendlyCapture.unit)
-        && isFacility(friendlyCapture.facility) && integerBetween(friendlyCapture.turn, 1, turn)))
+        && isFacility(friendlyCapture.facility) && integerBetween(friendlyCapture.turn, 1, turn)
+        && (friendlyCapture.points === undefined || integerBetween(friendlyCapture.points, 0, capturePoints - 1))))
       || !validEntries(facilityHealing, entry => isSide(entry.side) && names.has(entry.unit)
         && isFacility(entry.facility) && integerBetween(entry.amount, 1, facilityRecovery))) return null;
 
     if (game.scenario) {
+      const validCapture = capture => capture === undefined || capture === null
+        || (isSide(capture.side) && names.has(capture.unit) && integerBetween(capture.points, 1, capturePoints - 1));
       if (!validEntries(saved.sites, (site) => (isSide(site.owner) || site.owner === 'neutral')
-        && (site.production === null || validProduction(site.production))) || saved.sites.length !== game.sites.length) return null;
+        && (site.production === null || validProduction(site.production)) && validCapture(site.capture))
+        || saved.sites.length !== game.sites.length) return null;
       for (const [index, site] of game.sites.entries()) {
         const savedSite = saved.sites[index];
         if (site.kind === 'headquarters' && site.owner !== savedSite.owner) return null;
-        const {owner, production} = savedSite;
-        Object.assign(site, {owner, production});
+        const {owner, production, capture = null} = savedSite;
+        Object.assign(site, {owner, production, capture: capture && {...capture}});
       }
     }
     Object.assign(game, {turn, selected, capturedBy, friendlyUnits, enemyUnits, activeUnit: friendlyUnits[activeUnit],
@@ -342,6 +348,56 @@ class BattleMap {
     return unit;
   }
 
+  // Returns the capture in progress on a site, or null once its infantry has left or been destroyed.
+  captureProgress(site) {
+    const capture = site?.capture;
+    if (!capture) return null;
+    const units = capture.side === 'friendly' ? this.friendlyUnits : this.enemyUnits;
+    const holder = units.find(unit => unit.name === capture.unit && unit.hp > 0 && unit.x === site.x && unit.y === site.y);
+    return holder && site.owner !== capture.side ? capture : null;
+  }
+
+  #clearStaleCaptures() {
+    for (const site of this.sites) {
+      if (site.capture && !this.captureProgress(site)) site.capture = null;
+    }
+  }
+
+  #advanceCapture(unit, side) {
+    this.#clearStaleCaptures();
+    if (unit.type.id !== infantry.id || unit.hp <= 0) return null;
+    const site = this.facilityAt(unit.x, unit.y);
+    if (!site || site.owner === side) return null;
+    const current = site.capture?.side === side && site.capture.unit === unit.name ? site.capture.points : capturePoints;
+    const points = Math.max(0, current - unit.hp);
+    if (points > 0) {
+      site.capture = {side, unit: unit.name, points};
+      return {site, points, completed: false};
+    }
+    site.capture = null;
+    if (site.kind === 'headquarters') this.capturedBy = side;
+    else site.owner = side;
+    return {site, points: 0, completed: true};
+  }
+
+  get canCaptureHere() {
+    const unit = this.activeUnit;
+    if (!this.scenario || this.enemyTurn || this.result || unit.type.id !== infantry.id || !unit.hp
+      || unit.readyTurn > this.turn || unit.moved || unit.attacked) return false;
+    const site = this.facilityAt(unit.x, unit.y);
+    return Boolean(site && site.owner !== 'friendly');
+  }
+
+  captureHere() {
+    if (!this.canCaptureHere) return null;
+    const unit = this.activeUnit;
+    unit.moved = true;
+    this.selected = false;
+    const step = this.#advanceCapture(unit, 'friendly');
+    this.friendlyCapture = {facility: step.site.kind, unit: unit.name, x: unit.x, y: unit.y, turn: this.turn, points: step.points};
+    return step;
+  }
+
   #captureHeadquarters(unit, side) {
     const owner = this.headquartersAt(unit.x, unit.y);
     if (!owner || owner === side || unit.type.id !== infantry.id) return false;
@@ -470,6 +526,13 @@ class BattleMap {
       this.y = y;
       this.selected = false;
       this.activeUnit.moved = true;
+      if (this.scenario) {
+        const step = this.#advanceCapture(this.activeUnit, 'friendly');
+        if (step) {
+          this.friendlyCapture = {facility: step.site.kind, unit: this.activeUnit.name, x, y, turn: this.turn, points: step.points};
+        }
+        return;
+      }
       this.#captureHeadquarters(this.activeUnit, 'friendly');
       const facility = this.#captureFacility(this.activeUnit, 'friendly');
       if (facility) {
@@ -546,13 +609,24 @@ class BattleMap {
     phase.action = null;
     const {enemy, friendly, from, to} = action;
     Object.assign(enemy, to);
-    const captured = this.#captureHeadquarters(enemy, 'enemy');
-    const facility = this.#captureFacility(enemy, 'enemy');
+    let captured;
+    let facility;
+    let step = null;
+    if (this.scenario) {
+      step = this.#advanceCapture(enemy, 'enemy');
+      captured = Boolean(step?.completed && step.site.kind === 'headquarters');
+      facility = step?.completed && !captured ? step.site.kind : null;
+    } else {
+      captured = this.#captureHeadquarters(enemy, 'enemy');
+      facility = this.#captureFacility(enemy, 'enemy');
+    }
     const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
     this.#restoreActiveUnit();
+    this.#clearStaleCaptures();
     const record = {enemy: enemy.name, friendly: friendly?.name, from, to, captured,
       cityCaptured: facility === 'city', factoryCaptured: facility === 'factory'};
     if (this.scenario && facility) record.facility = facility;
+    if (step && !step.completed) Object.assign(record, {capturing: step.site.kind, points: step.points});
     this.enemyActions.push(record);
     return strikes;
   }
@@ -700,6 +774,11 @@ class BattleMap {
     const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
     const home = this.headquarters.friendly;
     const homeRoute = routes.get(`${home.x},${home.y}`);
+    const holding = this.captureProgress(this.facilityAt(from.x, from.y));
+    if (holding?.side === 'enemy' && holding.unit === enemy.name) {
+      // Stay on the site to continue an unfinished capture.
+      return {enemy, from, to: {...from}, path: [], friendly: null};
+    }
     if (type.id === infantry.id && homeRoute?.cost <= type.movement) {
       return {enemy, from, to: {...home}, path: routeSteps(homeRoute), friendly: null};
     }

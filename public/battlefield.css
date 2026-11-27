@@ -287,3 +287,96 @@ body:has(#portrait-notice[open], #combat-screen[open]) .map-stride::after { anim
 .overview-window { position: absolute; z-index: 1; outline: 2px solid #fff9db; outline-offset: -2px; box-shadow: 0 0 0 1px #283040a0; pointer-events: none; }
 .overview-jumps { display: grid; grid-template-columns: repeat(3, minmax(48px, 1fr)); gap: 4px; margin-top: 8px; }
 .overview-jumps button { padding-inline: 4px; background: #e7eee3; }
+
+/* ---- Multi-step capture: progress bar on the site ---- */
+.capture-meter { display: none; }
+.tile.capturing .capture-meter {
+  --capture-color: #67e6cf;
+  display: block; position: absolute; z-index: 3; left: 5%; bottom: 5%; width: 56%; height: 13%; pointer-events: none;
+  border: 1px solid #fffbe6; border-radius: 3px; box-shadow: 0 0 0 1px #17212b;
+  background: linear-gradient(90deg, var(--capture-color) calc(var(--capture-done, 0) * 100%), #17212be6 0);
+}
+.tile.capturing[data-capture-side="enemy"] .capture-meter { --capture-color: #ff9a68; }
+.map-feedback[data-effect="capture"] {
+  --flash: #ffe58a;
+  display: grid; place-items: center; color: #fffbe2;
+  text-shadow: 1px 1px #3b2410, -1px -1px #3b2410, 1px -1px #3b2410, -1px 1px #3b2410;
+  font: 800 12px system-ui, sans-serif;
+}
+
+/* ---- Celebration overlay: captures, lost sites, victory and defeat ---- */
+.celebration {
+  --glow: #ffe48f; --ink: #fffbe8; --rim: #c98a2c; --cloth: #2f9f8f;
+  position: fixed; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center;
+  gap: 6px; padding: 16px; overflow: hidden; pointer-events: none; text-align: center;
+  padding-block: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-bottom));
+}
+.celebration[hidden] { display: none; }
+.celebration[data-kind="victory"], .celebration[data-kind="defeat"] { pointer-events: auto; cursor: pointer; }
+.celebration[data-kind="capture"] { background: radial-gradient(ellipse at 50% 46%, #fff1b04d, transparent 62%); }
+.celebration[data-kind="lost"] { --glow: #ffb08a; --ink: #fff1ea; --rim: #a8432f; --cloth: #b4503b;
+  background: radial-gradient(ellipse at 50% 46%, #8e221a4d, transparent 66%); }
+.celebration[data-kind="victory"] { background: radial-gradient(ellipse at 50% 42%, #ffdb7a66, #1c2a3fcc 78%); }
+.celebration[data-kind="defeat"] { --glow: #b9cce6; --ink: #e9f1ff; --rim: #5d7898; --cloth: #b4503b;
+  background: radial-gradient(ellipse at 50% 42%, #2c3e5899, #0b1222e6 80%); }
+.celebration-rays {
+  position: absolute; left: 50%; top: 44%; width: 170vmax; aspect-ratio: 1; translate: -50% -50%;
+  background: repeating-conic-gradient(from 0deg, #fff2b04d 0 7deg, transparent 7deg 20deg);
+  mask: radial-gradient(circle, #000 8%, transparent 46%);
+  -webkit-mask: radial-gradient(circle, #000 8%, transparent 46%);
+}
+.celebration:is([data-kind="lost"], [data-kind="defeat"]) .celebration-rays,
+.celebration:is([data-kind="lost"], [data-kind="defeat"]) .fireworks { display: none; }
+.celebration-flag { position: relative; width: 58px; height: 64px; }
+.celebration-flag::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 5px; border-radius: 2px;
+  background: linear-gradient(90deg, #fff7d8, #9c8152); box-shadow: 0 0 0 1px #3b2a15; }
+.celebration-flag i { position: absolute; left: 11px; top: 3px; width: 44px; height: 30px; transform-origin: 0 50%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cloth) 70%, #fff), var(--cloth));
+  border: 2px solid #1b2a30; clip-path: polygon(0 0, 100% 8%, 86% 50%, 100% 92%, 0 100%); }
+.celebration-title {
+  position: relative; margin: 0; padding: .06em .5em .12em; color: var(--ink);
+  font: 900 clamp(34px, 12vw, 64px)/1.15 system-ui, sans-serif; letter-spacing: .08em;
+  background: linear-gradient(90deg, transparent, #1a1c2cd9 14% 86%, transparent);
+  border-block: 3px solid var(--rim);
+  text-shadow: 0 3px 0 #2a1a0a, 0 0 22px var(--glow);
+}
+.celebration[data-kind="capture"] .celebration-title, .celebration[data-kind="lost"] .celebration-title { font-size: clamp(26px, 9vw, 44px); }
+.celebration-sub { position: relative; margin: 0; padding: 4px 14px; border-radius: 999px; background: #121a28d9; color: var(--ink);
+  font: 700 15px/1.4 system-ui, sans-serif; border: 1px solid var(--rim); }
+.fireworks { position: absolute; inset: 0; pointer-events: none; }
+.fireworks i {
+  --size: 34vmin; position: absolute; left: var(--x); top: var(--y); width: var(--size); aspect-ratio: 1; translate: -50% -50%;
+  opacity: 0; border-radius: 50%;
+  background: repeating-conic-gradient(var(--c) 0 5deg, transparent 5deg 24deg);
+  mask: radial-gradient(circle, transparent 18%, #000 20% 46%, transparent 49%);
+  -webkit-mask: radial-gradient(circle, transparent 18%, #000 20% 46%, transparent 49%);
+}
+.fireworks i:nth-child(1) { --x: 22%; --y: 24%; --c: #ffd86b; --d: 0s; }
+.fireworks i:nth-child(2) { --x: 78%; --y: 20%; --c: #7cf0dd; --d: .32s; --size: 28vmin; }
+.fireworks i:nth-child(3) { --x: 50%; --y: 12%; --c: #ff8f7a; --d: .6s; --size: 40vmin; }
+.fireworks i:nth-child(4) { --x: 16%; --y: 66%; --c: #b9a3ff; --d: .9s; --size: 26vmin; }
+.fireworks i:nth-child(5) { --x: 84%; --y: 70%; --c: #fff1a8; --d: 1.15s; }
+.celebration[data-kind="capture"] .fireworks i:nth-child(n+4) { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .celebration.is-playing { animation: celebration-in .22s ease-out both; }
+  .celebration.is-playing:is([data-kind="capture"], [data-kind="lost"]) { animation: celebration-in .22s ease-out both, celebration-out .35s 1.35s ease-in forwards; }
+  .celebration.is-playing .celebration-rays { animation: celebration-spin 9s linear infinite; }
+  .celebration.is-playing .celebration-title { animation: celebration-pop .55s cubic-bezier(.2,1.6,.35,1) both; }
+  .celebration.is-playing .celebration-sub { animation: celebration-rise .4s .25s ease-out both; }
+  .celebration.is-playing .celebration-flag { animation: celebration-plant .45s cubic-bezier(.3,1.5,.4,1) both; }
+  .celebration.is-playing .celebration-flag i { animation: celebration-wave .7s ease-in-out infinite alternate; }
+  .celebration.is-playing[data-kind="defeat"] .celebration-flag { animation: celebration-fall .9s .2s ease-in both; }
+  .celebration.is-playing .fireworks i, [data-outcome="victory"] .combat-outcome .fireworks i { animation: firework-burst 1.5s var(--d) ease-out infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebration-rays, .fireworks { display: none; }
+}
+@keyframes celebration-in { from { opacity: 0; } }
+@keyframes celebration-out { to { opacity: 0; } }
+@keyframes celebration-spin { to { rotate: 1turn; } }
+@keyframes celebration-pop { 0% { scale: 2.4; opacity: 0; } 60% { scale: .94; opacity: 1; } to { scale: 1; } }
+@keyframes celebration-rise { from { opacity: 0; translate: 0 10px; } }
+@keyframes celebration-plant { from { translate: 0 -40px; opacity: 0; } }
+@keyframes celebration-wave { from { transform: skewY(4deg) scaleX(.94); } to { transform: skewY(-5deg) scaleX(1.02); } }
+@keyframes celebration-fall { to { rotate: -70deg; translate: -10px 18px; filter: saturate(.3); } }
+@keyframes firework-burst { 0% { opacity: 0; scale: .15; } 12% { opacity: 1; } 70% { opacity: .85; } to { opacity: 0; scale: 1.25; } }
