@@ -575,7 +575,7 @@
       drawFrame(ctx, id, team, 'idle');
       const {data} = source.getContext('2d').getImageData(0, 0, W, H);
       let x0 = W, y0 = H, x1 = 0, y1 = 0;
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
         if (data[(y * W + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       }
       if (x1 < x0) return still(id, team, facing);

@@ -1,4 +1,4 @@
-body:has(main[data-mobile-field]) {
+html.mobile-field body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -12,7 +12,7 @@ main[data-mobile-field] {
   width: min(100% - 16px, 510px);
   padding-top: 4px;
 }
-main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: calc(var(--mobile-actions-height) + 6px); }
+html.orders-visible main[data-mobile-field] { padding-bottom: calc(var(--mobile-actions-height) + 6px); }
 [data-mobile-field] .intro { margin-bottom: 5px; gap: 6px; }
 [data-mobile-field] h1 { font-size: clamp(19px, 6vw, 26px); }
 [data-mobile-field] .turn strong { font-size: 20px; }
@@ -110,8 +110,8 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
 .tile:is([data-terrain="river"], [data-terrain="bridge"])::before { z-index: 1; }
 .tile:is([data-terrain="river"], [data-terrain="bridge"])::after { z-index: 2; }
 .tile.friendly-route:not(.action-pending) { --tile-tint: #b6e8f05c; outline: 1px dashed #cdeef0; outline-offset: -3px; }
-.tile:has(.map-stride) { z-index: 3; }
-.tile:has(.map-stride) > :is(img, .map-idle) { visibility: hidden; }
+.tile.striding { z-index: 3; }
+.tile.striding > :is(img, .map-idle) { visibility: hidden; }
 .map-stride, .map-feedback {
   position: absolute;
   inset: 0;
@@ -205,11 +205,11 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
 }
 @media (prefers-reduced-motion: reduce) {
   .map-stride, .map-feedback { display: none; }
-  .tile:has(.map-stride) > img { visibility: visible; }
+  .tile.striding > img { visibility: visible; }
 }
-body:has(#portrait-notice[open], #combat-screen[open]) :is(.water-surface, .map-idle, .map-stride, .map-stride-sprite, .map-feedback),
+html:is(.portrait-blocked, .combat-open) :is(.water-surface, .map-idle, .map-stride, .map-stride-sprite, .map-feedback),
 .board[data-map-hidden] .map-idle,
-body:has(#portrait-notice[open], #combat-screen[open]) .map-stride::after { animation-play-state: paused; }
+html:is(.portrait-blocked, .combat-open) .map-stride::after { animation-play-state: paused; }
 @keyframes river-reflections { to { background-position-x: 100%; } }
 @keyframes map-step { from { transform: translate(var(--stride-x), var(--stride-y)); } to { transform: none; } }
 @keyframes unit-frames { to { background-position-x: 100%; } }

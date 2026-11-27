@@ -614,7 +614,7 @@
       board.prepend(canvas);
       const draw = () => {
         const cssTile = board.clientWidth / game.width || 48;
-        const scale = Math.min(window.devicePixelRatio || 1, 2.5);
+        const scale = Math.min(window.devicePixelRatio || 1, 2);
         // Keep the canvas within the size limits of mobile browsers.
         const T = Math.max(24, Math.min(128, Math.round(cssTile * scale / 8) * 8, Math.floor(4096 / game.width), Math.floor(4096 / game.height)));
         if (canvas.dataset.tile === String(T) && canvas.dataset.map === board.dataset.artMap) return;

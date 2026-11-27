@@ -30,8 +30,10 @@ const portraitMode = (() => {
       }
       combatAudio.stop();
       if (!notice.open) notice.showModal();
+      document.documentElement.classList.add('portrait-blocked');
     } else {
       if (notice.open) notice.close();
+      document.documentElement.classList.remove('portrait-blocked');
       for (const timer of timers) {
         if (timer.id === null) start(timer);
       }

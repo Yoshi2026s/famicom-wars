@@ -35,11 +35,12 @@ const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
 const reducedMapMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+// Time per tile while a unit moves (ms). Kept short so moves feel snappy.
 const mapUnitMotion = {
-  infantry: {row: 0, step: 185},
-  scout: {row: 1, step: 125},
-  support: {row: 2, step: 175},
-  tank: {row: 3, step: 215},
+  infantry: {row: 0, step: 120},
+  scout: {row: 1, step: 85},
+  support: {row: 2, step: 115},
+  tank: {row: 3, step: 140},
 };
 const rosterEntries = [];
 const enemyRosterEntries = [];
@@ -328,7 +329,7 @@ function announceTurn(side, onComplete) {
     turnChange.hidden = true;
     turnChangeTimer = undefined;
     onComplete?.();
-  }, 850);
+  }, 700);
 }
 
 function renderProduction() {
@@ -584,6 +585,7 @@ function render() {
   productionLaunch.setAttribute('aria-disabled', String(ordersLocked));
   document.getElementById('help').setAttribute('aria-disabled', String(ordersLocked));
   ordersActions.hidden = Boolean(result) && !mobileField;
+  document.documentElement.classList.toggle('orders-visible', !ordersActions.hidden);
   endTurn.hidden = Boolean(result);
   productionLaunch.hidden = !canOpenProductionDialog || Boolean(result);
   replay.hidden = !result;
@@ -750,6 +752,7 @@ function setMobileFieldLayout() {
   closeFieldDialogs();
   mobileField = enabled;
   main.toggleAttribute('data-mobile-field', enabled);
+  document.documentElement.classList.toggle('mobile-field', enabled);
   fieldStatus.hidden = !enabled;
   fieldTools.hidden = !enabled || !enemyPreview.hidden;
   for (const {content, placeholder, target} of fieldSections) {
@@ -798,8 +801,17 @@ function jumpToFieldLocation({x, y}) {
   revealTile(tile, true);
 }
 
+// Only the previous and the new tab stop change, instead of rewriting every tile.
+let boardTabStop = null;
 function setBoardTabStop(button) {
-  for (const cell of cells) cell.button.tabIndex = cell.button === button ? 0 : -1;
+  if (boardTabStop === button && button?.tabIndex === 0) return;
+  if (!boardTabStop || !boardTabStop.isConnected) {
+    for (const cell of cells) if (cell.button !== button && cell.button.tabIndex !== -1) cell.button.tabIndex = -1;
+  } else {
+    boardTabStop.tabIndex = -1;
+  }
+  if (button) button.tabIndex = 0;
+  boardTabStop = button;
 }
 
 function buildBoard() {
@@ -920,8 +932,14 @@ function highlightFriendlyRoute(path) {
   for (const tile of markedFriendlyTiles) tile.classList.add('friendly-route');
 }
 
-function showStride(unit, from, to, enemy, duration) {
+// The moving sprite's tile is marked with a class (cheaper to restyle than :has()).
+function clearStride() {
+  strideSprite?.parentElement?.classList.remove('striding');
   strideSprite?.remove();
+}
+
+function showStride(unit, from, to, enemy, duration) {
+  clearStride();
   const motion = unitMotion(unit.type.id);
   if ((motion && !board.classList.contains('map-march-ready')) || reducedMapMotion.matches
     || (from.x === to.x && from.y === to.y)) return;
@@ -947,6 +965,7 @@ function showStride(unit, from, to, enemy, duration) {
   shell.style.setProperty('--facing', from.x > to.x || (from.x === to.x && enemy) ? '-1' : '1');
   shell.append(sprite);
   tile.append(shell);
+  tile.classList.add('striding');
   strideSprite = shell;
 }
 
@@ -962,11 +981,11 @@ function flashMapTile(position, effect, text = '') {
 }
 
 function animateFriendlyMove(unit, from, path, onComplete) {
-  const duration = mapUnitMotion[unit.type.id]?.step ?? 100;
+  const duration = mapUnitMotion[unit.type.id]?.step ?? 80;
   function advance(index, previous) {
     const position = path[index];
     if (!position || reducedMapMotion.matches) {
-      strideSprite?.remove();
+      clearStride();
       movingFriendly = null;
       highlightFriendlyRoute([]);
       onComplete();
@@ -1158,10 +1177,10 @@ function playEnemyAction(action, restoreFocus) {
     attack: friendly ? `味方${friendly.name}を攻撃` : '', wait: 'その場で待機'};
   const fast = Boolean(game.scenario);
   const steps = commands.flatMap(({id}) => id === 'move'
-    ? [{id, position: from, delay: fast ? 100 : 260}, ...path.map(position => ({
-      id, position, delay: fast ? 75 : mapUnitMotion[enemy.type.id].step,
+    ? [{id, position: from, delay: fast ? 70 : 200}, ...path.map(position => ({
+      id, position, delay: fast ? 60 : mapUnitMotion[enemy.type.id].step,
     }))]
-    : [{id, position: to, delay: fast ? 130 : 330}]);
+    : [{id, position: to, delay: fast ? 100 : 260}]);
   highlightEnemyRoute(path, to);
 
   function advance(index, previous = from) {
@@ -1175,7 +1194,7 @@ function playEnemyAction(action, restoreFocus) {
       portraitMode.schedule(() => advance(index + 1, step.position), step.delay);
       return;
     }
-    strideSprite?.remove();
+    clearStride();
     movingEnemy = null;
     highlightEnemyRoute([]);
     if (friendly) {
@@ -1216,9 +1235,9 @@ function playEnemyProduction(order, restoreFocus) {
       render();
       tileAt(factory).classList.add('enemy-spawned');
       flashMapTile(factory, 'deploy');
-      portraitMode.schedule(() => runEnemyTurn(restoreFocus), 520);
-    }, 390);
-  }, 280);
+      portraitMode.schedule(() => runEnemyTurn(restoreFocus), 320);
+    }, 240);
+  }, 170);
 }
 
 function runEnemyTurn(restoreFocus = true) {
