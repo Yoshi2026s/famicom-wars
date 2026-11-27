@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=title-menu">
-    <link rel="stylesheet" href="./combat.css?v=title-menu">
-    <link rel="stylesheet" href="./battlefield.css?v=title-menu">
+    <link rel="stylesheet" href="./style.css?v=title-art">
+    <link rel="stylesheet" href="./combat.css?v=title-art">
+    <link rel="stylesheet" href="./battlefield.css?v=title-art">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=title-menu"></script>
-    <script defer src="./rules.js?v=title-menu"></script>
+    <script defer src="./map-generator.js?v=title-art"></script>
+    <script defer src="./rules.js?v=title-art"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=title-menu"></script>
-    <script defer src="./unit-art.js?v=title-menu"></script>
-    <script defer src="./scene-art.js?v=title-menu"></script>
-    <script defer src="./combat.js?v=title-menu"></script>
-    <script defer src="./map-art.js?v=title-menu"></script>
-    <script defer src="./game.js?v=title-menu"></script>
+    <script defer src="./orientation.js?v=title-art"></script>
+    <script defer src="./unit-art.js?v=title-art"></script>
+    <script defer src="./scene-art.js?v=title-art"></script>
+    <script defer src="./combat.js?v=title-art"></script>
+    <script defer src="./map-art.js?v=title-art"></script>
+    <script defer src="./game.js?v=title-art"></script>
   </head>
   <body>
     <header class="masthead">
@@ -216,10 +216,11 @@
     <dialog id="title-screen" class="title-screen" aria-labelledby="title-logo">
       <div class="title-scene" aria-hidden="true">
         <span class="title-sun"></span><span class="title-ridge back"></span><span class="title-ridge"></span><span class="title-sea"></span>
+        <div class="title-art" id="title-art"><img class="title-backdrop" id="title-backdrop" alt=""></div>
+        <span class="title-shade"></span>
       </div>
       <div class="title-body">
-        <img class="title-emblem" src="./assets/home-icon-180.png" width="96" height="96" alt="">
-        <h2 class="title-logo" id="title-logo"><small>陸・空・海のターン制タクティクス</small>スマホウォーズ</h2>
+        <h2 class="title-logo" id="title-logo"><small>陸・空・海のターン制タクティクス</small><span class="title-word">スマホウォーズ</span></h2>
         <div class="title-actions">
           <button type="button" class="title-button" id="title-resume"><b>中断から再開</b><small id="title-resume-detail"></small></button>
           <button type="button" class="title-button" id="title-new"><b>新規ゲーム</b><small>毎回変わるランダムマップ。CPUの強さを選んで始めます</small></button>

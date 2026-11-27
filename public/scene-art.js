@@ -239,6 +239,106 @@
     return canvas;
   }
 
+  // ---- Title screen: a portrait dusk coastline (sky, far ranges, sea with a sun path, and
+  // a grassy headland in front). Units are laid over it on the page (see game.js).
+  function paintSea(ctx, w, top, bottom, sun, seed) {
+    const r = rng(seed);
+    const sea = ctx.createLinearGradient(0, top, 0, bottom);
+    sea.addColorStop(0, '#d7a58e');
+    sea.addColorStop(.06, '#8d8aa6');
+    sea.addColorStop(.35, '#4b6688');
+    sea.addColorStop(1, '#1b3452');
+    ctx.fillStyle = sea;
+    ctx.fillRect(0, top, w, bottom - top);
+    // Swell: long dark and light bands that grow with nearness.
+    ctx.lineCap = 'round';
+    for (let i = 0; i < w * 2.2; i++) {
+      const t = r() ** 1.5, y = top + (bottom - top) * t, x = r() * w, len = 4 + t * t * 90 * (.5 + r());
+      ctx.strokeStyle = r() < .55 ? `rgba(14,30,52,${.18 + t * .25})` : `rgba(190,210,235,${.05 + t * .12})`;
+      ctx.lineWidth = .5 + t * 2.2;
+      ctx.beginPath(); ctx.moveTo(x - len / 2, y); ctx.lineTo(x + len / 2, y); ctx.stroke();
+    }
+    // The sun's path: warm glints, thick under the sun and widening toward the viewer.
+    for (let i = 0; i < w * 3.4; i++) {
+      const t = r() ** 1.25, y = top + (bottom - top) * t;
+      const spread = w * (.025 + t * .2);
+      const x = sun[0] + (r() + r() + r() - 1.5) * spread;
+      const fade = Math.max(0, 1 - Math.abs(x - sun[0]) / (spread * 1.25));
+      if (fade <= 0) continue;
+      const len = 2 + t * 34 * r();
+      ctx.strokeStyle = `rgba(255,${Math.round(214 + r() * 30)},${Math.round(150 + r() * 60)},${(.25 + fade * .75) * (1 - t * .45)})`;
+      ctx.lineWidth = .6 + t * 2.4;
+      ctx.beginPath(); ctx.moveTo(x - len / 2, y); ctx.lineTo(x + len / 2, y); ctx.stroke();
+    }
+    const glow = ctx.createRadialGradient(sun[0], top, 2, sun[0], top, w * .45);
+    glow.addColorStop(0, 'rgba(255,214,160,.55)');
+    glow.addColorStop(1, 'rgba(255,214,160,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, top, w, (bottom - top) * .5);
+  }
+
+  function titleScene(width = 720, height = 1280) {
+    const canvas = makeCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    const horizon = Math.round(height * .44), sun = [width * .64, horizon - height * .012];
+    const haze = [232, 176, 156];
+    paintSky(ctx, width, height, horizon, sun);
+    paintClouds(ctx, width, horizon * .92, sun, 17);
+    // A headland range on the left and a low island on the right, standing on the horizon.
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, width * .52, horizon + 4);
+    ctx.clip();
+    paintRange(ctx, width, horizon + 6, {seed: 71, base: horizon + 2, height: height * .11, scale: 150, color: [92, 96, 138], haze, hazeAmount: .45, snow: horizon - height * .1, light: .55});
+    paintRange(ctx, width, horizon + 6, {seed: 83, base: horizon + 4, height: height * .06, scale: 110, color: [64, 74, 96], haze, hazeAmount: .25, light: .45});
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(width * .78, 0, width * .22, horizon + 4);
+    ctx.clip();
+    paintRange(ctx, width, horizon + 6, {seed: 97, base: horizon + 2, height: height * .035, scale: 70, color: [86, 88, 120], haze, hazeAmount: .5, light: .5});
+    ctx.restore();
+    const shore = Math.round(height * .66);
+    paintSea(ctx, width, horizon, shore + height * .06, sun, 29);
+    // Headland in front: an uneven shoreline with sand, surf and the sunlit meadow.
+    const edge = ridgeNoise(131, 4);
+    const coastY = x => shore - height * .035 * Math.sin(x / width * Math.PI * .9 + .4) - height * .04 * edge(x / 90);
+    const coast = () => {
+      ctx.beginPath(); ctx.moveTo(0, height);
+      for (let x = 0; x <= width; x += 4) ctx.lineTo(x, coastY(x));
+      ctx.lineTo(width, height); ctx.closePath();
+    };
+    ctx.save();
+    ctx.translate(0, height * .012);
+    coast();
+    ctx.fillStyle = '#d8c39a';
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    coast();
+    ctx.clip();
+    paintMeadow(ctx, width, height, shore - height * .09, sun, 143);
+    ctx.restore();
+    // Surf along the waterline.
+    const surf = rng(151);
+    for (let x = 0; x < width; x += 2) {
+      const y = coastY(x) + height * .014 + surf() * 3;
+      ctx.fillStyle = `rgba(255,248,236,${.35 + surf() * .45})`;
+      ctx.fillRect(x, y, 2 + surf() * 6, 1.2 + surf() * 1.6);
+    }
+    // Horizon haze, warm grade and a soft vignette.
+    const mist = ctx.createLinearGradient(0, horizon - height * .06, 0, horizon + height * .05);
+    mist.addColorStop(0, 'rgba(255,206,170,0)');
+    mist.addColorStop(.5, 'rgba(255,206,170,.3)');
+    mist.addColorStop(1, 'rgba(255,206,170,0)');
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, horizon - height * .06, width, height * .11);
+    const vignette = ctx.createRadialGradient(width / 2, height * .46, width * .3, width / 2, height * .5, height * .72);
+    vignette.addColorStop(0, 'rgba(8,14,28,0)');
+    vignette.addColorStop(1, 'rgba(8,14,28,.55)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+    return canvas;
+  }
+
   // ---- Foreground cover (drawn facing right, 560x304, standing on the bottom edge) ----
   const CW = 560, CH = 304;
   function conifer(ctx, x, y, h, r) {
@@ -343,7 +443,7 @@
   }
 
   if (inWorker) {
-    self.SceneArt = {landscape};
+    self.SceneArt = {landscape, titleScene};
     return;
   }
   let supported = false;
@@ -354,34 +454,45 @@
   }
   // Paints the panorama in a worker when the browser can, so the page never stalls;
   // otherwise on the page. Calls back with an image URL.
-  let pending = null;
+  const pendingPaints = new Map();
+  const localPaint = {
+    landscape: backdrop,
+    title: () => titleScene().toDataURL('image/jpeg', .88),
+  };
   function backdropAsync(done) {
-    if (cache.has('backdrop')) { done(cache.get('backdrop')); return; }
-    if (pending) { pending.push(done); return; }
-    pending = [done];
+    paintAsync('landscape', done);
+  }
+  function titleAsync(done) {
+    paintAsync('title', done);
+  }
+  function paintAsync(kind, done) {
+    const key = kind === 'landscape' ? 'backdrop' : kind;
+    if (cache.has(key)) { done(cache.get(key)); return; }
+    if (pendingPaints.has(kind)) { pendingPaints.get(kind).push(done); return; }
+    pendingPaints.set(kind, [done]);
     const finish = url => {
-      cache.set('backdrop', url);
-      const callbacks = pending;
-      pending = null;
+      cache.set(key, url);
+      const callbacks = pendingPaints.get(kind);
+      pendingPaints.delete(kind);
       callbacks.forEach(callback => callback(url));
     };
-    const local = () => finish(backdrop());
+    const local = () => finish(localPaint[kind]());
     if (typeof Worker !== 'function' || typeof OffscreenCanvas !== 'function' || !('convertToBlob' in OffscreenCanvas.prototype)) {
       local();
       return;
     }
     try {
-      const worker = new Worker('./scene-worker.js?v=speed');
+      const worker = new Worker('./scene-worker.js?v=title-art');
       worker.onmessage = ({data}) => {
         worker.terminate();
         if (data instanceof Blob) finish(URL.createObjectURL(data));
         else local();
       };
       worker.onerror = () => { worker.terminate(); local(); };
-      worker.postMessage('landscape');
+      worker.postMessage(kind);
     } catch {
       local();
     }
   }
-  window.SceneArt = supported ? {backdrop, backdropAsync, cover, landscape} : null;
+  window.SceneArt = supported ? {backdrop, backdropAsync, cover, landscape, titleScene, titleAsync} : null;
 })();
