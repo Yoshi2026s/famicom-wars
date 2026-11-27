@@ -3,6 +3,14 @@
 // mountains) and draws the facility sprites for each owner. Everything is generated
 // in the browser once per map, so the game ships no extra image files for it.
 (() => {
+  const inWorker = typeof document === 'undefined';
+  function makeCanvas(width, height) {
+    if (inWorker) return new OffscreenCanvas(width, height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
   const waterIds = new Set(['sea', 'shoal']);
   const roadIds = new Set(['road', 'bridge']);
   const riverIds = new Set(['river', 'bridge']);
@@ -32,15 +40,19 @@
     ctx.closePath();
   }
 
-  function terrainGrid(game) {
+  function terrainIds(game) {
     const ids = [];
     for (let y = 0; y < game.height; y++) {
       const row = [];
       for (let x = 0; x < game.width; x++) row.push(game.terrainAt(x, y).id);
       ids.push(row);
     }
-    const at = (x, y) => ids[Math.max(0, Math.min(game.height - 1, y))][Math.max(0, Math.min(game.width - 1, x))];
-    return {ids, at, width: game.width, height: game.height};
+    return ids;
+  }
+  function terrainGrid(ids) {
+    const height = ids.length, width = ids[0].length;
+    const at = (x, y) => ids[Math.max(0, Math.min(height - 1, y))][Math.max(0, Math.min(width - 1, x))];
+    return {ids, at, width, height};
   }
 
   // Distance (in tiles) from land for every water tile, used for the depth colours.
@@ -70,9 +82,7 @@
     };
     const tileColor = grid.ids.map((row, y) => row.map((id, x) => colorOf(id, depth[y][x])));
     const K = 8;
-    const mid = document.createElement('canvas');
-    mid.width = grid.width * K;
-    mid.height = grid.height * K;
+    const mid = makeCanvas(grid.width * K, grid.height * K);
     const m = mid.getContext('2d');
     const pixels = m.createImageData(mid.width, mid.height);
     const smooth = t => t * t * (3 - 2 * t);
@@ -404,37 +414,40 @@
     }
   }
 
-  function paintTerrain(canvas, game, T) {
-    const grid = terrainGrid(game);
-    canvas.width = grid.width * T;
-    canvas.height = grid.height * T;
+  // The terrain is painted in steps so the main-thread fallback can yield between them.
+  function terrainSteps(ids, T) {
+    const grid = terrainGrid(ids);
+    const canvas = makeCanvas(grid.width * T, grid.height * T);
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    paintWater(ctx, grid, T);
-    paintLand(ctx, grid, T);
-    grid.ids.forEach((row, y) => row.forEach((id, x) => {
+    const steps = [() => paintWater(ctx, grid, T), () => paintLand(ctx, grid, T), () => grid.ids.forEach((row, y) => row.forEach((id, x) => {
       if (id === 'plains' || id === 'forest' || id === 'road') grassDetail(ctx, x, y, T);
       if (id === 'marsh') paintMarsh(ctx, x, y, T);
-    }));
-    paintRivers(ctx, grid, T);
-    paintRoads(ctx, grid, T);
-    // Tall scenery is drawn back to front so it can overlap the row above.
-    const tall = [];
-    grid.ids.forEach((row, y) => row.forEach((id, x) => {
-      if (id === 'forest') {
-        const r = seeded(x, y, 8);
-        const spots = [[.25, .42], [.68, .38], [.47, .62], [.2, .86], [.75, .84], [.5, .98]];
-        for (const [sx, sy] of spots) tall.push({y: y + sy * .9, draw: () => tree(ctx, (x + sx + (r() - .5) * .1) * T, (y + sy * .9) * T, T * (.46 + r() * .12), r)});
-      }
-      if (id === 'mountain') tall.push({y: y + .9, draw: () => mountain(ctx, x, y, T)});
-    }));
-    tall.sort((a, b) => a.y - b.y).forEach(item => item.draw());
-    // A soft light from the upper left.
-    const light = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    light.addColorStop(0, 'rgba(255,246,210,.10)');
-    light.addColorStop(1, 'rgba(20,30,60,.10)');
-    ctx.fillStyle = light;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    })), () => paintRivers(ctx, grid, T), () => paintRoads(ctx, grid, T), () => {
+      // Tall scenery is drawn back to front so it can overlap the row above.
+      const tall = [];
+      grid.ids.forEach((row, y) => row.forEach((id, x) => {
+        if (id === 'forest') {
+          const r = seeded(x, y, 8);
+          const spots = [[.25, .42], [.68, .38], [.47, .62], [.2, .86], [.75, .84], [.5, .98]];
+          for (const [sx, sy] of spots) tall.push({y: y + sy * .9, draw: () => tree(ctx, (x + sx + (r() - .5) * .1) * T, (y + sy * .9) * T, T * (.46 + r() * .12), r)});
+        }
+        if (id === 'mountain') tall.push({y: y + .9, draw: () => mountain(ctx, x, y, T)});
+      }));
+      tall.sort((a, b) => a.y - b.y).forEach(item => item.draw());
+    }, () => {
+      // A soft light from the upper left.
+      const light = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      light.addColorStop(0, 'rgba(255,246,210,.10)');
+      light.addColorStop(1, 'rgba(20,30,60,.10)');
+      ctx.fillStyle = light;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }];
+    return {canvas, steps};
+  }
+  function paintTerrain(ids, T) {
+    const {canvas, steps} = terrainSteps(ids, T);
+    steps.forEach(step => step());
+    return canvas;
   }
 
   // ---- Facility sprites -------------------------------------------------------------
@@ -577,31 +590,118 @@
     },
   };
 
-  function facilityImage(kind, owner) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
+  function facilityCanvas(kind, owner) {
+    const canvas = makeCanvas(128, 128);
     const ctx = canvas.getContext('2d');
     ctx.lineJoin = 'round';
     facilityDrawers[kind](ctx, palettes[owner]);
-    return canvas.toDataURL('image/png');
+    return canvas;
   }
-
-  let facilitiesReady = false;
-  function installFacilities() {
-    if (facilitiesReady) return;
-    const root = document.documentElement;
+  function facilityList() {
+    const list = [];
     for (const kind of Object.keys(facilityDrawers)) {
       for (const owner of ['friendly', 'enemy', 'neutral']) {
-        if (kind === 'headquarters' && owner === 'neutral') continue;
-        root.style.setProperty(`--art-${kind}-${owner}`, `url("${facilityImage(kind, owner)}")`);
+        if (kind !== 'headquarters' || owner !== 'neutral') list.push([kind, owner]);
       }
     }
+    return list;
+  }
+
+  if (inWorker) {
+    self.MapArt = {paintTerrain, facilityCanvas, facilityList};
+    return;
+  }
+
+  function facilityImage(kind, owner) {
+    return facilityCanvas(kind, owner).toDataURL('image/png');
+  }
+
+  // ---- Painting off the main thread ----------------------------------------------------
+  // public/map-worker.js paints the terrain and facility sprites with OffscreenCanvas.
+  // Browsers without it (older Safari) or a failing worker fall back to painting here,
+  // after the first frame and in small steps so the page stays responsive.
+  let worker = null, workerBroken = !('Worker' in window && 'OffscreenCanvas' in window);
+  const waiting = new Map();
+  let nextRequest = 1;
+  function failWorker() {
+    workerBroken = true;
+    worker?.terminate();
+    worker = null;
+    const pending = [...waiting.values()];
+    waiting.clear();
+    pending.forEach(request => request.fallback());
+  }
+  function askWorker(message, done, fallback) {
+    if (!workerBroken && !worker) {
+      try {
+        worker = new Worker('./map-worker.js?v=map-worker');
+        worker.onmessage = event => {
+          const request = waiting.get(event.data?.id);
+          if (!request) return;
+          waiting.delete(event.data.id);
+          if (event.data.ok) request.done(event.data);
+          else failWorker(), request.fallback();
+        };
+        worker.onerror = event => { event.preventDefault?.(); failWorker(); };
+      } catch {
+        workerBroken = true;
+      }
+    }
+    if (workerBroken) { fallback(); return; }
+    const id = nextRequest++;
+    waiting.set(id, {done, fallback});
+    worker.postMessage({...message, id});
+  }
+  const afterFrame = fn => requestAnimationFrame(() => setTimeout(fn, 0));
+  function runSteps(steps, done) {
+    let i = 0;
+    const next = () => {
+      const started = performance.now();
+      try {
+        while (i < steps.length && performance.now() - started < 30) steps[i++]();
+      } catch (error) { done(error); return; }
+      if (i < steps.length) setTimeout(next, 0); else done();
+    };
+    afterFrame(next);
+  }
+
+  let facilitiesState = 'idle';
+  function applyFacilities(urls) {
+    const root = document.documentElement;
+    for (const [key, url] of urls) root.style.setProperty(`--art-${key}`, `url("${url}")`);
     root.classList.add('map-art');
-    facilitiesReady = true;
+    root.classList.remove('map-art-pending');
+    facilitiesState = 'ready';
+  }
+  function installFacilities() {
+    if (facilitiesState !== 'idle') return;
+    facilitiesState = 'loading';
+    // Hide the old pixel sprites on the board until the painted ones arrive.
+    document.documentElement.classList.add('map-art-pending');
+    const onMain = () => {
+      const list = facilityList();
+      const urls = [];
+      runSteps(list.map(([kind, owner]) => () => urls.push([`${kind}-${owner}`, facilityImage(kind, owner)])), error => {
+        if (error) {
+          facilitiesState = 'failed';
+          document.documentElement.classList.remove('map-art-pending');
+          console.warn('map art unavailable', error);
+        }
+        else applyFacilities(urls);
+      });
+    };
+    askWorker({type: 'facilities'}, data => applyFacilities(data.sprites.map(([key, blob]) => [key, URL.createObjectURL(blob)])), onMain);
   }
 
   // ---- Board integration -------------------------------------------------------------
-  let observer;
+  let observer, paintToken = 0;
+  function showTerrain(board, canvas, source) {
+    canvas.width = source.width;
+    canvas.height = source.height;
+    canvas.getContext('2d').drawImage(source, 0, 0);
+    source.close?.();
+    canvas.classList.add('painted');
+  }
   function paintBoard(board, game) {
     try {
       installFacilities();
@@ -612,18 +712,39 @@
         canvas.setAttribute('aria-hidden', 'true');
       }
       board.prepend(canvas);
+      const ids = terrainIds(game);
+      const mapKey = `${game.scenario?.id ?? 'legacy'}:${game.width}x${game.height}`;
       const draw = () => {
         const cssTile = board.clientWidth / game.width || 48;
         const scale = Math.min(window.devicePixelRatio || 1, 2);
         // Keep the canvas within the size limits of mobile browsers.
         const T = Math.max(24, Math.min(128, Math.round(cssTile * scale / 8) * 8, Math.floor(4096 / game.width), Math.floor(4096 / game.height)));
-        if (canvas.dataset.tile === String(T) && canvas.dataset.map === board.dataset.artMap) return;
+        if (canvas.dataset.tile === String(T) && canvas.dataset.map === mapKey) return;
         canvas.dataset.tile = String(T);
-        canvas.dataset.map = board.dataset.artMap;
-        paintTerrain(canvas, game, T);
-        board.classList.add('art-ready');
+        canvas.dataset.map = mapKey;
+        const token = ++paintToken;
+        const fail = error => {
+          if (token !== paintToken) return;
+          board.classList.remove('art-ready');
+          delete canvas.dataset.tile;
+          console.warn('map art unavailable', error);
+        };
+        const onMain = () => {
+          let job;
+          try { job = terrainSteps(ids, T); } catch (error) { fail(error); return; }
+          runSteps(job.steps, error => {
+            if (token !== paintToken) return;
+            if (error) fail(error); else showTerrain(board, canvas, job.canvas);
+          });
+        };
+        askWorker({type: 'terrain', ids, T}, data => {
+          if (token === paintToken) showTerrain(board, canvas, data.bitmap);
+          else data.bitmap.close?.();
+        }, onMain);
       };
-      board.dataset.artMap = `${game.scenario?.id ?? 'legacy'}:${game.width}x${game.height}`;
+      if (board.dataset.artMap !== mapKey) canvas.classList.remove('painted');
+      board.dataset.artMap = mapKey;
+      board.classList.add('art-ready');
       delete canvas.dataset.tile;
       draw();
       observer?.disconnect();
