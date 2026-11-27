@@ -1786,7 +1786,45 @@ function savedMatchExists() {
     return false;
   }
 }
+// The title scene is painted in code (scene-art.js, in a worker when possible) after the
+// title first appears, then the units are laid over it one per frame.
+const titleUnits = [
+  {id: 'bomber', team: 'enemy', x: 64, y: 17, w: 22, kind: 'fly far'},
+  {id: 'fighter', team: 'friendly', x: 11, y: 21, w: 30, kind: 'fly'},
+  {id: 'fighter', team: 'friendly', x: 38, y: 26.5, w: 22, kind: 'fly late'},
+  {id: 'destroyer', team: 'enemy', x: 66, y: 38.5, w: 20, kind: 'sail far'},
+  {id: 'battleship', team: 'friendly', x: 12, y: 34.5, w: 38, kind: 'sail'},
+  {id: 'tank', team: 'friendly', x: 10, y: 54, w: 40, kind: 'land'},
+  {id: 'infantry', team: 'friendly', x: 55, y: 61.5, w: 22, kind: 'land'},
+];
+let titleArtStarted = false;
+function paintTitleArt() {
+  if (titleArtStarted || !window.SceneArt) return;
+  titleArtStarted = true;
+  const art = document.getElementById('title-art');
+  const backdrop = document.getElementById('title-backdrop');
+  requestAnimationFrame(() => setTimeout(() => SceneArt.titleAsync(url => {
+    backdrop.addEventListener('load', () => {
+      art.classList.add('ready');
+      if (!window.UnitArt) return;
+      const add = index => {
+        const unit = titleUnits[index];
+        if (!unit) return;
+        const image = new Image();
+        image.className = `title-unit ${unit.kind}`;
+        image.alt = '';
+        image.style.cssText = `left:${unit.x}%;top:${unit.y}%;width:${unit.w}%`;
+        image.src = UnitArt.still(unit.id, unit.team);
+        art.append(image);
+        requestAnimationFrame(() => setTimeout(() => add(index + 1), 0));
+      };
+      add(0);
+    }, {once: true});
+    backdrop.src = url;
+  }), 0));
+}
 function showTitle() {
+  paintTitleArt();
   for (const dialog of [gameMenu, menuConfirm, guide, newMatchDialog]) if (dialog.open) dialog.close();
   const resumable = savedMatchExists() && !game.result;
   titleResume.disabled = !resumable;
