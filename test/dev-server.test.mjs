@@ -1,7 +1,42 @@
 import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
+import { createInterface } from 'node:readline';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { createDevServer } from '../dev-server.mjs';
+
+const serverScript = fileURLToPath(new URL('../dev-server.mjs', import.meta.url));
+
+test('プレビュー用に割り当てられたポートで起動し、実際のURLを表示する', {timeout: 10000}, async () => {
+  const child = spawn(process.execPath, [serverScript], {
+    env: {...process.env, PORT: '0'},
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const closed = once(child, 'close');
+  const lines = createInterface({input: child.stdout});
+  try {
+    const {value: url} = await lines[Symbol.asyncIterator]().next();
+    assert.match(url, /^http:\/\/127\.0\.0\.1:[1-9]\d*\/$/);
+    const response = await fetch(url);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /<title>スマホウォーズ/);
+  } finally {
+    lines.close();
+    child.kill();
+    await closed;
+  }
+});
+
+test('不正なポート指定を起動時に報告する', () => {
+  for (const port of ['invalid', '65536']) {
+    const result = spawnSync(process.execPath, [serverScript], {
+      env: {...process.env, PORT: port}, encoding: 'utf8', timeout: 5000,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PORT には/);
+  }
+});
 
 test('トップページを配信し、公開範囲外のファイルを返さない', async (context) => {
   const server = createDevServer();

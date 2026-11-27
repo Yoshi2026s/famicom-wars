@@ -44,6 +44,8 @@ BGMと効果音は個別に設定でき、選んだ設定はブラウザーに�
 
 ## ローカル開発
 
+Codex と Claude Code で開発するときは、[共同開発ガイド](docs/DEVELOPMENT-HANDOFF.md) と [Claude Code に最初に貼るプロンプト](docs/CLAUDE-FIRST-PROMPT.md) を使います。
+
 Node.js 24 を使います。追加パッケージのインストールは不要です。
 
 ```powershell
