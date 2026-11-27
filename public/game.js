@@ -228,11 +228,19 @@ function tileAt({x, y}) {
   return cells[y * game.width + x].button;
 }
 
-function unitImage(type, enemy = false) {
+// Realistic unit art from unit-art.js when the browser can draw it, otherwise the pixel sprites.
+function unitImage(type, enemy = false, facing) {
+  if (window.UnitArt) return window.UnitArt.icon(type.id, enemy ? 'enemy' : 'friendly', facing);
   if (enemy && type.id !== 'support') return `./assets/enemy-${type.id}.png?v=unit-combat`;
   const sprite = !enemy && type.id === 'support' ? 'friendly-support' : type.id;
   return `./assets/${sprite}.png?v=unit-combat`;
 }
+
+// Frame-animated map sprites exist only for the pixel art.
+function unitMotion(id) {
+  return window.UnitArt ? null : mapUnitMotion[id];
+}
+if (window.UnitArt) document.documentElement.classList.add('unit-art');
 
 function showImage(image, source) {
   if (image.getAttribute('src') !== source) image.src = source;
@@ -535,7 +543,7 @@ function render() {
     cell.info = info.filter(item => item !== '選択中');
     button.classList.toggle('inspected', cell === inspectedCell && !waiting);
     const unit = enemy ?? friendly;
-    const motion = unit && mapUnitMotion[unit.type.id];
+    const motion = unit && unitMotion(unit.type.id);
     image.hidden = !unit;
     idleSprite.hidden = !motion;
     button.toggleAttribute('data-static-unit', Boolean(unit && !motion));
@@ -914,7 +922,7 @@ function highlightFriendlyRoute(path) {
 
 function showStride(unit, from, to, enemy, duration) {
   strideSprite?.remove();
-  const motion = mapUnitMotion[unit.type.id];
+  const motion = unitMotion(unit.type.id);
   if ((motion && !board.classList.contains('map-march-ready')) || reducedMapMotion.matches
     || (from.x === to.x && from.y === to.y)) return;
   const tile = tileAt(to);
@@ -930,7 +938,7 @@ function showStride(unit, from, to, enemy, duration) {
     shell.style.setProperty('--atlas-row', `${atlasRow / 7 * 100}%`);
   } else {
     shell.setAttribute('data-static', '');
-    sprite.src = unitImage(unit.type, enemy);
+    sprite.src = unitImage(unit.type, enemy, 'right');
     sprite.alt = '';
   }
   shell.style.setProperty('--stride-x', `${(from.x - to.x) * 100}%`);
