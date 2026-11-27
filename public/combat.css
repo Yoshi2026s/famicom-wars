@@ -408,6 +408,13 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
 @media (max-width: 360px) {
   #combat-turn { font-size: 12px; }
   .combat-heading { padding-inline: 8px; gap: 5px; }
+  .combat-team { grid-template-columns: auto 1fr; gap: 2px 6px; }
+  .combat-team strong { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .combat-team small { grid-row: 3; }
+  .combat-team .force-health { grid-row: 3; }
+}
+@media (max-height: 640px) {
+  .combat-field { height: clamp(180px,40dvh,460px); }
 }
 @media (max-height: 460px) {
   .combat-field { height: clamp(99px,43dvh,180px); }
