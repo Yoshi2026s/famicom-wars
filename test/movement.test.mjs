@@ -12,10 +12,10 @@ test('未選択では移動せず、歩兵の再選択で取り消せる', () =>
   assert.equal(map.selected, false);
 });
 
-test('D2の歩兵は地形と味方の位置を考慮して移動力2の範囲を選べる', () => {
+test('D2の歩兵は地形を考慮し、味方のマスを通過して移動力2の範囲を選べる', () => {
   const map = new BattleMap();
   map.choose(3, 1);
-  assert.deepEqual([...map.movementTargets().keys()].sort(), ['2,0', '3,0', '3,2', '4,0', '4,1', '5,1']);
+  assert.deepEqual([...map.movementTargets().keys()].sort(), ['1,1', '2,0', '2,2', '3,0', '3,2', '4,0', '4,1', '5,1']);
   for (const [x, y] of [[-1, 1], [3, 1.5], [14, 2], [4, 10], [5, 0], [2, 1]]) {
     assert.equal(map.canMoveTo(x, y), false);
   }
@@ -82,3 +82,16 @@ for (const selected of [true, false]) {
     assert.equal(map.enemyAt(11, 1), undefined);
   });
 }
+
+test('味方のマスは通過できるが、敵のマスは通過できない', () => {
+  const map = new BattleMap();
+  const [, infantry, support] = map.friendlyUnits;
+  map.choose(infantry.x, infantry.y);
+  assert.equal(map.canMoveTo(support.x, support.y), false);
+  assert.equal(map.canMoveTo(support.x - 1, support.y), true);
+  map.choose(infantry.x, infantry.y);
+  const enemy = map.enemyUnits[0];
+  [enemy.x, enemy.y, support.x, support.y] = [support.x, support.y, enemy.x, enemy.y];
+  map.choose(infantry.x, infantry.y);
+  assert.equal(map.canMoveTo(enemy.x - 1, enemy.y), false);
+});

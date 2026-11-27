@@ -85,7 +85,7 @@ test('偵察車の隣接攻撃と支援車の遠距離攻撃はどちらも射�
   assert.equal(game.canAttack, false);
 });
 
-test('味方3部隊は同じターンに1回ずつ移動し、味方のマスを通らず、次のターンに再び動ける', () => {
+test('味方3部隊は同じターンに1回ずつ移動し、味方のマスは通過できても止まれず、次のターンに再び動ける', () => {
   const game = new BattleMap();
   const [scout, infantry, support] = game.friendlyUnits;
   assert.deepEqual(game.friendlyUnits.map(unit => [unit.type.id, unit.x, unit.y]), [
@@ -95,7 +95,7 @@ test('味方3部隊は同じターンに1回ずつ移動し、味方のマスを
   game.choose(3, 5);
   game.choose(infantry.x, infantry.y);
   assert.equal(game.canMoveTo(support.x, support.y), false);
-  assert.equal(game.canMoveTo(1, 1), false); // Reaching B2 would require crossing the support vehicle's tile.
+  assert.equal(game.canMoveTo(1, 1), true); // The infantry can pass through the support vehicle's tile to reach B2.
   game.choose(3, 2);
   game.choose(support.x, support.y);
   game.choose(2, 2);

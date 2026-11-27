@@ -27,14 +27,9 @@ main[data-mobile-field]:has(.orders-actions:not([hidden])) { padding-bottom: cal
   padding: 0 0 2px;
   overflow: auto;
   overscroll-behavior: contain;
-  scroll-padding: 20px 0 0 20px;
   background: #222e3c;
 }
-[data-mobile-field] .map-surround .chart { grid-template-rows: 20px 1fr; min-width: calc(var(--columns) * 48px + 20px); }
-[data-mobile-field] .chart::before, [data-mobile-field] :is(.letters, .numbers) { background: #202d3d; color: #fff2d1; font-size: 12px; }
-[data-mobile-field] .chart::before { content: ""; grid-area: 1 / 1; position: sticky; top: 0; left: 0; z-index: 4; }
-[data-mobile-field] .letters { position: sticky; top: 0; z-index: 3; }
-[data-mobile-field] .numbers { z-index: 2; }
+[data-mobile-field] .map-surround .chart { min-width: calc(var(--columns) * 48px); }
 .field-tools {
   display: grid;
   grid-template-columns: repeat(4, minmax(48px, 1fr));
