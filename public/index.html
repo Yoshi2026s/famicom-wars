@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="./combat.css?v=content2">
     <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=content2"></script>
-    <script defer src="./rules.js?v=content2"></script>
+    <script defer src="./map-generator.js?v=balance2"></script>
+    <script defer src="./rules.js?v=balance2"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
@@ -249,9 +249,9 @@
       <h2 id="new-match-title">新しい対戦</h2>
       <p id="new-match-note">CPUの強さを選ぶと、新しいマップで対戦を始めます。今の対戦の進行は上書きされます。</p>
       <div class="level-choices">
-        <button type="button" data-level="easy"><b>やさしい</b><small>CPUの収入55%。判断が甘く、危険をあまり気にしない</small></button>
+        <button type="button" data-level="easy"><b>やさしい</b><small>CPUの収入50%。判断が甘く、危険をあまり気にしない</small></button>
         <button type="button" data-level="normal"><b>ふつう</b><small>標準の収入と判断</small></button>
-        <button type="button" data-level="hard"><b>つよい</b><small>CPUの収入135%。反撃をより慎重に避ける</small></button>
+        <button type="button" data-level="hard"><b>つよい</b><small>CPUの収入125%。反撃をより慎重に避ける</small></button>
       </div>
       <form method="dialog"><button class="replay" id="new-match-cancel" autofocus>やめる</button></form>
     </dialog>

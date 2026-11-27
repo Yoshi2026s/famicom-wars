@@ -65,9 +65,9 @@ const canCapture = type => type.id === infantry.id || Boolean(type.captures);
 // CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
 // most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
 const difficulties = Object.freeze({
-  easy: Object.freeze({income: .55, jitter: 5, caution: .25}),
+  easy: Object.freeze({income: .5, jitter: 5, caution: .25}),
   normal: Object.freeze({income: 1, jitter: 0, caution: 1}),
-  hard: Object.freeze({income: 1.35, jitter: 0, caution: 1.3}),
+  hard: Object.freeze({income: 1.25, jitter: 0, caution: 1.3}),
 });
 function jitter(...parts) {
   let h = 2166136261;
@@ -88,10 +88,10 @@ const coastalTypes = new Map([
     bonus: {scout: 1, support: 1, antiair: 1, tank: 1}, trait: '装甲が厚く受けるダメージ-1。足は遅く山は通れない'},
   {id: 'artillery', name: '自走砲', movement: 4, minRange: 2, maxRange: 4, cost: 4500, firepower: 5, targets: [land, sea], stationary: true, trait: '射程2〜4。移動したターンは攻撃できない'},
   {id: 'rocket', name: 'ロケット砲', movement: 4, minRange: 3, maxRange: 6, cost: 6500, firepower: 6, targets: [land, sea], stationary: true, trait: '射程3〜6。接近されると攻撃できない'},
-  {id: 'mortar', name: '迫撃砲兵', movement: 2, minRange: 2, maxRange: 3, cost: 3000, firepower: 4, targets: [land, sea], foot: true, stationary: true,
-    bonus: {infantry: 1, antitank: 1, mortar: 1}, trait: '山も越えられる砲撃歩兵。射程2〜3。移動したターンは攻撃できず、占領はできない'},
-  {id: 'samlauncher', name: '対空ミサイル車', movement: 4, minRange: 3, maxRange: 5, cost: 7000, firepower: 7, targets: [air], stationary: true,
-    trait: '射程3〜5の対空ミサイル。航空部隊専用で、移動したターンは攻撃できない'},
+  {id: 'mortar', name: '迫撃砲兵', movement: 3, minRange: 2, maxRange: 3, cost: 3000, firepower: 3, targets: [land, sea], foot: true, stationary: true,
+    bonus: {infantry: 2, antitank: 2, mortar: 2}, trait: '歩兵系に強い砲撃歩兵で、山も越えられる。射程2〜3。移動したターンは攻撃できず、占領はできない'},
+  {id: 'samlauncher', name: '対空ミサイル車', movement: 4, minRange: 3, maxRange: 5, cost: 7000, firepower: 4, targets: [air], bonus: {air: 3}, stationary: true,
+    trait: '射程3〜5の対空ミサイル。航空部隊専用で威力が高く、移動したターンは攻撃できない'},
   {id: 'antiair', name: '対空車', movement: 4, minRange: 1, maxRange: 2, cost: 4500, firepower: 3, targets: [land, air], bonus: {air: 3}, trait: '航空部隊への攻撃力が高い'},
   {id: 'drone', name: '無人攻撃機', domain: air, movement: 6, minRange: 1, maxRange: 1, cost: 3000, firepower: 3, targets: [land, sea],
     bonus: {infantry: 1, antitank: 1}, trait: '安価な航空部隊。歩兵に強い'},
@@ -105,11 +105,11 @@ const coastalTypes = new Map([
   {id: 'submarine', name: '潜水艦', domain: sea, movement: 5, minRange: 1, maxRange: 1, cost: 8000, firepower: 6, targets: [sea], submerged: true, antisub: true,
     bonus: {battleship: 2}, trait: '艦船だけを魚雷で攻撃。哨戒艇・駆逐艦・潜水艦にしか攻撃されない'},
   {id: 'cruiser', name: '巡洋艦', domain: sea, movement: 5, minRange: 1, maxRange: 3, cost: 9000, firepower: 5, targets: [land, sea, air],
-    bonus: {air: 2, submarine: 1}, antisub: true, trait: '射程1〜3。航空部隊に強く、潜水艦も攻撃できる'},
+    bonus: {air: 2}, antisub: true, trait: '射程1〜3。航空部隊に強く、潜水艦も攻撃できる'},
   {id: 'battleship', name: '戦艦', domain: sea, movement: 5, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
 ].map(type => [type.id, Object.freeze({domain: land, ...type})]));
 const facilityNames = {headquarters: '本拠地', city: '都市', factory: '工場', airfield: '飛行場', port: '港', oilfield: '油田', depot: '補給所', fortress: '要塞', hospital: '野戦病院'};
-const fleetLimit = 20;
+const fleetLimit = 24;
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function distanceBetween(from, to) {
@@ -870,6 +870,8 @@ class BattleMap {
         if (type.domain === sea && units.filter(unit => unit.type.domain === sea).length >= Math.max(1, opposing(sea) + 1)) continue;
         if (['antiair', 'samlauncher', 'fighter', 'destroyer', 'cruiser'].includes(type.id)) score += Math.min(8, opposing(air) * 3);
         if (type.id === 'fighter' && opposing(air) === 1) score -= 4;
+        // Air-only interceptors are wasted beyond one per aircraft the player fields.
+        if (type.targets.every(domain => domain === air) && units.filter(unit => unit.type.targets.every(domain => domain === air)).length >= opposing(air)) continue;
         if (type.domain === sea && opposing(sea)) score += 3;
         const nearest = Math.min(...reachable.map(foe => distanceBetween(factory, foe)));
         score -= nearest / (type.movement + type.maxRange);
@@ -997,6 +999,17 @@ class BattleMap {
       if (priority <= bestGoal) continue;
       approach = route;
       bestGoal = priority;
+    }
+    // A badly hurt unit heads for the nearest own site that can repair it (field hospitals first).
+    if (enemy.hp <= 3 && !canCapture(type)) {
+      let haven = null;
+      for (const site of this.sites) {
+        const route = routes.get(`${site.x},${site.y}`);
+        if (!route?.cost || !this.#canRecover(enemy, 'enemy', site) || this.friendlyAt(site.x, site.y)) continue;
+        const cost = route.cost - (site.kind === 'hospital' ? type.movement : 0);
+        if (cost <= type.movement * 3 && cost < (haven?.weight ?? Infinity)) haven = {route, weight: cost};
+      }
+      if (haven) approach = haven.route;
     }
     while (approach && (approach.cost > type.movement || !routes.has(`${approach.x},${approach.y}`))) {
       approach = approach.previous;

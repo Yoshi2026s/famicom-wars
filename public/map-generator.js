@@ -119,14 +119,16 @@
         if (steps.some(([dx, dy]) => inside(x + dx, y + dy) && grid[y + dy][x + dx] === 'p') && random() < .5) grid[y][x] = 'h';
       }
     }
-    // Reefs out in the open sea, away from every shore, so ports and beaches stay reachable.
+    // Reefs in open water, never touching land, so ports and beaches stay reachable.
     const reefNoise = noiseField(random, 2);
     const openSea = [];
-    for (let y = 1; y < height - 1; y++) for (let x = 1; x < half; x++) {
+    for (let y = 0; y < height; y++) for (let x = 1; x < half; x++) {
       if (grid[y][x] !== 'o') continue;
-      const nearLand = [[-2, 0], [2, 0], [0, -2], [0, 2], [-1, -1], [1, -1], [-1, 1], [1, 1], ...steps]
-        .some(([dx, dy]) => inside(x + dx, y + dy) && grid[y + dy][x + dx] !== 'o' && grid[y + dy][x + dx] !== 'e');
-      if (!nearLand && reefNoise(x, y) > .6) openSea.push({x, y, score: reefNoise(x, y)});
+      const nearLand = [[-1, -1], [1, -1], [-1, 1], [1, 1], ...steps]
+        .some(([dx, dy]) => inside(x + dx, y + dy) && grid[y + dy][x + dx] === 'p');
+      // Reef banks gather in the straits off the front, where the fleets meet.
+      const score = reefNoise(x, y) + (x >= 12 ? .15 : 0);
+      if (!nearLand && score > .6) openSea.push({x, y, score});
     }
     openSea.sort((a, b) => b.score - a.score).slice(0, Math.round(openSea.length / 3)).forEach(({x, y}) => { grid[y][x] = 'e'; });
     const coast = (x, y) => steps.some(([dx, dy]) => inside(x + dx, y + dy) && isWater(grid[y + dy][x + dx]));
@@ -161,14 +163,12 @@
       && place('city', 'neutral', spot => spot.x >= 12 && spot.x <= 17)
       && place('factory', 'neutral', spot => spot.x >= 12 && spot.x <= 17)
       // An oil field in contested ground: high income, but no production or repairs.
-      && place('oilfield', 'neutral', spot => spot.x >= 14 && spot.x <= 17)
-      // A fortress (cover 3 for land units inside, small income) inland near the front.
-      && place('fortress', 'neutral', spot => spot.x >= 11 && spot.x <= 17 && !coast(spot.x, spot.y));
+      && place('oilfield', 'neutral', spot => spot.x >= 14 && spot.x <= 17);
     if (!ok) return null;
     // A supply depot (repairs every kind of unit at half price) on the way to the front.
     if (random() < .75) place('depot', 'neutral', spot => spot.x >= 9 && spot.x <= 17);
     // A field hospital (land units recover 3 HP a turn) a little behind the front.
-    if (random() < .6) place('hospital', 'neutral', spot => spot.x >= 8 && spot.x <= 15);
+    if (random() < .6) place('hospital', 'neutral', spot => spot.x >= 11 && spot.x <= 16);
     if (random() < .7) place('city', 'neutral', spot => spot.x >= 9 && spot.x <= 17);
     if (random() < .4) place('city', 'neutral', spot => spot.x >= 10 && spot.x <= 17);
     if (random() < .5) {
@@ -185,6 +185,13 @@
       return Boolean(path);
     };
     if (!roadTo(seamTarget)) return null;
+    // A fortress (cover 3 for land units inside, small income) inland near the front,
+    // beside the main road so it guards the way in.
+    const besideRoad = spot => [[0, 0], ...steps, [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]]
+      .some(([dx, dy]) => inside(spot.x + dx, spot.y + dy) && grid[spot.y + dy][spot.x + dx] === 'd');
+    const fortressGround = spot => spot.x >= 11 && spot.x <= 17 && !coast(spot.x, spot.y);
+    if (!place('fortress', 'neutral', spot => fortressGround(spot) && besideRoad(spot))
+      && !place('fortress', 'neutral', fortressGround)) return null;
     for (const site of sites.filter(site => site.owner === 'friendly' && site.kind !== 'port')) roadTo(site);
 
     // A river that runs from the coast into the land, crossed by bridges where roads meet it.
@@ -212,7 +219,9 @@
       && Math.abs(x - hq.x) + Math.abs(y - hq.y) > 1);
     const ranked = (score, limit, filter) => open.filter(spot => grid[spot.y][spot.x] === 'p' && filter(spot) && score(spot) > 0)
       .sort((a, b) => score(b) - score(a)).slice(0, limit);
-    for (const {x, y} of ranked(({x, y}) => ridge(x, y) - .62, Math.round(landTiles.length / 11), ({x, y}) => !coast(x, y))) grid[y][x] = 'm';
+    // Mountains never wall a facility in: tanks must be able to drive to every site.
+    const besideSite = (x, y) => steps.some(([dx, dy]) => taken.has(`${x + dx},${y + dy}`));
+    for (const {x, y} of ranked(({x, y}) => ridge(x, y) - .62, Math.round(landTiles.length / 11), ({x, y}) => !coast(x, y) && !besideSite(x, y))) grid[y][x] = 'm';
     // A snowfield on the high northern ground and jungle in the humid south.
     const climate = noiseField(random, 2.4);
     for (const {x, y} of ranked(({x, y}) => climate(x, y) - .35, Math.round(landTiles.length / 16), ({x, y}) => y <= 7 && !coast(x, y))) grid[y][x] = 'n';
@@ -277,10 +286,17 @@
     return kinds('friendly') === kinds('enemy') && kinds('friendly').includes('factory');
   }
 
+  // New layouts must also let a tank drive to every facility, so nothing built at a factory,
+  // port or airfield is stranded. Saved maps are only held to validateGeneratedMap.
+  function vehiclesReachSites(map) {
+    const byTank = reach(map, map.headquarters.friendly, 'tank');
+    return map.sites.every(({x, y}) => byTank.has(`${x},${y}`));
+  }
+
   function generateMap(seed = Math.floor(Math.random() * 0x7fffffff)) {
     for (let tries = 0; tries < 400; tries++) {
       const map = attempt((seed + tries * 7919) >>> 0);
-      if (map && validateGeneratedMap(map)) return {...map, seed};
+      if (map && validateGeneratedMap(map) && vehiclesReachSites(map)) return {...map, seed};
     }
     throw new Error('map generation failed');
   }
