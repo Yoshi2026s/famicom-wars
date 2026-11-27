@@ -746,12 +746,18 @@
       board.dataset.artMap = mapKey;
       board.classList.add('art-ready');
       delete canvas.dataset.tile;
-      draw();
       observer?.disconnect();
       if ('ResizeObserver' in window) {
-        let pending;
-        observer = new ResizeObserver(() => { clearTimeout(pending); pending = setTimeout(draw, 200); });
+        // The first callback arrives right after the browser lays the board out, so the
+        // size is read without forcing an extra layout of the freshly built tiles.
+        let pending, first = true;
+        observer = new ResizeObserver(() => {
+          clearTimeout(pending);
+          if (first) { first = false; draw(); } else pending = setTimeout(draw, 200);
+        });
         observer.observe(board);
+      } else {
+        draw();
       }
     } catch (error) {
       board.classList.remove('art-ready');

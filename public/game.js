@@ -707,17 +707,24 @@ function showMap() {
     cityOverview.append(label);
   }
   buildBoard();
-  updateMapScrollNote();
   rosterEntries.length = 0;
   enemyRosterEntries.length = 0;
   roster.replaceChildren();
   enemyRoster.replaceChildren();
   setBoardTabStop(friendlyTile());
   render();
-  mapSurround.scrollLeft = 0;
-  mapSurround.scrollTop = 0;
-  revealTile(friendlyTile(), mobileField);
-  if (game.enemyTurn) runEnemyTurn(false);
+  // Read the layout in the next frame, once the board and its units are in place, so
+  // building the board and laying it out are not one long task. It still runs before
+  // the first paint, so the map does not visibly jump.
+  const shownGame = game;
+  requestAnimationFrame(() => {
+    if (game !== shownGame) return;
+    updateMapScrollNote();
+    mapSurround.scrollLeft = 0;
+    mapSurround.scrollTop = 0;
+    revealTile(friendlyTile(), mobileField);
+    if (game.enemyTurn) runEnemyTurn(false);
+  });
 }
 
 function revealTile(button, center = false) {
@@ -814,24 +821,83 @@ function setBoardTabStop(button) {
   boardTabStop = button;
 }
 
+// Every tile shares one template and one set of board listeners, so building a map
+// clones nodes instead of creating ~3,300 elements and ~940 listeners one by one.
+const tileTemplate = (() => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tile';
+  const image = document.createElement('img');
+  image.alt = '';
+  image.draggable = false;
+  button.append(image);
+  for (const name of ['map-idle', 'map-hp', 'unit-action', 'tile-production', 'capture-meter']) {
+    const part = document.createElement('span');
+    part.className = name;
+    part.setAttribute('aria-hidden', 'true');
+    if (name === 'tile-production') part.textContent = '生産';
+    button.append(part);
+  }
+  return button;
+})();
+const cellOfButton = new WeakMap();
+const boardCell = (target) => {
+  const button = target instanceof Element ? target.closest('.tile') : null;
+  return button && button.parentElement === board ? cellOfButton.get(button) : undefined;
+};
+board.addEventListener('focusin', (event) => {
+  const cell = boardCell(event.target);
+  if (cell) setBoardTabStop(cell.button);
+});
+board.addEventListener('click', (event) => {
+  const cell = boardCell(event.target);
+  if (!cell || inputBlocked()) return;
+  const {x, y, factory} = cell;
+  inspectedCell = null;
+  if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
+  if (game.selected && game.friendlyAt(x, y) === game.activeUnit && previewCaptureHere(cell, event)) return;
+  if (previewAction(cell, event)) return;
+  if (!game.friendlyAt(x, y)) {
+    inspectedCell = cell;
+    render();
+    return;
+  }
+  game.choose(x, y);
+  saveProgress();
+  render();
+});
+board.addEventListener('keydown', (event) => {
+  const cell = boardCell(event.target);
+  if (!cell || portraitMode.blocked) return;
+  const offsets = {ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1]};
+  if (!Object.hasOwn(offsets, event.key)) return;
+  event.preventDefault();
+  const [dx, dy] = offsets[event.key];
+  const nextX = Math.max(0, Math.min(game.width - 1, cell.x + dx));
+  const nextY = Math.max(0, Math.min(game.height - 1, cell.y + dy));
+  const next = cells[nextY * game.width + nextX].button;
+  next.focus({preventScroll: true});
+  revealTile(next);
+});
+
 function buildBoard() {
-  board.replaceChildren();
   cells.length = 0;
   const {width, height} = game;
   mapSurround.style.setProperty('--columns', width);
   mapSurround.style.setProperty('--rows', height);
   board.setAttribute('aria-label', `${width}列${height}行の作戦マップ`);
   document.getElementById('dimensions').textContent = `${width} × ${height}`;
+  const tiles = document.createDocumentFragment();
   for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) addTile(x, y);
+    for (let x = 0; x < width; x++) tiles.append(addTile(x, y));
   }
+  board.replaceChildren(tiles);
   window.MapArt?.paintBoard(board, game);
 }
 
 function addTile(x, y) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'tile';
+  const button = tileTemplate.cloneNode(true);
+  const [image, idleSprite, hpBadge, actionBadge, productionBadge] = button.children;
   const base = game.headquartersAt(x, y);
   const facility = game.facilityAt(x, y);
   const factory = game.productionSiteAt(x, y);
@@ -841,65 +907,13 @@ function addTile(x, y) {
   if (terrain === 'river' || terrain === 'bridge') drawWater(button, x, y);
   if (base) button.dataset.base = base;
   if (facility) button.dataset.facilityKind = facility.kind;
-  button.classList.toggle('last-column', x === game.width - 1);
-  button.classList.toggle('last-row', y === game.height - 1);
-  const image = document.createElement('img');
-  image.alt = '';
-  image.draggable = false;
-  button.append(image);
-  const idleSprite = document.createElement('span');
-  idleSprite.className = 'map-idle';
-  idleSprite.setAttribute('aria-hidden', 'true');
+  if (x === game.width - 1) button.classList.add('last-column');
+  if (y === game.height - 1) button.classList.add('last-row');
   idleSprite.style.setProperty('--idle-delay', `${-(x * 371 + y * 587) % 1600}ms`);
-  button.append(idleSprite);
-  const hpBadge = document.createElement('span');
-  hpBadge.className = 'map-hp';
-  hpBadge.setAttribute('aria-hidden', 'true');
-  button.append(hpBadge);
-  const actionBadge = document.createElement('span');
-  actionBadge.className = 'unit-action';
-  actionBadge.setAttribute('aria-hidden', 'true');
-  button.append(actionBadge);
-  const productionBadge = document.createElement('span');
-  productionBadge.className = 'tile-production';
-  productionBadge.setAttribute('aria-hidden', 'true');
-  productionBadge.textContent = '生産';
-  button.append(productionBadge);
-  const captureMeter = document.createElement('span');
-  captureMeter.className = 'capture-meter';
-  captureMeter.setAttribute('aria-hidden', 'true');
-  button.append(captureMeter);
   const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city, facility};
-  button.addEventListener('focus', () => setBoardTabStop(button));
-  button.addEventListener('click', (event) => {
-    if (inputBlocked()) return;
-    inspectedCell = null;
-    if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
-    if (game.selected && game.friendlyAt(x, y) === game.activeUnit && previewCaptureHere(cell, event)) return;
-    if (previewAction(cell, event)) return;
-    if (!game.friendlyAt(x, y)) {
-      inspectedCell = cell;
-      render();
-      return;
-    }
-    game.choose(x, y);
-    saveProgress();
-    render();
-  });
-  button.addEventListener('keydown', (event) => {
-    if (portraitMode.blocked) return;
-    const offsets = {ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1]};
-    if (!Object.hasOwn(offsets, event.key)) return;
-    event.preventDefault();
-    const [dx, dy] = offsets[event.key];
-    const nextX = Math.max(0, Math.min(game.width - 1, x + dx));
-    const nextY = Math.max(0, Math.min(game.height - 1, y + dy));
-    const next = cells[nextY * game.width + nextX].button;
-    next.focus({preventScroll: true});
-    revealTile(next);
-  });
+  cellOfButton.set(button, cell);
   cells.push(cell);
-  board.append(button);
+  return button;
 }
 
 function repeatedTap(event, opener) {
@@ -923,7 +937,7 @@ function drawWater(tile, x, y) {
   surface.className = 'water-surface';
   surface.setAttribute('aria-hidden', 'true');
   surface.style.setProperty('--shore-row', `${bank / 15 * 100}%`);
-  tile.append(surface);
+  tile.prepend(surface);
 }
 
 function highlightFriendlyRoute(path) {
