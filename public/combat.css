@@ -428,3 +428,120 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
   #combat-screen *, #combat-screen *::before, #combat-screen *::after { animation: none !important; transition: none !important; }
   .combat-camera { transform: none !important; }
 }
+
+/* ---- Combat screen visual upgrade: squadrons, skies, blasts and cinematic framing ---- */
+.platoon .formation:not([data-kind="infantry"]) .fighter {
+  left: var(--vx, 31%); bottom: calc(var(--vy, 11%) + var(--lift, 0%)); width: 46%; max-width: 132px;
+  scale: var(--vs, 1); z-index: var(--vz, 2); transform-origin: 50% 100%;
+}
+.formation[data-domain="air"] { --lift: 24%; }
+.formation[data-domain="sea"] { --lift: -3%; }
+.formation[data-domain="air"] .fighter-sprite { animation: squadron-hover 2.4s var(--bob-delay, 0s) ease-in-out infinite; }
+.formation[data-domain="sea"] .fighter-sprite { animation: squadron-sway 3.2s var(--bob-delay, 0s) ease-in-out infinite; }
+@keyframes squadron-hover { 50% { translate: 0 -7%; } }
+@keyframes squadron-sway { 50% { translate: 0 3%; rotate: -1.5deg; } }
+
+.combat-clouds { position: absolute; inset: 0 0 45%; z-index: -1; pointer-events: none; overflow: hidden; }
+.combat-clouds i {
+  position: absolute; top: var(--cy); left: -40%; width: var(--cw); aspect-ratio: 4 / 1; border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 60%, #fff3e2d9, #ffe6d066 45%, transparent 70%);
+  opacity: .55; animation: cloud-drift var(--ct) linear infinite; animation-delay: var(--cd);
+}
+.combat-clouds i:nth-child(1) { --cy: 6%; --cw: 46%; --ct: 38s; --cd: -6s; }
+.combat-clouds i:nth-child(2) { --cy: 26%; --cw: 62%; --ct: 52s; --cd: -30s; opacity: .4; }
+.combat-clouds i:nth-child(3) { --cy: 48%; --cw: 38%; --ct: 30s; --cd: -17s; opacity: .32; }
+@keyframes cloud-drift { to { translate: 260% 0; } }
+
+[data-skies] .combat-backdrop {
+  background: radial-gradient(ellipse at 70% 30%, #ffe7b4 0 4%, #ffb98a99 7%, transparent 26%),
+    linear-gradient(#2d3d78 0%, #6c6fa8 34%, #e59b8c 72%, #f5c49a 100%);
+}
+[data-skies] .combat-backdrop img { visibility: hidden; }
+[data-skies] .combat-clouds { inset: 0; }
+[data-skies] .combat-clouds i { opacity: .7; }
+[data-skies] .combat-atmosphere { opacity: .2; }
+[data-skies] .formation::before { display: none; }
+
+.combat-blast, .combat-ring, .combat-debris { position: absolute; left: var(--hit-x); top: var(--hit-y); opacity: 0; pointer-events: none; }
+.combat-blast {
+  width: clamp(54px, 22%, 130px); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; mix-blend-mode: screen;
+  background: radial-gradient(circle, #fffbe0 0 14%, #ffd36b 26%, #ff8a3d 44%, #d2432b88 60%, transparent 70%);
+}
+.combat-ring { width: clamp(40px, 16%, 96px); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: 3px solid #fff1c6; }
+.combat-debris { width: 0; height: 0; }
+.combat-debris i {
+  position: absolute; width: 5px; height: 5px; background: #3b302c; box-shadow: 0 0 0 1px #ffb06266;
+}
+.combat-debris i:nth-child(1) { --dx: -46px; --dy: -58px; }
+.combat-debris i:nth-child(2) { --dx: 38px; --dy: -66px; background: #ffcf6e; }
+.combat-debris i:nth-child(3) { --dx: 62px; --dy: -24px; }
+.combat-debris i:nth-child(4) { --dx: -66px; --dy: -18px; background: #ffcf6e; }
+.combat-debris i:nth-child(5) { --dx: -20px; --dy: -80px; }
+.combat-debris i:nth-child(6) { --dx: 18px; --dy: -42px; background: #ff9a52; }
+.combat-debris i:nth-child(7) { --dx: 74px; --dy: -52px; }
+.combat-debris i:nth-child(8) { --dx: -78px; --dy: -46px; background: #ff9a52; }
+[data-phase="impact"] .combat-blast { animation: blast-bloom .62s ease-out both; }
+[data-phase="impact"] .combat-ring { animation: blast-ring .5s ease-out both; }
+[data-phase="impact"] .combat-debris { opacity: 1; }
+[data-phase="impact"] .combat-debris i { animation: debris-fly .72s cubic-bezier(.2,.7,.4,1) both; }
+[data-phase="impact"][data-lethal="true"] .combat-blast { animation: blast-bloom-lethal .95s ease-out both; }
+@keyframes blast-bloom { from { opacity: 1; scale: .15; } 35% { opacity: 1; scale: 1; } to { opacity: 0; scale: 1.35; } }
+@keyframes blast-bloom-lethal {
+  from { opacity: 1; scale: .2; } 25% { opacity: 1; scale: 1.25; } 45% { opacity: .85; scale: 1.05; }
+  60% { opacity: 1; scale: 1.6; } to { opacity: 0; scale: 1.9; }
+}
+@keyframes blast-ring { from { opacity: .95; scale: .2; } to { opacity: 0; scale: 2.6; border-width: 1px; } }
+@keyframes debris-fly {
+  from { translate: 0 0; rotate: 0deg; opacity: 1; }
+  55% { translate: calc(var(--dx) * .8) var(--dy); opacity: 1; }
+  to { translate: var(--dx) calc(var(--dy) * -.15); rotate: 540deg; opacity: 0; }
+}
+[data-phase="impact"] .combat-camera { animation: camera-shake .42s linear both; }
+[data-phase="impact"][data-lethal="true"] .combat-camera { animation: camera-shake .6s linear both; }
+@keyframes camera-shake {
+  10% { translate: -6px 3px; } 25% { translate: 5px -4px; } 40% { translate: -4px 2px; }
+  60% { translate: 3px -1px; } 80% { translate: -1px 1px; } to { translate: 0 0; }
+}
+
+.combat-flash { position: absolute; inset: 0; z-index: 11; pointer-events: none; background: #fff6dc; opacity: 0; }
+[data-phase="impact"] .combat-flash { animation: impact-flash .26s ease-out both; }
+@keyframes impact-flash { from { opacity: .5; } to { opacity: 0; } }
+
+.combat-letterbox { position: absolute; inset: 0; z-index: 11; pointer-events: none; }
+.combat-letterbox::before, .combat-letterbox::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 7%; background: #0b0e17; transition: scale .3s ease-out;
+}
+.combat-letterbox::before { top: 0; transform-origin: top; scale: 1 0; }
+.combat-letterbox::after { bottom: 0; transform-origin: bottom; scale: 1 0; }
+:is([data-phase="aim"], [data-phase="attack"], [data-phase="impact"]) .combat-letterbox::before,
+:is([data-phase="aim"], [data-phase="attack"], [data-phase="impact"]) .combat-letterbox::after { scale: 1 1; }
+
+.combat-versus {
+  position: absolute; inset: 0; z-index: 14; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  pointer-events: none; opacity: 0; visibility: hidden;
+}
+.combat-versus b {
+  padding: 10px 12px; color: #fff8e4; font-size: clamp(15px, 4.4vw, 24px); font-weight: 900; letter-spacing: .06em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 0 #00000066;
+}
+.versus-ally { justify-self: stretch; text-align: right; background: linear-gradient(90deg, transparent, #1f6f6aee 30%); clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%); }
+.versus-foe { justify-self: stretch; background: linear-gradient(270deg, transparent, #8a3b33ee 30%); clip-path: polygon(8% 0, 100% 0, 100% 100%, 0 100%); }
+.combat-versus span {
+  margin-inline: -4px; z-index: 1; color: #ffe08f; font: italic 900 clamp(30px, 10vw, 52px)/1 Georgia, serif;
+  text-shadow: 0 0 14px #ff9b4a, 0 3px 0 #5b2c1b;
+}
+[data-phase="entry"] .combat-versus { visibility: visible; animation: versus-show 1.05s ease-out both; }
+[data-phase="entry"] .versus-ally { animation: versus-left 1.05s cubic-bezier(.2,.8,.3,1) both; }
+[data-phase="entry"] .versus-foe { animation: versus-right 1.05s cubic-bezier(.2,.8,.3,1) both; }
+[data-phase="entry"] .combat-versus span { animation: versus-pop 1.05s ease-out both; }
+@keyframes versus-show { 0%, 80% { opacity: 1; } to { opacity: 0; } }
+@keyframes versus-left { from { translate: -100% 0; } 30%, to { translate: 0 0; } }
+@keyframes versus-right { from { translate: 100% 0; } 30%, to { translate: 0 0; } }
+@keyframes versus-pop { 0%, 18% { scale: 2.6; opacity: 0; } 34% { scale: .92; opacity: 1; } 44%, to { scale: 1; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-clouds i, .formation .fighter-sprite { animation: none !important; }
+  .combat-blast, .combat-ring, .combat-debris, .combat-debris i, .combat-flash, .combat-versus { animation: none !important; opacity: 0 !important; }
+  .combat-camera { animation: none !important; }
+  .combat-letterbox::before, .combat-letterbox::after { transition: none; }
+}

@@ -10,16 +10,16 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="stylesheet" href="./style.css?v=tile-info">
-    <link rel="stylesheet" href="./combat.css?v=tile-info">
+    <link rel="stylesheet" href="./combat.css?v=combat-fx">
     <link rel="stylesheet" href="./battlefield.css?v=tile-info">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./rules.js?v=tile-info"></script>
+    <script defer src="./rules.js?v=combat-fx"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
-    <script defer src="./combat.js?v=coastal"></script>
-    <script defer src="./game.js?v=tile-info"></script>
+    <script defer src="./combat.js?v=combat-fx"></script>
+    <script defer src="./game.js?v=combat-fx"></script>
   </head>
   <body>
     <header class="masthead">
@@ -225,15 +225,20 @@
             <div class="combat-backdrop">
               <img src="./assets/highland-dusk.webp" alt="" decoding="async" fetchpriority="low">
             </div>
+            <div class="combat-clouds"><i></i><i></i><i></i></div>
             <div class="combat-atmosphere"></div>
             <div class="formation ally"></div><div class="formation foe"></div>
             <div class="combat-volley"><i></i><i></i><i></i></div>
             <div class="combat-hit">
               <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i><i class="combat-wreck"></i>
+              <i class="combat-blast"></i><i class="combat-ring"></i>
+              <span class="combat-debris"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
               <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
             </div>
           </div>
           <span class="combat-stage" id="combat-stage" aria-hidden="true"></span>
+          <i class="combat-flash" aria-hidden="true"></i><i class="combat-letterbox" aria-hidden="true"></i>
+          <div class="combat-versus" aria-hidden="true"><b class="versus-ally"></b><span>VS</span><b class="versus-foe"></b></div>
           <div class="combat-outcome" id="combat-outcome" hidden>
             <div class="outcome-emblem" aria-hidden="true"></div>
             <h3 id="combat-outcome-title"></h3>

@@ -10,6 +10,12 @@ const combatScreen = (() => {
   const volley = camera.querySelector('.combat-volley');
   const impactEffects = camera.querySelector('.combat-hit');
   const formations = {player: camera.querySelector('.ally'), enemy: camera.querySelector('.foe')};
+  const versus = dialog.querySelector('.combat-versus');
+  // Machines other than infantry are shown as up to five vehicles; each one stands for 2 HP.
+  const machineSlots = [
+    {x: 40, y: 8, scale: 1, z: 5}, {x: 4, y: 10, scale: .97, z: 4}, {x: 22, y: 29, scale: .82, z: 3},
+    {x: 52, y: 31, scale: .8, z: 2}, {x: 0, y: 34, scale: .76, z: 1},
+  ];
   const tactics = {
     infantry: {slots: [[0, 0], [5, 0], [3, 0]], muzzle: [.89, .57], hit: .56, aim: 320, flight: 240, attack: '一斉射撃'},
     scout: {slots: [[0, 0], [0, 82], [0, 164]], muzzle: [.88, .44], hit: .66, aim: 245, flight: 210, attack: '機銃を連射'},
@@ -46,7 +52,7 @@ const combatScreen = (() => {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
       document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = formations[side];
-      const count = formation.dataset.kind === 'infantry' ? hp : Number(hp > 0);
+      const count = formation.dataset.kind === 'infantry' ? hp : Math.ceil(hp / 2);
       for (const fighter of [...formation.children].slice(count)) {
         if (animateLoss && !motion.matches) fighter.classList.add('retreating');
         else fighter.remove();
@@ -66,6 +72,15 @@ const combatScreen = (() => {
         fighter.style.setProperty('--rank', rank);
         const delay = column < 3 ? rank * 154 + column * 19 : 308 + (column - 3) * 23 + rank * 22;
         fighter.style.setProperty('--fire-delay', delay + 'ms');
+        if (formation.dataset.kind !== 'infantry') {
+          const place = machineSlots[slot] ?? machineSlots[0];
+          fighter.style.setProperty('--vx', place.x + '%');
+          fighter.style.setProperty('--vy', place.y + '%');
+          fighter.style.setProperty('--vs', place.scale);
+          fighter.style.setProperty('--vz', place.z);
+          fighter.style.setProperty('--fire-delay', slot * 90 + 'ms');
+          fighter.style.setProperty('--bob-delay', slot * -370 + 'ms');
+        }
         formation.append(fighter);
       }
     }
@@ -95,7 +110,10 @@ const combatScreen = (() => {
     const first = scene.nextStrike === 0;
     stage.textContent = first ? '先攻' : '反撃';
     const team = teamNames[attacker];
-    status.textContent = first ? `${team}が構えた。` : `${team}が反撃の構え。`;
+    const previous = scene.strikes[scene.nextStrike - 1];
+    const hp = attacker === 'player' ? previous?.playerHP ?? scene.startHP.player : previous?.enemyHP ?? scene.startHP.enemy;
+    const power = `（戦力 ${Math.round(hp / scene.map.maxHP * 100)}%）`;
+    status.textContent = (first ? `${team}が構えた。` : `${team}が反撃の構え。`) + power;
     scene.timer = portraitMode.schedule(startVolley, motion.matches ? 90 : attackTactics(dialog.dataset.armament).aim);
   }
 
@@ -104,6 +122,7 @@ const combatScreen = (() => {
     const {slots, muzzle, flight, attack} = attackTactics(dialog.dataset.armament);
     const hitHeight = attackTactics(dialog.dataset.defender).hit;
     const attackers = formations[fromPlayer ? 'player' : 'enemy'].children;
+    const squadron = formations[fromPlayer ? 'player' : 'enemy'].dataset.kind !== 'infantry';
     const defenders = formations[fromPlayer ? 'enemy' : 'player'].children;
     const view = camera.getBoundingClientRect();
     const point = (unit, x, y) => {
@@ -112,7 +131,7 @@ const combatScreen = (() => {
     };
     let lastShot = 0;
     for (const [lane, ray] of [...volley.children].entries()) {
-      const laneSpec = slots[lane];
+      const laneSpec = squadron && attackers[lane] ? [lane, (slots[lane] ?? slots[0])[1]] : slots[lane];
       const shooter = attackers[laneSpec?.[0]];
       ray.hidden = !shooter;
       if (!shooter) continue;
@@ -279,6 +298,10 @@ const combatScreen = (() => {
         formation.dataset.unit = sprite;
       }
       dialog.toggleAttribute('data-coastal', Object.values(formations).some(formation => formation.dataset.domain === 'sea'));
+      dialog.toggleAttribute('data-skies', Object.values(formations).every(formation => formation.dataset.domain === 'air'));
+      versus.querySelector('.versus-ally').textContent = teamNames.player;
+      versus.querySelector('.versus-foe').textContent = teamNames.enemy;
+      scene.startHP = {player: friendly.hp, enemy: enemy.hp};
       document.getElementById('combat-turn').textContent = `ターン ${map.turn} · ${attacker === 'enemy' ? '敵の手番' : '味方の手番'}`;
       advance.textContent = '演出をスキップ';
       showForces({playerHP: friendly.hp, enemyHP: enemy.hp});
@@ -292,7 +315,7 @@ const combatScreen = (() => {
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
       if (motion.matches) beginStrike(attacker);
-      else scene.timer = portraitMode.schedule(() => beginStrike(attacker), 420);
+      else scene.timer = portraitMode.schedule(() => beginStrike(attacker), 1050);
     },
   };
 })();

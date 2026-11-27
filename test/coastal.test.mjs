@@ -288,3 +288,18 @@ test('CPUは敵が艦砲の届かない内陸にいる場合、港だけ空い�
   game.beginEnemyTurn();
   assert.equal(game.planEnemyProduction(), null);
 });
+
+test('攻撃側の残りHPに比例して与えるダメージが減る', () => {
+  const game = new BattleMap('coastal');
+  const guns = unit(game, 'artillery');
+  const scout = game.enemyUnits.find(unit => unit.type.id === 'scout');
+  Object.assign(guns, {x: 9, y: 7});
+  Object.assign(scout, {x: 12, y: 7});
+  game.choose(9, 7);
+  const damageAt = hp => {
+    guns.hp = hp;
+    return game.previewAttack(scout)[0].damage;
+  };
+  assert.deepEqual([10, 8, 6, 4, 2, 1].map(damageAt), [5, 4, 3, 2, 1, 1]);
+  assert.equal(scout.hp, 10);
+});
