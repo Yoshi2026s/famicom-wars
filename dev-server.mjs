@@ -57,7 +57,12 @@ export function createDevServer() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  createDevServer().listen(8080, '127.0.0.1', () => {
-    console.log('http://127.0.0.1:8080/');
+  const requestedPort = process.env.PORT ?? '8080';
+  if (!/^\d+$/.test(requestedPort) || Number(requestedPort) > 65535) {
+    throw new Error('PORT には 0〜65535 の整数を指定してください。');
+  }
+  const server = createDevServer();
+  server.listen(Number(requestedPort), '127.0.0.1', () => {
+    console.log(`http://127.0.0.1:${server.address().port}/`);
   });
 }
