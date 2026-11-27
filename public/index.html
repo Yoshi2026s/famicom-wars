@@ -9,17 +9,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=coastal">
-    <link rel="stylesheet" href="./combat.css?v=coastal">
-    <link rel="stylesheet" href="./battlefield.css?v=coastal">
+    <link rel="stylesheet" href="./style.css?v=tile-info">
+    <link rel="stylesheet" href="./combat.css?v=tile-info">
+    <link rel="stylesheet" href="./battlefield.css?v=tile-info">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./rules.js?v=coastal"></script>
+    <script defer src="./rules.js?v=tile-info"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
     <script defer src="./orientation.js?v=battlefield"></script>
     <script defer src="./combat.js?v=coastal"></script>
-    <script defer src="./game.js?v=coastal"></script>
+    <script defer src="./game.js?v=tile-info"></script>
   </head>
   <body>
     <header class="masthead">
@@ -66,8 +66,6 @@
           <p class="map-scroll-note" id="map-scroll-note" hidden>スクロールするか、「全体図」で表示位置を選べます。</p>
           <div class="map-surround" id="map-surround">
             <div class="chart">
-              <div class="letters" id="map-letters" aria-hidden="true"></div>
-              <div class="numbers" id="map-numbers" aria-hidden="true"></div>
               <div class="board" id="board" role="group" aria-label="作戦マップ"></div>
             </div>
           </div>
@@ -79,8 +77,8 @@
             <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択"></div>
             <div class="friendly-roster enemy-roster" id="enemy-roster" role="group" aria-label="敵部隊の状況"></div>
             <div class="legend base-legend" id="base-legend">
-              <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地 <b id="friendly-base-coordinate"></b></span>
-              <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地 <b id="enemy-base-coordinate"></b></span>
+              <span><i class="friendly-base-key" aria-hidden="true"></i>味方本拠地</span>
+              <span><i class="enemy-base-key" aria-hidden="true"></i>敵本拠地</span>
             </div>
             <div class="legend base-legend" id="factory-legend"></div>
             <section class="city-economy" id="city-economy" aria-label="資金と都市">
@@ -119,7 +117,7 @@
             </div>
             <section class="production" id="production-controls" aria-labelledby="production-title">
               <div class="production-heading">
-                <h3 id="production-title"><span id="production-title-kind">ユニット生産</span> <b id="production-title-coordinate"></b></h3>
+                <h3 id="production-title"><span id="production-title-kind">ユニット生産</span></h3>
                 <span>資金 <b id="production-funds"></b></span>
               </div>
               <div class="factory-picker" id="factory-picker" role="group" aria-label="生産する施設" hidden></div>
@@ -197,7 +195,7 @@
       <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが2回復します。都市を占領すると収入が増えます。</p>
       <p>自走砲や戦艦などの間接攻撃は、移動したターンには使えません。兵種ごとの射程と特性は「部隊情報」で確認できます。</p>
       <h3>マップの操作</h3>
-      <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
+      <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。移動や攻撃の対象ではないマスを選ぶと、地形や防御などのマス情報を表示します。味方部隊のマスは通過できますが、止まれません。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
       <form method="dialog"><button class="end" autofocus>閉じる</button></form>
     </dialog>
     <dialog id="combat-screen" class="platoon" aria-labelledby="combat-title">

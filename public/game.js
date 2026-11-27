@@ -31,8 +31,6 @@ game ??= new BattleMap(currentScenario);
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
 const mapScrollNote = document.getElementById('map-scroll-note');
-const mapLetters = document.getElementById('map-letters');
-const mapNumbers = document.getElementById('map-numbers');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
 const cells = [];
@@ -118,6 +116,7 @@ const fieldSections = [
   return {content, placeholder, target: document.getElementById(targetId)};
 });
 let mobileField = false;
+let inspectedCell = null;
 let movingFriendly = null;
 let movingEnemy = null;
 let markedFriendlyTiles = [];
@@ -143,12 +142,22 @@ function saveProgress() {
   renderSaveStatus();
 }
 
-function columnName(x) {
-  return String.fromCharCode(65 + x);
+// Places are described by facility or terrain instead of grid coordinates.
+function placeName(x, y) {
+  const base = game.headquartersAt(x, y);
+  if (base) return `${ownerNames[base]}の本拠地`;
+  const facility = game.facilityAt(x, y);
+  if (facility) return `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}`;
+  return game.terrainAt(x, y).name;
 }
 
-function coordinate(x, y) {
-  return columnName(x) + (y + 1);
+function siteLabel(site) {
+  const name = facilityNames[site.kind];
+  if (site.kind === 'headquarters') return name;
+  // Number only the player's own sites of the same kind, so the production picker reads 都市1, 都市2...
+  const peers = game.sites.filter(other => other.kind === site.kind && other.owner === site.owner)
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  return peers.length > 1 ? `${name}${peers.indexOf(site) + 1}` : name;
 }
 
 function friendlyTile() {
@@ -196,6 +205,7 @@ function extendRoster(container, entries, units, interactive) {
 
 function selectFriendlyUnit(unit) {
   if (inputBlocked() || !unit.hp) return;
+  inspectedCell = null;
   if (!mobileField || game.activeUnit !== unit || !game.selected) game.choose(unit.x, unit.y);
   saveProgress();
   const tile = friendlyTile();
@@ -264,11 +274,10 @@ function renderProduction() {
     icon.dataset.facilityOwner = factory.owner;
     owner.textContent = `${ownerNames[factory.owner]}${facilityNames[factory.kind]}`;
     button.hidden = factory.owner !== 'friendly';
+    if (!button.hidden) button.textContent = siteLabel(factory);
     button.setAttribute('aria-pressed', String(factory === selectedFactory));
   }
-  document.getElementById('production-title-coordinate').textContent = selectedFactory
-    ? coordinate(selectedFactory.x, selectedFactory.y) : '';
-  document.getElementById('production-title-kind').textContent = selectedFactory ? facilityNames[selectedFactory.kind] : 'ユニット生産';
+  document.getElementById('production-title-kind').textContent = selectedFactory ? siteLabel(selectedFactory) : 'ユニット生産';
   const status = game.productionStatus(selectedFactory);
   const purchase = selectedFactory?.production;
   const labels = {
@@ -318,20 +327,16 @@ function buildFactories() {
     productionCatalog.append(button);
   }
   for (const factory of game.productionSites) {
-    const spot = coordinate(factory.x, factory.y);
     const legend = document.createElement('span');
     const icon = document.createElement('i');
     icon.className = 'factory-key';
     icon.dataset.facilityKind = factory.kind;
     icon.setAttribute('aria-hidden', 'true');
     const owner = document.createElement('span');
-    const position = document.createElement('b');
-    position.textContent = spot;
-    legend.append(icon, owner, position);
+    legend.append(icon, owner);
     if (factory.kind !== 'headquarters' && factory.kind !== 'city') factoryLegend.append(legend);
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = `${spot} ${facilityNames[factory.kind]}`;
     button.addEventListener('click', () => {
       if (portraitMode.blocked) return;
       selectedFactory = factory;
@@ -350,7 +355,7 @@ function renderEconomy() {
   for (const {city, label} of cityEntries) {
     const owner = ownerNames[city.owner];
     label.dataset.city = city.owner;
-    label.textContent = `${coordinate(city.x, city.y)} ${owner}`;
+    label.textContent = owner;
   }
   const healing = document.getElementById('facility-healing');
   const restored = game.facilityHealing.map(({side, unit, amount, facility}) => {
@@ -394,7 +399,7 @@ function render() {
     const label = unitActions[action].label;
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
     const {x, y} = movingFriendly?.unit === unit ? movingFriendly.position : unit;
-    state.textContent = mobileField && unit.hp ? `${coordinate(x, y)} · ${label}` : label;
+    state.textContent = mobileField && unit.hp ? `${placeName(x, y)} · ${label}` : label;
     card.dataset.action = action;
     card.disabled = !unit.hp || Boolean(game.result);
     card.classList.toggle('defeated', !unit.hp);
@@ -405,7 +410,7 @@ function render() {
     const action = enemyAction(unit);
     hp.textContent = `HP ${unit.hp}/${game.maxHP}`;
     const {x, y} = movingEnemy?.unit === unit ? movingEnemy.position : unit;
-    const spot = coordinate(x, y);
+    const spot = placeName(x, y);
     state.textContent = !unit.hp ? unitActions.defeated.label : action ? `${spot} · ${unitActions[action].label}` : spot;
     card.dataset.action = action;
     card.classList.toggle('enemy-acting', unit === actingEnemy);
@@ -447,14 +452,17 @@ function render() {
     button.classList.toggle('capture-target', captureTarget);
     button.classList.toggle('captured-base', captured);
     button.classList.toggle('spent', action === 'spent' || action === 'deployed');
-    button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
+    const info = [occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
       base ? `${base === 'friendly' ? '味方' : '敵'}の本拠地` : '', captured ? '占領済み' : '',
       facility && !base ? `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       reachable ? `消費移動力${movementTargets.get(`${x},${y}`).cost}` : '',
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
-      !waiting && active && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
+      !waiting && active && game.selected ? '選択中' : ''].filter(Boolean);
+    button.setAttribute('aria-label', info.join('、'));
+    cell.info = info.filter(item => item !== '選択中');
+    button.classList.toggle('inspected', cell === inspectedCell && !waiting);
     const unit = enemy ?? friendly;
     const motion = unit && mapUnitMotion[unit.type.id];
     image.hidden = !unit;
@@ -485,7 +493,7 @@ function render() {
   traitLabel.textContent = trait ? `攻撃力 ${firepower} · ${trait}` : attackBonus ? `攻撃力 ＋${attackBonus}` : '';
   showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
   const shownPosition = movingFriendly?.position ?? game.activeUnit;
-  const position = coordinate(shownPosition.x, shownPosition.y);
+  const position = placeName(shownPosition.x, shownPosition.y);
   document.getElementById('position').textContent = game.playerHP ? position : '—';
   document.getElementById('unit-terrain').textContent = game.playerHP ? game.terrainAt(game.x, game.y).name : '—';
   renderTurn(waiting);
@@ -507,10 +515,8 @@ function render() {
   } else if (result) {
     state.textContent = lost ? '敗北' : '勝利';
     if (game.capturedBy) {
-      const base = game.headquarters[lost ? 'friendly' : 'enemy'];
-      const spot = coordinate(base.x, base.y);
-      message.textContent = lost ? `敗北。敵歩兵に味方の本拠地（${spot}）を占領されました。`
-        : `勝利！ 味方歩兵が敵の本拠地（${spot}）を占領しました。`;
+      message.textContent = lost ? '敗北。敵歩兵に味方の本拠地を占領されました。'
+        : '勝利！ 味方歩兵が敵の本拠地を占領しました。';
     } else {
       message.textContent = lost ? '敗北。味方部隊が全滅しました。' : '勝利！ 敵部隊をすべて撃破しました。';
     }
@@ -529,12 +535,12 @@ function render() {
     const update = [facilityCapture.facility === 'city' ? '次のターンから収入が入ります。' : '',
       production ? 'マスが空くと生産できます。' : ''].filter(Boolean).join('');
     state.textContent = game.canAttack ? '攻撃可能' : `${site}占領`;
-    message.textContent = `${coordinate(facilityCapture.x, facilityCapture.y)} の${site}を占領しました。${update}`
+    message.textContent = `${site}を占領しました。${update}`
       + (game.canAttack ? '印のある敵を攻撃できます。' : '');
   } else if (game.canAttack) {
     state.textContent = '攻撃可能';
     const targets = game.enemyUnits.filter(enemy => game.canUnitAttack(game.activeUnit, enemy));
-    const target = targets.length === 1 ? `${coordinate(targets[0].x, targets[0].y)} の敵${targets[0].name}` : '印のある敵';
+    const target = targets.length === 1 ? `敵${targets[0].name}` : '印のある敵';
     message.textContent = `${target}を選ぶと攻撃の結果を確認できます。`
       + (game.selected ? ' 移動するには印のあるマスを選びます。' : '');
   } else if (spent) {
@@ -549,8 +555,10 @@ function render() {
     state.textContent = '行動可能';
     message.textContent = `ターン ${game.turn}。動かす部隊を選んでください。`;
   }
+  const inspection = inspectedCell && !waiting && !game.result ? `マス情報：${inspectedCell.info.join(' · ')}` : '';
+  if (inspection) message.textContent = inspection;
   if (mobileField) {
-    let summary = `${game.activeUnit.name} ${position} · HP ${game.playerHP} · ${state.textContent}`;
+    let summary = inspection || `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`;
     if (waiting) summary = actingEnemy ? `敵${actingEnemy.name}が行動中` : state.textContent;
     if (game.result) summary = state.textContent;
     if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
@@ -563,19 +571,17 @@ function render() {
 function renderBattleStatus() {
   const report = document.getElementById('enemy-report');
   const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured, facility}) => {
-    const origin = coordinate(from.x, from.y);
-    const destination = coordinate(to.x, to.y);
-    if (origin === destination) {
-      return `敵${enemy} ${destination}${friendly ? `から味方${friendly}を攻撃` : 'で待機'}`;
+    if (from.x === to.x && from.y === to.y) {
+      return `敵${enemy}が${friendly ? `味方${friendly}を攻撃` : '待機'}`;
     }
     const site = captured ? 'headquarters' : facility ?? (cityCaptured ? 'city' : factoryCaptured ? 'factory' : null);
     const capture = site ? `、${facilityNames[site]}を占領` : '';
     const attack = friendly ? `、味方${friendly}を攻撃` : '';
-    return `敵${enemy} ${origin} → ${destination}${capture}${attack}`;
+    return `敵${enemy}が${placeName(to.x, to.y)}へ移動${capture}${attack}`;
   });
   for (const {x, y, unit} of game.enemyProductions) {
     const name = facilityNames[game.facilityAt(x, y)?.kind];
-    lines.push(`敵は${name}（${coordinate(x, y)}）で${unit}を生産`);
+    lines.push(`敵は${name}で${unit}を生産`);
   }
   report.hidden = lines.length === 0;
   report.textContent = lines.join('\n');
@@ -599,9 +605,6 @@ function showMap() {
   document.getElementById('coastal-legend').hidden = !game.scenario;
   music.setTurn(game.enemyTurn ? 'enemy' : 'friendly');
   music.setScene(game.result ?? 'map');
-  for (const [side, {x, y}] of Object.entries(game.headquarters)) {
-    document.getElementById(`${side}-base-coordinate`).textContent = coordinate(x, y);
-  }
   buildFactories();
   cityEntries.length = 0;
   cityOverview.replaceChildren();
@@ -627,9 +630,9 @@ function showMap() {
 function revealTile(button, center = false) {
   const viewport = mapSurround.getBoundingClientRect();
   const tile = button.getBoundingClientRect();
-  const visibleLeft = viewport.left + mapNumbers.offsetWidth;
+  const visibleLeft = viewport.left;
   const visibleRight = viewport.left + mapSurround.clientWidth;
-  const visibleTop = viewport.top + mapLetters.offsetHeight;
+  const visibleTop = viewport.top;
   const bottom = viewport.top + mapSurround.clientHeight;
   if (center) {
     mapSurround.scrollLeft += (tile.left + tile.right - visibleLeft - visibleRight) / 2;
@@ -686,8 +689,8 @@ function updateOverviewWindow() {
   if (!fieldOverview.open || portraitMode.blocked) return;
   const viewport = mapSurround.getBoundingClientRect();
   const map = board.getBoundingClientRect();
-  const left = Math.max(0, viewport.left + mapNumbers.offsetWidth - map.left);
-  const top = Math.max(0, viewport.top + mapLetters.offsetHeight - map.top);
+  const left = Math.max(0, viewport.left - map.left);
+  const top = Math.max(0, viewport.top - map.top);
   const right = Math.min(map.width, viewport.left + mapSurround.clientWidth - map.left);
   const bottom = Math.min(map.height, viewport.top + mapSurround.clientHeight - map.top);
   overviewWindow.style.left = `${left / map.width * 100}%`;
@@ -716,14 +719,6 @@ function buildBoard() {
   mapSurround.style.setProperty('--rows', height);
   board.setAttribute('aria-label', `${width}列${height}行の作戦マップ`);
   document.getElementById('dimensions').textContent = `${width} × ${height}`;
-  for (const [id, count, label] of [['map-letters', width, columnName], ['map-numbers', height, index => index + 1]]) {
-    const labels = Array.from({length: count}, (_, index) => {
-      const item = document.createElement('b');
-      item.textContent = label(index);
-      return item;
-    });
-    document.getElementById(id).replaceChildren(...labels);
-  }
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) addTile(x, y);
   }
@@ -770,9 +765,14 @@ function addTile(x, y) {
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', (event) => {
     if (inputBlocked()) return;
+    inspectedCell = null;
     if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
     if (previewAction(cell, event)) return;
-    if (!game.friendlyAt(x, y)) return;
+    if (!game.friendlyAt(x, y)) {
+      inspectedCell = cell;
+      render();
+      return;
+    }
     game.choose(x, y);
     saveProgress();
     render();
@@ -890,12 +890,12 @@ function previewAction(cell, opener) {
   const enemy = game.enemyAt(x, y);
   const strikes = game.previewAttack(enemy);
   let path = [];
-  const destination = coordinate(x, y);
+  const destination = placeName(x, y);
   let verb;
   if (strikes.length) {
     const [hit, counter] = strikes;
     verb = '攻撃';
-    actionSummary.textContent = `${unit.name} → 敵${enemy.name}（${destination}）`;
+    actionSummary.textContent = `${unit.name} → 敵${enemy.name}`;
     const reply = counter ? `反撃で味方 HP ${unit.hp} → ${counter.playerHP}` : '反撃なし';
     actionDetail.textContent = `敵 HP ${enemy.hp} → ${hit.enemyHP} ／ ${reply}`;
   } else {
@@ -908,7 +908,7 @@ function previewAction(cell, opener) {
       else if (facility && facility.owner !== 'friendly') capture = `${facilityNames[facility.kind]}を占領`;
     }
     verb = capture ? '占領' : '移動';
-    actionSummary.textContent = `${unit.name}  ${coordinate(unit.x, unit.y)} → ${destination}`;
+    actionSummary.textContent = `${unit.name}  ${placeName(unit.x, unit.y)} → ${destination}`;
     actionDetail.textContent = [game.terrainAt(x, y).name, `移動力 ${route.cost} 消費`, capture].filter(Boolean).join(' ／ ');
   }
   actionTitle.textContent = `${verb}を確認`;
@@ -962,6 +962,7 @@ actionDialog.addEventListener('close', () => {
 
 endTurn.addEventListener('click', (event) => {
   if (event.detail > 1 || inputBlocked() || !game.beginEnemyTurn()) return;
+  inspectedCell = null;
   playerScrollTop = window.scrollY;
   saveProgress();
   music.setTurn('enemy');
@@ -1023,11 +1024,11 @@ function playEnemyAction(action, restoreFocus) {
   if (capture) commands.push({id: 'capture', label: '占領'});
   if (friendly) commands.push({id: 'attack', label: '攻撃'});
   if (!commands.length) commands.push({id: 'wait', label: '待機'});
-  const origin = coordinate(from.x, from.y);
-  const destination = coordinate(to.x, to.y);
+  const origin = placeName(from.x, from.y);
+  const destination = placeName(to.x, to.y);
   openEnemyMenu('action', `敵${enemy.name}　${origin}${path.length ? ` → ${destination}` : ''}`, commands);
   const commandDetail = {move: `${destination} へ移動`, capture: `${destination} を占領`,
-    attack: friendly ? `${coordinate(friendly.x, friendly.y)} の味方${friendly.name}を攻撃` : '', wait: `${origin} で待機`};
+    attack: friendly ? `味方${friendly.name}を攻撃` : '', wait: 'その場で待機'};
   const fast = Boolean(game.scenario);
   const steps = commands.flatMap(({id}) => id === 'move'
     ? [{id, position: from, delay: fast ? 100 : 260}, ...path.map(position => ({
@@ -1066,8 +1067,7 @@ function playEnemyAction(action, restoreFocus) {
 
 function playEnemyProduction(order, restoreFocus) {
   const {factory, type} = order;
-  const spot = coordinate(factory.x, factory.y);
-  openEnemyMenu('production', `敵${facilityNames[factory.kind]} ${spot}`,
+  openEnemyMenu('production', `敵の${facilityNames[factory.kind]}`,
     game.productionChoices(factory).map(({id, name, cost}) => ({id, label: name, cost})));
   showEnemyChoice('factory', null, `資金 ${currency.format(game.funds.enemy)}`);
   highlightEnemyRoute([], factory);

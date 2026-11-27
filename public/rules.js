@@ -412,8 +412,11 @@ class BattleMap {
 
   movementTargets() {
     if (!this.selected || !this.canMove) return new Map();
-    const occupied = this.#occupiedExcept(this.activeUnit);
-    const routes = this.#routes(this.activeUnit, occupied, this.playerUnit.movement);
+    const others = this.#occupiedExcept(this.activeUnit);
+    const enemies = others.filter(unit => this.enemyUnits.includes(unit));
+    const allies = others.filter(unit => !this.enemyUnits.includes(unit));
+    // Friendly units can pass through allied squares but cannot stop on them.
+    const routes = this.#routes(this.activeUnit, enemies, this.playerUnit.movement, this.playerUnit.movement, allies);
     routes.delete(`${this.x},${this.y}`);
     return routes;
   }
@@ -422,9 +425,10 @@ class BattleMap {
     return [...this.friendlyUnits, ...this.enemyUnits].filter(unit => unit.hp > 0 && unit !== actor);
   }
 
-  #routes(from, blocked, budget, stepLimit = budget) {
+  #routes(from, blocked, budget, stepLimit = budget, passable = []) {
     const start = {x: from.x, y: from.y, cost: 0, previous: null};
     const occupied = new Set(blocked.map(({x, y}) => `${x},${y}`));
+    const crossable = passable.map(({x, y}) => `${x},${y}`);
     const routes = new Map([[`${from.x},${from.y}`, start]]);
     const queue = [start];
     for (const route of queue) {
@@ -442,7 +446,7 @@ class BattleMap {
         queue.push(next);
       }
     }
-    for (const key of occupied) routes.delete(key);
+    for (const key of [...occupied, ...crossable]) routes.delete(key);
     return routes;
   }
 
