@@ -48,8 +48,8 @@
         // Land grows toward the centre line, where the two halves meet.
         const toSeam = (half - 1 - x) / (half - 1);
         const vertical = Math.abs(y - (height - 1) / 2) / (height / 2);
-        const value = noise(x, y) * .55 + (1 - toSeam) * .55 - vertical * vertical * .5;
-        row.push(x >= 1 && y >= 1 && y < height - 2 && value > .38);
+        const value = noise(x, y) * .55 + (1 - toSeam) * .55 - vertical * vertical * .3;
+        row.push(x >= 1 && y >= 1 && y < height - 2 && value > .34);
       }
       mask.push(row);
     }
@@ -111,12 +111,12 @@
     fillLakes(mask);
     const grid = mask.map(row => row.map(land => (land ? 'p' : 'o')));
     const landCount = mask.flat().filter(Boolean).length;
-    if (landCount < 145 || landCount > 230) return null;
+    if (landCount < 165 || landCount > 260) return null;
     // Shallows along the coast.
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < half; x++) {
         if (grid[y][x] !== 'o') continue;
-        if (steps.some(([dx, dy]) => inside(x + dx, y + dy) && grid[y + dy][x + dx] === 'p') && random() < .8) grid[y][x] = 'h';
+        if (steps.some(([dx, dy]) => inside(x + dx, y + dy) && grid[y + dy][x + dx] === 'p') && random() < .5) grid[y][x] = 'h';
       }
     }
     const coast = (x, y) => steps.some(([dx, dy]) => inside(x + dx, y + dy) && isWater(grid[y + dy][x + dx]));
@@ -146,19 +146,20 @@
       && place('city', 'friendly', near(hq, 2, 3))
       && place('city', 'friendly', spot => near(hq, 3, 7)(spot) && spot.x <= 10)
       && place('airfield', 'friendly', spot => near(hq, 2, 7)(spot) && spot.x <= 10)
-      && place('port', 'friendly', spot => coast(spot.x, spot.y) && spot.x <= 10)
-      && place('city', 'neutral', spot => spot.x >= 10 && spot.x <= 14)
-      && place('factory', 'neutral', spot => spot.x >= 10 && spot.x <= 14)
+      && (place('port', 'friendly', spot => coast(spot.x, spot.y) && spot.x >= 5 && spot.x <= 11 && (spot.y <= 5 || spot.y >= height - 6))
+        || place('port', 'friendly', spot => coast(spot.x, spot.y) && spot.x <= 10))
+      && place('city', 'neutral', spot => spot.x >= 10 && spot.x <= 13)
+      && place('factory', 'neutral', spot => spot.x >= 10 && spot.x <= 13)
       // An oil field in contested ground: high income, but no production or repairs.
-      && place('oilfield', 'neutral', spot => spot.x >= 9 && spot.x <= 14);
+      && place('oilfield', 'neutral', spot => spot.x >= 11 && spot.x <= 13);
     if (!ok) return null;
     // A supply depot (repairs every kind of unit at half price) on the way to the front.
     if (random() < .75) place('depot', 'neutral', spot => spot.x >= 7 && spot.x <= 13);
-    if (random() < .7) place('city', 'neutral', spot => spot.x >= 7 && spot.x <= 14);
-    if (random() < .4) place('city', 'neutral', spot => spot.x >= 8 && spot.x <= 14);
+    if (random() < .7) place('city', 'neutral', spot => spot.x >= 7 && spot.x <= 13);
+    if (random() < .4) place('city', 'neutral', spot => spot.x >= 8 && spot.x <= 13);
     if (random() < .5) {
       const kind = random() < .5 ? 'airfield' : 'port';
-      place(kind, 'neutral', spot => spot.x >= 9 && spot.x <= 14 && (kind === 'airfield' || coast(spot.x, spot.y)));
+      place(kind, 'neutral', spot => spot.x >= 9 && spot.x <= 13 && (kind === 'airfield' || coast(spot.x, spot.y)));
     }
 
     // Roads from headquarters to the factory, the cities and the centre line.
