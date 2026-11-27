@@ -431,3 +431,19 @@ html.map-art-pending .board.art-ready .tile { --facility-image: none; }
 /* Realistic unit art (unit-art.js) is smooth-scaled and fills more of the tile. */
 .unit-art :is(.tile img, .map-stride img, .portrait img, #unit-portrait) { image-rendering: auto; }
 [data-mobile-field] .board.art-ready .tile img { width: 96%; height: 96%; bottom: 4%; }
+
+/* ---- Gentle map motion: idle units bob slightly and the sea glints. ---- */
+.water-glints { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.water-glints i {
+  position: absolute; left: var(--gx); top: var(--gy); width: calc(100% / var(--columns, 26) * .42); height: 2px;
+  border-radius: 2px; background: linear-gradient(90deg, transparent, #f4feffd9 45%, transparent); opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .water-glints i { animation: water-glint var(--gt, 5s) var(--gd, 0s) ease-in-out infinite; }
+  .board.art-ready .tile:is(.occupied, .enemy):not(.spent, .striding) > img { animation: unit-bob 2.8s var(--idle-delay, 0s) ease-in-out infinite; }
+}
+@keyframes water-glint { 0%, 100% { opacity: 0; translate: -30% 0; } 45% { opacity: .85; } 70% { opacity: 0; translate: 40% 0; } }
+@keyframes unit-bob { 50% { translate: 0 -1.5px; } }
+html.map-busy :is(.water-glints i, .tile > img) { animation: none !important; }
+html:is(.portrait-blocked, .combat-open) :is(.water-glints i, .tile > img),
+.board[data-map-hidden] :is(.water-glints i, .tile > img) { animation-play-state: paused; }

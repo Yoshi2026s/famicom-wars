@@ -17,10 +17,11 @@ test('歩兵で占領した都市は次のターンから収入になり、タ�
   game.endTurn();
   game.finishEnemyTurn();
   assert.equal(game.turn, 2);
-  assert.equal(game.funds.friendly, 6500);
+  // 4500 + income 2000 - repair of 2 HP (100 per HP for infantry).
+  assert.equal(game.funds.friendly, 6300);
   assert.equal(city.owner, 'friendly');
   assert.equal(game.friendlyAt(4, 1).hp, 6);
-  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'city'}]);
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'city', cost: 200}]);
 });
 
 test('車両は中立都市を占領できず、都市の地形と双方の収入は維持される', () => {
@@ -101,8 +102,8 @@ test('ターン開始時は所有都市にいる両陣営の生存部隊だけ�
   game.finishEnemyTurn();
   assert.deepEqual([scout.hp, infantry.hp, support.hp, destroyed.hp, enemyScout.hp], [8, 5, 8, 0, 10]);
   assert.deepEqual(game.facilityHealing, [
-    {side: 'friendly', unit: '偵察車', amount: 2, facility: 'city'},
-    {side: 'enemy', unit: '偵察車', amount: 1, facility: 'city'},
+    {side: 'friendly', unit: '偵察車', amount: 2, facility: 'city', cost: 500},
+    {side: 'enemy', unit: '偵察車', amount: 1, facility: 'city', cost: 250},
   ]);
 });
 
@@ -118,6 +119,6 @@ test('自軍工場ではHPが最大値まで回復し、敵工場の車両や撃
   game.finishEnemyTurn();
   game.finishEnemyTurn();
   assert.deepEqual([scout.hp, support.hp, destroyed.hp], [10, 5, 0]);
-  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '偵察車', amount: 1, facility: 'factory'}]);
-  assert.deepEqual(game.funds, {friendly: 5500, enemy: 5500});
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '偵察車', amount: 1, facility: 'factory', cost: 250}]);
+  assert.deepEqual(game.funds, {friendly: 5250, enemy: 5500});
 });

@@ -702,6 +702,33 @@
     source.close?.();
     canvas.classList.add('painted');
   }
+
+  // A few short highlights that fade in and out on open water (CSS animates them).
+  function placeGlints(board, canvas, ids) {
+    let layer = board.querySelector(':scope > .water-glints');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.className = 'water-glints';
+      layer.setAttribute('aria-hidden', 'true');
+    }
+    canvas.after(layer);
+    const height = ids.length, width = ids[0].length;
+    const open = [];
+    ids.forEach((row, y) => row.forEach((id, x) => {
+      if (id === 'sea' || id === 'shoal') open.push([x, y]);
+    }));
+    const glints = [];
+    const count = Math.min(28, Math.round(open.length / 9));
+    for (let i = 0; i < count; i++) {
+      const [x, y] = open[Math.floor(hash(i, open.length, 41) * open.length)];
+      const glint = document.createElement('i');
+      glint.style.cssText = `--gx:${((x + .15 + hash(x, y, 42) * .5) / width * 100).toFixed(2)}%;`
+        + `--gy:${((y + .2 + hash(x, y, 43) * .6) / height * 100).toFixed(2)}%;`
+        + `--gt:${(4 + hash(x, y, 44) * 3).toFixed(2)}s;--gd:${(-hash(x, y, 45) * 7).toFixed(2)}s`;
+      glints.push(glint);
+    }
+    layer.replaceChildren(...glints);
+  }
   function paintBoard(board, game) {
     try {
       installFacilities();
@@ -713,7 +740,7 @@
       }
       board.prepend(canvas);
       const ids = terrainIds(game);
-      const mapKey = `${game.scenario?.id ?? 'legacy'}:${game.width}x${game.height}`;
+      const mapKey = `${game.scenario?.id ?? 'legacy'}:${game.scenario?.map?.seed ?? 'fixed'}:${game.width}x${game.height}`;
       const draw = () => {
         const cssTile = board.clientWidth / game.width || 48;
         const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -743,6 +770,7 @@
         }, onMain);
       };
       if (board.dataset.artMap !== mapKey) canvas.classList.remove('painted');
+      placeGlints(board, canvas, ids);
       board.dataset.artMap = mapKey;
       board.classList.add('art-ready');
       delete canvas.dataset.tile;

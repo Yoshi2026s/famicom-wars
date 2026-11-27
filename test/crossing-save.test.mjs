@@ -39,9 +39,9 @@ test('自動保存は施設の所有状況、資金、部隊のHP・行動済み
   resumedSave.write(resumed.crossingSnapshot());
   const reopened = openSave(area).game;
   assert.equal(reopened.turn, 2);
-  assert.equal(reopened.funds.friendly, 2500);
+  assert.equal(reopened.funds.friendly, 2300);
   assert.equal(reopened.friendlyAt(4, 1).hp, 6);
-  assert.deepEqual(reopened.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'city'}]);
+  assert.deepEqual(reopened.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'city', cost: 200}]);
   assert.equal(reopened.enemyAt(8, 4).type.id, 'tank');
   assert.deepEqual(reopened.crossingSnapshot(), resumed.crossingSnapshot());
 });

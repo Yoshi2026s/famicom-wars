@@ -4,6 +4,8 @@ import BattleMap from '../public/rules.js';
 
 test('味方は工場で3種から1部隊ずつ生産でき、次のターンに移動できる', () => {
   const game = new BattleMap();
+  // Enough money for all three, whatever the facility repairs cost in between.
+  game.funds.friendly = 10000;
   const factory = game.factoryAt(1, 5);
   assert.equal(factory.owner, 'friendly');
   assert.equal(game.factoryAt(8, 4).owner, 'enemy');
@@ -58,7 +60,8 @@ test('敵も空いている工場で毎ターン1部隊を補充し、その部�
     assert.equal(unit.readyTurn, game.turn);
     assert.equal(game.turn, productionTurn + 1);
     assert.deepEqual(game.enemyProductions, [{x: 8, y: 4, unit: unit.name, turn: productionTurn, cost: game.productionCost(expected)}]);
-    assert.equal(game.funds.enemy, budget - game.enemyProductions[0].cost + game.incomeFor('enemy'));
+    const repairs = game.facilityHealing.filter(({side}) => side === 'enemy').reduce((sum, {cost}) => sum + cost, 0);
+    assert.equal(game.funds.enemy, budget - game.enemyProductions[0].cost + game.incomeFor('enemy') - repairs);
     assert.ok(!actors.includes(unit.name));
     if (previous) assert.equal(actors.filter(name => name === previous).length, 1);
     previous = unit.name;
@@ -116,7 +119,7 @@ test('歩兵が占領した工場はマスを空けると生産でき、工場�
   game.endTurn();
   assert.deepEqual(game.enemyProductions, []);
   assert.equal(infantry.hp, 6);
-  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'factory'}]);
+  assert.deepEqual(game.facilityHealing, [{side: 'friendly', unit: '歩兵', amount: 2, facility: 'factory', cost: 200}]);
   game.choose(8, 4);
   game.choose(9, 4);
   const turnBudget = game.funds.friendly;
@@ -153,7 +156,7 @@ test('敵歩兵に占領された工場も、敵の部隊がマスを空ける�
   assert.equal(game.productionStatus(home), 'unavailable');
   assert.equal(game.produce('infantry', home), null);
   assert.ok(!game.enemyProductions.some(({x, y}) => x === 1 && y === 5));
-  assert.deepEqual(game.facilityHealing, [{side: 'enemy', unit: '歩兵', amount: 2, facility: 'factory'}]);
+  assert.deepEqual(game.facilityHealing, [{side: 'enemy', unit: '歩兵', amount: 2, facility: 'factory', cost: 200}]);
 
   // Defend headquarters so the occupying enemy can move out without ending the battle.
   Object.assign(game.friendlyUnits[0], {x: 0, y: 6});
@@ -162,7 +165,8 @@ test('敵歩兵に占領された工場も、敵の部隊がマスを空ける�
   assert.equal(game.result, null);
   assert.ok(game.enemyProductions.some(({x, y}) => x === 1 && y === 5));
   const spent = game.enemyProductions.reduce((sum, {cost}) => sum + cost, 0);
-  assert.equal(game.funds.enemy, budget - spent + game.incomeFor('enemy'));
+  const repairs = game.facilityHealing.filter(({side}) => side === 'enemy').reduce((sum, {cost}) => sum + cost, 0);
+  assert.equal(game.funds.enemy, budget - spent + game.incomeFor('enemy') - repairs);
 });
 
 test('敵も2工場を所有すると、空いている両工場から同じターンに生産できる', () => {

@@ -51,7 +51,7 @@ test('トップページを配信し、公開範囲外のファイルを返さ�
   assert.match(html, /<title>スマホウォーズ｜湾岸の攻防<\/title>/);
   assert.match(html, /name="apple-mobile-web-app-title" content="スマホウォーズ"/);
   assert.match(html, /id="mission-title" tabindex="-1">湾岸の攻防/);
-  assert.match(html, /coastal-scenario\.js[^>]*><\/script>\s*<script defer src="\.\/rules\.js/);
+  assert.match(html, /coastal-scenario\.js[^>]*><\/script>\s*<script defer src="\.\/map-generator\.js[^>]*><\/script>\s*<script defer src="\.\/rules\.js/);
   assert.doesNotMatch(html, /歩兵訓練|歩兵戦|水辺の攻防|href="#(?:training|battle|crossing)"/);
   assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
   assert.match(html, /rel="apple-touch-icon" sizes="180x180" href="\.\/assets\/home-icon-180\.png"/);

@@ -603,3 +603,17 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 .scene-art .combat-backdrop img.is-ready { filter: saturate(1.04) contrast(1.03); transform: scale(1.02); }
 .scene-art .unit-art .combat-backdrop img.is-ready, .unit-art.scene-art .combat-backdrop img.is-ready { filter: blur(.6px) saturate(1.04) contrast(1.03); }
 .scene-art .formation::before { filter: brightness(.94) drop-shadow(0 5px 4px #140c0a80); image-rendering: auto; }
+
+/* Gentle idle motion while the battle plays: ground units breathe on their suspension,
+   the backdrop pans very slowly and the coastal sea rolls. Off with reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .formation[data-domain="land"] { animation: ground-idle 2.6s ease-in-out infinite; }
+  .formation.foe[data-domain="land"] { animation-delay: -1.3s; }
+  .unit-art .combat-backdrop img.is-ready { animation: backdrop-pan 26s ease-in-out infinite alternate; }
+  .unit-art [data-coastal] .combat-backdrop::after { animation: sea-roll 9s linear infinite; }
+}
+@keyframes ground-idle { 50% { translate: 0 -0.6%; } }
+@keyframes backdrop-pan { from { translate: -0.8% 0; } to { translate: 0.8% -0.4%; } }
+@keyframes sea-roll { to { background-position: 0 0, 0 34px, 0 -58px, 0 0; } }
+html.portrait-blocked :is(.formation, .combat-backdrop img, .combat-backdrop)::after,
+html.portrait-blocked :is(.formation, .combat-backdrop img) { animation-play-state: paused; }
