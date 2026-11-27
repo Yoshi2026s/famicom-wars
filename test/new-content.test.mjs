@@ -47,7 +47,7 @@ test('対戦車兵は占領でき車両に強い。重戦車は受けるダメ�
   const heavy = type(game, 'heavytank');
   assert.ok(game.damageEstimate(antitank, tank) > game.damageEstimate(type(game, 'infantry'), tank));
   assert.equal(game.damageEstimate(tank, heavy), game.damageEstimate(tank, {...heavy, armor: 0}) - 1);
-  const spot = land(game);
+  const spot = land(game, (x, y) => game.terrainAt(x + 1, y).id === 'plains' && !game.facilityAt(x + 1, y));
   const a = place(game, 'friendly', 'antitank', spot.x, spot.y);
   const t = place(game, 'enemy', 'tank', spot.x + 1, spot.y);
   game.activeUnit = a;
@@ -141,4 +141,71 @@ test('CPUは占領の続きより、届く本拠地の占領を優先する', ()
   game.beginEnemyTurn();
   const action = game.prepareEnemyAction();
   assert.deepEqual([action.to.x, action.to.y], [hq.x, hq.y]);
+});
+
+test('雪原・密林・岩礁の移動コストと防御', () => {
+  const game = BattleMap.newMatch('coastal', 3);
+  const find = id => {
+    for (let y = 0; y < game.height; y++) {
+      const x = game.terrain[y].indexOf(id);
+      if (x >= 0) return {x, y};
+    }
+    return null;
+  };
+  const snow = find('n'), jungle = find('j');
+  assert.ok(snow && jungle);
+  const cost = (id, at) => game.movementCost(type(game, id), at.x, at.y);
+  assert.deepEqual([cost('infantry', snow), cost('tank', snow), cost('helicopter', snow)], [2, 2, 1]);
+  assert.deepEqual([cost('infantry', jungle), cost('tank', jungle)], [2, 3]);
+  assert.equal(game.coverAt(jungle.x, jungle.y), 2);
+  let reef = null;
+  for (let seed = 1; seed < 40 && !reef; seed++) {
+    const map = generator.generateMap(seed);
+    const y = map.terrain.findIndex(row => row.includes('e'));
+    if (y >= 0) reef = BattleMap.newMatch('coastal', seed);
+  }
+  assert.ok(reef);
+  const y = reef.terrain.findIndex(row => row.includes('e'));
+  const x = reef.terrain[y].indexOf('e');
+  assert.deepEqual([type(reef, 'patrol'), type(reef, 'infantry'), type(reef, 'fighter')].map(t => reef.movementCost(t, x, y)), [Infinity, Infinity, 1]);
+});
+
+test('要塞の地上部隊は防御3、野戦病院では地上部隊が3回復する', () => {
+  const game = BattleMap.newMatch('coastal', 5);
+  const fortress = game.sites.find(site => site.kind === 'fortress');
+  assert.ok(fortress);
+  assert.equal(game.coverAt(fortress.x, fortress.y), 3);
+  const tank = type(game, 'tank'), infantry = type(game, 'infantry');
+  assert.equal(game.damageEstimate(tank, infantry, {cover: game.coverAt(fortress.x, fortress.y)}), 3);
+  let hospital = null, seed = 1;
+  for (; seed < 60 && !hospital; seed++) {
+    const candidate = BattleMap.newMatch('coastal', seed);
+    const site = candidate.sites.find(item => item.kind === 'hospital');
+    if (site) hospital = {game: candidate, site};
+  }
+  assert.ok(hospital);
+  const {game: field, site} = hospital;
+  site.owner = 'friendly';
+  const unit = place(field, 'friendly', 'infantry', site.x, site.y);
+  unit.hp = 4;
+  field.funds.friendly = 20000;
+  field.endTurn();
+  while (field.enemyTurn) {
+    const action = field.prepareEnemyAction();
+    if (!action) break;
+    field.resolveEnemyAction(action);
+  }
+  field.finishEnemyTurn?.();
+  assert.equal(unit.hp, 7);
+});
+
+test('追加の兵種: 迫撃砲兵は山を越えるが占領できず、対空ミサイル車は航空部隊だけを狙う', () => {
+  const game = BattleMap.newMatch('coastal', 3);
+  const mortar = type(game, 'mortar'), sam = type(game, 'samlauncher');
+  assert.equal(mortar.foot, true);
+  assert.equal(mortar.captures, undefined);
+  assert.equal(game.damageEstimate(sam, type(game, 'tank')), null);
+  assert.ok(game.damageEstimate(sam, type(game, 'bomber')) >= 7);
+  assert.equal(game.damageEstimate(type(game, 'striker'), type(game, 'fighter')), null);
+  assert.ok(game.damageEstimate(type(game, 'cruiser'), type(game, 'submarine')) > 0);
 });

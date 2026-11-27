@@ -11,7 +11,7 @@
     canvas.height = height;
     return canvas;
   }
-  const waterIds = new Set(['sea', 'shoal']);
+  const waterIds = new Set(['sea', 'shoal', 'reef']);
   const roadIds = new Set(['road', 'bridge']);
   const riverIds = new Set(['river', 'bridge']);
 
@@ -76,6 +76,7 @@
     const hasLand = depth.some(row => row.some(d => d === 0));
     const colorOf = (id, d) => {
       if (id === 'shoal') return [86, 206, 196];
+      if (id === 'reef') return [58, 150, 164];
       if (!waterIds.has(id)) return [100, 206, 196];
       const deep = [[64, 196, 196], [44, 156, 186], [34, 120, 168], [27, 92, 146], [22, 74, 126]];
       return deep[Math.min(deep.length - 1, hasLand ? d : 3)];
@@ -502,6 +503,68 @@
     }
   }
 
+  // Snowfield: drifts over the grass, blue shadows, a few frosted shrubs.
+  function snowGround(ctx, x, y, T) {
+    const r = seeded(x, y, 31);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x * T - T * .1, y * T - T * .1, T * 1.2, T * 1.2); ctx.clip();
+    const g = ctx.createRadialGradient((x + .45) * T, (y + .45) * T, T * .2, (x + .5) * T, (y + .5) * T, T * .72);
+    g.addColorStop(0, 'rgba(250,252,255,.98)'); g.addColorStop(.7, 'rgba(236,243,250,.95)'); g.addColorStop(1, 'rgba(226,236,246,.35)');
+    ctx.fillStyle = g; ctx.fillRect(x * T - T * .1, y * T - T * .1, T * 1.2, T * 1.2);
+    ctx.restore();
+    for (let i = 0; i < 3; i++) {
+      const cx = (x + .15 + r() * .7) * T, cy = (y + .25 + r() * .65) * T, w = T * (.16 + r() * .14);
+      const d = ctx.createLinearGradient(cx, cy - w * .3, cx, cy + w * .3);
+      d.addColorStop(0, 'rgba(255,255,255,.9)'); d.addColorStop(1, 'rgba(150,176,210,.45)');
+      ctx.fillStyle = d; ctx.beginPath(); ctx.ellipse(cx, cy, w, w * .3, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < 2; i++) {
+      if (r() < .45) continue;
+      const bx = (x + .2 + r() * .6) * T, by = (y + .35 + r() * .55) * T, sz = T * .07;
+      ctx.fillStyle = '#4c6a58'; ctx.beginPath(); ctx.arc(bx, by, sz, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.beginPath(); ctx.ellipse(bx - sz * .2, by - sz * .5, sz * .9, sz * .45, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    for (let i = 0; i < 6; i++) ctx.fillRect((x + r()) * T, (y + r()) * T, Math.max(1, T * .02), Math.max(1, T * .02));
+  }
+
+  // Jungle floor: deep, damp green under the canopy.
+  function jungleGround(ctx, x, y, T) {
+    const g = ctx.createRadialGradient((x + .5) * T, (y + .5) * T, T * .1, (x + .5) * T, (y + .5) * T, T * .8);
+    g.addColorStop(0, 'rgba(30,74,38,.95)'); g.addColorStop(.7, 'rgba(40,92,46,.8)'); g.addColorStop(1, 'rgba(40,92,46,0)');
+    ctx.fillStyle = g; ctx.fillRect(x * T - T * .25, y * T - T * .25, T * 1.5, T * 1.5);
+  }
+
+  // A palm with drooping fronds, lit from the upper left.
+  function palm(ctx, cx, by, s, r) {
+    ctx.fillStyle = 'rgba(14,40,20,.35)';
+    ctx.beginPath(); ctx.ellipse(cx + s * .1, by, s * .36, s * .12, 0, 0, Math.PI * 2); ctx.fill();
+    const lean = (r() - .5) * s * .3, top = by - s * .9;
+    ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = Math.max(1.5, s * .09); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, by); ctx.quadraticCurveTo(cx + lean * .2, by - s * .5, cx + lean, top); ctx.stroke();
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI / 2 + (i - 3) * .55 + (r() - .5) * .2, len = s * (.42 + r() * .12);
+      const ex = cx + lean + Math.cos(a) * len, ey = top + Math.sin(a) * len * .55 + len * .35;
+      ctx.strokeStyle = i % 2 ? '#2f7a32' : '#4f9a3a'; ctx.lineWidth = Math.max(1.5, s * .1);
+      ctx.beginPath(); ctx.moveTo(cx + lean, top); ctx.quadraticCurveTo(cx + lean + Math.cos(a) * len * .6, top + Math.sin(a) * len * .5 - s * .08, ex, ey); ctx.stroke();
+    }
+    ctx.fillStyle = '#5a3a1e'; ctx.beginPath(); ctx.arc(cx + lean, top + s * .03, s * .06, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Rocks breaking the surface, ringed with white surf.
+  function reefRocks(ctx, x, y, T) {
+    const r = seeded(x, y, 37);
+    for (let i = 0; i < 4; i++) {
+      const cx = (x + .18 + r() * .64) * T, cy = (y + .25 + r() * .6) * T, w = T * (.08 + r() * .08);
+      ctx.strokeStyle = 'rgba(240,255,252,.75)'; ctx.lineWidth = Math.max(1, T * .03);
+      ctx.beginPath(); ctx.ellipse(cx, cy + w * .2, w * 1.5, w * .7, 0, 0, Math.PI * 2); ctx.stroke();
+      const g = ctx.createLinearGradient(cx - w, cy - w, cx + w, cy + w);
+      g.addColorStop(0, '#a49a88'); g.addColorStop(.5, '#6c6458'); g.addColorStop(1, '#3d3832');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(cx - w, cy + w * .3); ctx.lineTo(cx - w * .5, cy - w * .6); ctx.lineTo(cx + w * .3, cy - w * .8); ctx.lineTo(cx + w, cy + w * .2); ctx.closePath(); ctx.fill();
+    }
+  }
+
   // Ground of a ruined block: scorched dirt, scattered paving and rubble.
   function ruinsGround(ctx, x, y, T) {
     const r = seeded(x, y, 24);
@@ -679,6 +742,9 @@
       if (id === 'plains' || id === 'forest' || id === 'road' || id === 'hill') grassDetail(ctx, x, y, T);
       if (id === 'marsh') paintMarsh(ctx, x, y, T);
       if (id === 'ruins') ruinsGround(ctx, x, y, T);
+      if (id === 'snow') snowGround(ctx, x, y, T);
+      if (id === 'jungle') jungleGround(ctx, x, y, T);
+      if (id === 'reef') reefRocks(ctx, x, y, T);
     })), () => paintRivers(ctx, grid, T), () => paintRoads(ctx, grid, T), () => {
       // Tall scenery is drawn back to front so it can overlap the row above.
       const tall = [];
@@ -691,6 +757,14 @@
         if (id === 'mountain') tall.push({y: y + .9, draw: () => mountain(ctx, x, y, T)});
         if (id === 'hill') tall.push({y: y + .9, draw: () => hills(ctx, x, y, T)});
         if (id === 'ruins') tall.push({y: y + .8, draw: () => ruins(ctx, x, y, T)});
+        if (id === 'jungle') {
+          const r = seeded(x, y, 33);
+          const spots = [[.2, .36], [.55, .3], [.85, .42], [.35, .6], [.72, .66], [.15, .88], [.5, .9], [.85, .94]];
+          for (const [sx, sy] of spots) {
+            const px = (x + sx + (r() - .5) * .08) * T, py = (y + sy * .92) * T;
+            tall.push({y: y + sy * .92, draw: () => (r() < .5 ? palm(ctx, px, py, T * (.42 + r() * .1), r) : tree(ctx, px, py, T * (.38 + r() * .1), r))});
+          }
+        }
       }));
       tall.sort((a, b) => a.y - b.y).forEach(item => item.draw());
     }, () => {
@@ -954,6 +1028,53 @@
       ctx.fillStyle = '#e9f4f0'; ctx.fillRect(6, 83, 6, 5);
       flag(ctx, 96, 70, p, 30);
     },
+    fortress(ctx, p) {
+      shadow(ctx, 64, 114, 58, 11);
+      // Low stone star fort: sloped earth bank, grey walls with embrasures, corner bastions.
+      ctx.fillStyle = '#7e8a52'; ctx.beginPath(); ctx.ellipse(64, 104, 60, 16, 0, 0, Math.PI * 2); ctx.fill();
+      const stone = (x, y, w, h) => {
+        const g = ctx.createLinearGradient(0, y, 0, y + h);
+        g.addColorStop(0, '#b9b2a4'); g.addColorStop(.5, '#948c7e'); g.addColorStop(1, '#6a6358');
+        ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = 'rgba(40,36,30,.45)'; ctx.lineWidth = 1;
+        for (let row = y + 6; row < y + h; row += 6) { ctx.beginPath(); ctx.moveTo(x, row); ctx.lineTo(x + w, row); ctx.stroke(); }
+        ctx.strokeStyle = wall.line; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+      };
+      stone(20, 70, 88, 34);
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = '#a39b8c'; ctx.fillRect(22 + i * 15, 62, 9, 9); ctx.strokeStyle = wall.line; ctx.lineWidth = 1.6; ctx.strokeRect(22 + i * 15, 62, 9, 9); }
+      for (const x of [8, 96]) {
+        stone(x, 76, 24, 32);
+        ctx.fillStyle = p.roof; ctx.beginPath(); ctx.moveTo(x - 2, 77); ctx.lineTo(x + 12, 62); ctx.lineTo(x + 26, 77); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = wall.line; ctx.lineWidth = 2; ctx.stroke();
+      }
+      ctx.fillStyle = '#2d2620';
+      for (const x of [36, 56, 76]) ctx.fillRect(x, 82, 8, 5);
+      ctx.fillStyle = '#4a3a2a'; ctx.beginPath(); ctx.moveTo(56, 104); ctx.lineTo(56, 92); ctx.arc(64, 92, 8, Math.PI, 0); ctx.lineTo(72, 104); ctx.closePath(); ctx.fill();
+      // A gun barrel over the parapet.
+      ctx.fillStyle = '#3a3e41'; ctx.save(); ctx.translate(84, 66); ctx.rotate(-.25); ctx.fillRect(0, -2.5, 22, 5); ctx.restore();
+      flag(ctx, 64, 62, p, 30);
+    },
+    hospital(ctx, p) {
+      shadow(ctx, 64, 112, 54, 10);
+      // Field hospital: white canvas tents with red crosses and an owner-coloured pennant.
+      const tent = (x, y, w, h) => {
+        const g = ctx.createLinearGradient(x, 0, x + w, 0);
+        g.addColorStop(0, '#fbfaf4'); g.addColorStop(.55, '#e2dfd2'); g.addColorStop(1, '#b9b5a6');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w * .18, y); ctx.lineTo(x + w * .82, y); ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = wall.line; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = 'rgba(60,50,40,.55)'; ctx.beginPath(); ctx.moveTo(x + w * .42, y + h); ctx.lineTo(x + w * .5, y + h * .45); ctx.lineTo(x + w * .58, y + h); ctx.closePath(); ctx.fill();
+        const cx = x + w * .5, cy = y + h * .3, c = Math.min(w, h) * .12;
+        ctx.fillStyle = '#d8443a'; ctx.fillRect(cx - c * 1.5, cy - c * .5, c * 3, c); ctx.fillRect(cx - c * .5, cy - c * 1.5, c, c * 3);
+      };
+      tent(10, 74, 62, 34);
+      tent(60, 62, 58, 40);
+      ctx.fillStyle = p.roof; ctx.fillRect(60, 100, 58, 5);
+      // Stretcher and supply crate.
+      ctx.fillStyle = '#7a6a4a'; ctx.fillRect(18, 108, 30, 4); ctx.fillStyle = '#c9c2a8'; ctx.fillRect(20, 104, 26, 4);
+      ctx.fillStyle = '#c08a4c'; ctx.fillRect(98, 104, 16, 12); ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 1.6; ctx.strokeRect(98, 104, 16, 12);
+      flag(ctx, 40, 74, p, 26);
+    },
   };
 
   function facilityCanvas(kind, owner) {
@@ -1001,7 +1122,7 @@
   function askWorker(message, done, fallback) {
     if (!workerBroken && !worker) {
       try {
-        worker = new Worker('./map-worker.js?v=more-content');
+        worker = new Worker('./map-worker.js?v=content2');
         worker.onmessage = event => {
           const request = waiting.get(event.data?.id);
           if (!request) return;

@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=debug2">
-    <link rel="stylesheet" href="./combat.css?v=debug2">
-    <link rel="stylesheet" href="./battlefield.css?v=debug2">
+    <link rel="stylesheet" href="./style.css?v=content2">
+    <link rel="stylesheet" href="./combat.css?v=content2">
+    <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=debug2"></script>
-    <script defer src="./rules.js?v=debug2"></script>
+    <script defer src="./map-generator.js?v=content2"></script>
+    <script defer src="./rules.js?v=content2"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=debug2"></script>
-    <script defer src="./unit-art.js?v=debug2"></script>
-    <script defer src="./scene-art.js?v=debug2"></script>
-    <script defer src="./combat.js?v=debug2"></script>
-    <script defer src="./map-art.js?v=debug2"></script>
-    <script defer src="./game.js?v=debug2"></script>
+    <script defer src="./orientation.js?v=content2"></script>
+    <script defer src="./unit-art.js?v=content2"></script>
+    <script defer src="./scene-art.js?v=content2"></script>
+    <script defer src="./combat.js?v=content2"></script>
+    <script defer src="./map-art.js?v=content2"></script>
+    <script defer src="./game.js?v=content2"></script>
   </head>
   <body>
     <header class="masthead">
@@ -123,7 +123,7 @@
             <div class="legend action-legend"><span><b class="unit-action" data-action="spent" aria-hidden="true">済</b>行動済み</span><span><b class="unit-action" data-action="attack" aria-hidden="true">攻可</b>攻撃可能</span><span><b class="unit-action" data-action="deployed" aria-hidden="true">次</b>次のターンから</span><span><b class="unit-action" data-action="acting" aria-hidden="true">動</b>敵が行動中</span></div>
             <div class="legend terrain-legend" id="terrain-legend"><span><i class="forest-key"></i>森 防御＋1</span><span><i class="mountain-key"></i>山 防御＋2</span><span><i class="marsh-key"></i>湿地 防御＋1</span></div>
             <div class="legend terrain-legend" id="crossing-legend"><span><i class="river-key"></i>川</span><span><i class="bridge-key"></i>橋</span></div>
-            <div class="legend terrain-legend" id="coastal-legend" hidden><span><i class="sea-key"></i>外海</span><span><i class="shoal-key"></i>浅瀬 艦船の移動力2</span><span><i class="road-key"></i>道路</span><span><i class="hill-key"></i>丘陵 防御＋1・車両の移動力2</span><span><i class="ruins-key"></i>廃墟 防御＋2・車両の移動力2</span><span><i class="beach-key"></i>砂浜</span><span><i class="oilfield-key"></i>油田 収入＋2000</span><span><i class="depot-key"></i>補給所 全部隊を半額で回復・収入＋500</span></div>
+            <div class="legend terrain-legend" id="coastal-legend" hidden><span><i class="sea-key"></i>外海</span><span><i class="shoal-key"></i>浅瀬 艦船の移動力2</span><span><i class="road-key"></i>道路</span><span><i class="hill-key"></i>丘陵 防御＋1・車両の移動力2</span><span><i class="ruins-key"></i>廃墟 防御＋2・車両の移動力2</span><span><i class="beach-key"></i>砂浜</span><span><i class="oilfield-key"></i>油田 収入＋2000</span><span><i class="depot-key"></i>補給所 全部隊を半額で回復・収入＋500</span><span><i class="snow-key"></i>雪原 陸上部隊の移動力2</span><span><i class="jungle-key"></i>密林 防御＋2・歩兵系2・車両3</span><span><i class="reef-key"></i>岩礁 艦船は通れない</span><span><i class="fortress-key"></i>要塞 中の地上部隊は防御3・収入＋500</span><span><i class="hospital-key"></i>野戦病院 地上部隊が最大3回復</span></div>
           </div>
         </section>
         <aside class="sidebar" aria-label="部隊と操作">
@@ -268,8 +268,8 @@
         <li>「ターン終了」で敵の手番になります。敵本拠地を歩兵・対戦車兵で占領するか、敵部隊を全滅させると勝利です。</li>
       </ol>
       <h3>湾岸の攻防</h3>
-      <p>マップは新しい対戦ごとに32列×22行でランダムに作られ、左右対称なので両軍の地形・施設・距離は同じです。両軍とも部隊なし、資金10,000から始まるので、最初のターンに部隊を生産します。陸・空・海の17兵種が登場します。歩兵と対戦車兵が施設を占領できます。施設の占領値は10で、1回の占領で部隊のHP分だけ減ります（HP10なら1回）。足りないときは施設に残し、次のターンに歩兵を選んで自分のマスを選ぶと占領を続けられます。離れると進行は戻ります。地上部隊は外海や浅瀬へ進めません。航空部隊は地形と他の部隊のいるマスを越えられます。</p>
-      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが最大2回復します。回復には1HPあたり兵種価格の1割の資金を使い、足りないときは払える分だけ回復します。補給所では全種の部隊を半額で回復できます（油田では回復できません）。都市・油田・補給所を占領すると収入が増えます。</p>
+      <p>マップは新しい対戦ごとに40列×26行でランダムに作られ、左右対称なので両軍の地形・施設・距離は同じです。両軍とも部隊なし、資金10,000から始まるので、最初のターンに部隊を生産します。陸・空・海の21兵種が登場します。歩兵と対戦車兵が施設を占領できます。施設の占領値は10で、1回の占領で部隊のHP分だけ減ります（HP10なら1回）。足りないときは施設に残し、次のターンに歩兵を選んで自分のマスを選ぶと占領を続けられます。離れると進行は戻ります。地上部隊は外海や浅瀬へ進めません。航空部隊は地形と他の部隊のいるマスを越えられます。</p>
+      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが最大2回復します。回復には1HPあたり兵種価格の1割の資金を使い、足りないときは払える分だけ回復します。補給所では全種の部隊を半額で、野戦病院では地上部隊を最大3回復できます（油田では回復できません）。要塞にいる地上部隊は防御3になります。都市・油田・補給所を占領すると収入が増えます。</p>
       <p>自走砲や戦艦などの間接攻撃は、移動したターンには使えません。兵種ごとの射程と特性は「部隊情報」で確認できます。</p>
       <h3>マップの操作</h3>
       <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。移動や攻撃の対象ではないマスを選ぶと、地形や防御などのマス情報を表示します。味方部隊のマスは通過できますが、止まれません。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>

@@ -491,7 +491,7 @@
       return;
     }
     try {
-      const worker = new Worker('./scene-worker.js?v=debug2');
+      const worker = new Worker('./scene-worker.js?v=content2');
       worker.onmessage = ({data}) => {
         worker.terminate();
         if (data instanceof Blob) finish(URL.createObjectURL(data));

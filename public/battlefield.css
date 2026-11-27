@@ -614,9 +614,20 @@ html.move-staged .orders-actions, html.move-staged .detail-open { visibility: hi
 .title-button:disabled small { color: #8a959b; }
 .title-button.minor { background: #0d1a2ccc; }
 
-/* New terrain: flat colours for the legend and before the painted map is ready. */
-.tile[data-terrain="hill"], .terrain-legend .hill-key { --terrain-image: none; background-color: #8fae5c; }
-.tile[data-terrain="beach"], .terrain-legend .beach-key { --terrain-image: none; background-color: #e3cf9b; }
-.tile[data-terrain="ruins"], .terrain-legend .ruins-key { --terrain-image: none; background-color: #9a958a; }
+/* New terrain: flat colours for the legend and before the painted map is ready (never over the painted map). */
+.board:not(.art-ready) .tile[data-terrain="hill"], .terrain-legend .hill-key { --terrain-image: none; background-color: #8fae5c; }
+.board:not(.art-ready) .tile[data-terrain="beach"], .terrain-legend .beach-key { --terrain-image: none; background-color: #e3cf9b; }
+.board:not(.art-ready) .tile[data-terrain="ruins"], .terrain-legend .ruins-key { --terrain-image: none; background-color: #9a958a; }
 .terrain-legend .oilfield-key { background: linear-gradient(#3a3a3a 0 55%, #b98a3c 55%); }
 .terrain-legend .depot-key { background: linear-gradient(#7d8c5a 0 60%, #c9a86a 60%); }
+.board:not(.art-ready) .tile[data-terrain="snow"], .terrain-legend .snow-key { --terrain-image: none; background-color: #e8eef2; }
+.board:not(.art-ready) .tile[data-terrain="jungle"], .terrain-legend .jungle-key { --terrain-image: none; background-color: #2f6a36; }
+.board:not(.art-ready) .tile[data-terrain="reef"], .terrain-legend .reef-key { --terrain-image: none; background-color: #3f7f8c; }
+.terrain-legend .fortress-key { background: linear-gradient(#7c7468 0 60%, #a59c8c 60%); }
+.terrain-legend .hospital-key { background: radial-gradient(circle, #d8443a 0 28%, #f2f0ea 30%); }
+.map-art [data-facility-kind="fortress"][data-facility-owner="friendly"] { --facility-image: var(--art-fortress-friendly); }
+.map-art [data-facility-kind="fortress"][data-facility-owner="enemy"] { --facility-image: var(--art-fortress-enemy); }
+.map-art [data-facility-kind="fortress"][data-facility-owner="neutral"] { --facility-image: var(--art-fortress-neutral); }
+.map-art [data-facility-kind="hospital"][data-facility-owner="friendly"] { --facility-image: var(--art-hospital-friendly); }
+.map-art [data-facility-kind="hospital"][data-facility-owner="enemy"] { --facility-image: var(--art-hospital-enemy); }
+.map-art [data-facility-kind="hospital"][data-facility-owner="neutral"] { --facility-image: var(--art-hospital-neutral); }

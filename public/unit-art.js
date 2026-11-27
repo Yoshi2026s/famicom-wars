@@ -664,14 +664,125 @@
     return {muzzle: [240, 182], angle: 0};
   }
 
+  function drawMortar(ctx, p, pose) {
+    const crouch = pose === 'duck' ? 26 : 16;
+    groundShadow(ctx, 128, 60);
+    // Baseplate and tube in front of the crouching crew member.
+    const angle = 1.05, bx = 186, by = GROUND - 4;
+    ctx.fillStyle = vgrad(ctx, by - 6, by + 4, [[0, '#6a6f73'], [1, '#2a2d30']]);
+    poly(ctx, [[bx - 22, by + 2], [bx + 20, by + 2], [bx + 14, by - 6], [bx - 16, by - 6]]); ctx.fill();
+    ctx.save();
+    ctx.translate(bx, by - 4);
+    ctx.rotate(-angle);
+    ctx.fillStyle = vgrad(ctx, -7, 7, [[0, '#8a9096'], [.4, '#4a4f54'], [1, '#1e2124']]);
+    ctx.fillRect(0, -7, 82, 14);
+    ctx.fillStyle = '#2a2d30'; ctx.fillRect(74, -9, 10, 18);
+    ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.lineWidth = 1.5; ctx.strokeRect(0, -7, 82, 14);
+    ctx.restore();
+    // Bipod.
+    ctx.strokeStyle = '#2a2d30'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(bx + 18, by - 38); ctx.lineTo(bx + 30, by); ctx.moveTo(bx + 18, by - 38); ctx.lineTo(bx + 8, by); ctx.stroke();
+    ctx.save();
+    ctx.translate(-14, crouch);
+    soldier(ctx, p, true);
+    ctx.fillStyle = vgrad(ctx, 90, 120, [[0, p.light], [1, p.cloth]]);
+    poly(ctx, [[120, 94], [136, 94], [176, 128], [170, 136], [126, 112]]); ctx.fill(); ctx.strokeStyle = 'rgba(12,16,20,.8)'; ctx.stroke();
+    ctx.fillStyle = p.skin; ctx.beginPath(); ctx.arc(174, 132, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    const c = Math.cos(angle), sn = Math.sin(angle);
+    if (pose === 'fire') smoke(ctx, bx + c * 90, by - 4 - sn * 90, 16, .4);
+    return {muzzle: [bx + c * 84, by - 4 - sn * 84], angle};
+  }
+
+  function drawSamlauncher(ctx, p) {
+    groundShadow(ctx, 128, 110);
+    const cab = [[180, 184], [180, 126], [208, 126], [230, 152], [230, 184]];
+    fillShape(ctx, cab, metal(ctx, 126, 184, p));
+    glass(ctx, [[188, 132], [206, 132], [222, 152], [188, 152]]);
+    const bed = [[26, 184], [26, 158], [180, 158], [180, 184]];
+    fillShape(ctx, bed, metal(ctx, 158, 184, p));
+    camo(ctx, bed, p, 161);
+    // Twin missile canisters on a raised launcher.
+    ctx.fillStyle = '#3a3e41'; ctx.fillRect(90, 132, 12, 28);
+    ctx.save();
+    ctx.translate(52, 146);
+    ctx.rotate(-.55);
+    for (const y of [-34, -14]) {
+      const can = [[0, y], [128, y], [128, y + 18], [0, y + 18]];
+      fillShape(ctx, can, metal(ctx, y, y + 18, p, 'camo'));
+      camo(ctx, can, p, 163 + y, .4);
+      ctx.fillStyle = '#e9e4d6'; ctx.beginPath(); ctx.arc(128, y + 9, 7, -Math.PI / 2, Math.PI / 2); ctx.fill();
+      ctx.fillStyle = '#d24c2c'; ctx.fillRect(116, y + 2, 6, 14);
+    }
+    stripe(ctx, 12, -8, 56, 5, p);
+    ctx.restore();
+    // Search radar on the cab.
+    ctx.fillStyle = '#3a3e41'; ctx.fillRect(196, 106, 4, 20);
+    ctx.fillStyle = vgrad(ctx, 94, 110, [[0, '#e4e8ea'], [1, '#7c8588']]);
+    ctx.fillRect(184, 96, 28, 12); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1.4; ctx.strokeRect(184, 96, 28, 12);
+    insignia(ctx, 204, 170, 9, p);
+    for (const x of [56, 104, 150, 206]) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x, 188, 18, Math.PI, 0); ctx.fill(); wheel(ctx, x, 188, 15); }
+    const c = Math.cos(.55), sn = Math.sin(.55);
+    return {muzzle: [52 + c * 136, 146 - sn * 136 - 14], angle: .55};
+  }
+
+  function drawCruiser(ctx, p) {
+    wake(ctx, 6, 230, 188);
+    hull(ctx, 8, 250, 150, 188, p, 171);
+    fillShape(ctx, [[60, 150], [66, 112], [170, 112], [178, 150]], metal(ctx, 112, 150, p));
+    camo(ctx, [[60, 150], [66, 112], [170, 112], [178, 150]], p, 173, .3);
+    fillShape(ctx, [[100, 112], [106, 82], [146, 82], [152, 112]], metal(ctx, 82, 112, p));
+    glass(ctx, [[110, 88], [142, 88], [144, 98], [108, 98]]);
+    // Lattice mast with radar arrays.
+    ctx.fillStyle = '#2d3134'; ctx.fillRect(124, 40, 4, 42); ctx.fillRect(110, 52, 32, 3);
+    ctx.fillStyle = vgrad(ctx, 58, 74, [[0, '#d8dde0'], [1, '#6f787c']]);
+    ctx.fillRect(112, 62, 28, 12); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1.4; ctx.strokeRect(112, 62, 28, 12);
+    // Missile cells on the foredeck and guns fore and aft.
+    ctx.fillStyle = '#2b2f32'; ctx.fillRect(184, 142, 26, 8);
+    ctx.fillStyle = '#6b7276';
+    for (let i = 0; i < 4; i++) ctx.fillRect(186 + i * 6, 143, 4, 6);
+    fillShape(ctx, [[212, 150], [234, 150], [232, 138], [214, 138]], metal(ctx, 138, 150, p));
+    const [mx, my] = barrel(ctx, 230, 142, 26, 5, .12, p);
+    fillShape(ctx, [[24, 150], [48, 150], [46, 138], [26, 138]], metal(ctx, 138, 150, p));
+    barrel(ctx, 28, 142, -22, 5, -.1, p);
+    stripe(ctx, 24, 164, 196, 5, p);
+    insignia(ctx, 184, 172, 7, p);
+    return {muzzle: [mx, my], angle: .12};
+  }
+
+  function drawStriker(ctx, p) {
+    groundShadow(ctx, 128, 76, GROUND + 4, .18);
+    fillShape(ctx, [[104, 118], [150, 118], [112, 94], [96, 94]], vgrad(ctx, 94, 118, [[0, p.dark], [1, p.base]]));
+    // Twin tail fins.
+    fillShape(ctx, [[22, 118], [54, 118], [46, 76], [30, 76]], metal(ctx, 76, 118, p));
+    fillShape(ctx, [[36, 116], [64, 116], [58, 84], [46, 84]], vgrad(ctx, 84, 116, [[0, p.dark], [1, p.base]]));
+    stripe(ctx, 32, 82, 14, 8, p);
+    const body = [[20, 118], [40, 108], [146, 106], [200, 112], [236, 124], [200, 134], [146, 140], [40, 134]];
+    fillShape(ctx, body, metal(ctx, 106, 140, p));
+    camo(ctx, body, p, 181, .45);
+    specular(ctx, body, .4);
+    glass(ctx, [[158, 108], [174, 98], [196, 106], [200, 114], [164, 114]]);
+    // Near wing with bombs and rocket pods.
+    fillShape(ctx, [[90, 128], [158, 128], [108, 170], [86, 170]], metal(ctx, 128, 170, p));
+    for (const [x, y] of [[100, 150], [124, 140]]) {
+      fillShape(ctx, [[x - 14, y], [x + 16, y], [x + 22, y + 5], [x + 16, y + 10], [x - 14, y + 10]], vgrad(ctx, y, y + 10, [[0, '#7c8a6a'], [1, '#2c331a']]), 'rgba(0,0,0,.8)', 1.2);
+    }
+    insignia(ctx, 116, 132, 8, p);
+    const flame = ctx.createRadialGradient(16, 124, 1, 16, 124, 18);
+    flame.addColorStop(0, 'rgba(255,245,210,.9)'); flame.addColorStop(.4, 'rgba(255,160,60,.65)'); flame.addColorStop(1, 'rgba(255,90,30,0)');
+    ctx.fillStyle = flame; ctx.beginPath(); ctx.ellipse(12, 124, 18, 7, 0, 0, Math.PI * 2); ctx.fill();
+    return {muzzle: [124, 150], angle: -.5};
+  }
+
   const drawers = {
     infantry: drawInfantry, scout: drawScout, support: drawSupport, tank: drawTank,
     artillery: drawArtillery, rocket: drawRocket, antiair: drawAntiair,
     helicopter: drawHelicopter, fighter: drawFighter, bomber: drawBomber,
     patrol: drawPatrol, destroyer: drawDestroyer, battleship: drawBattleship,
     antitank: drawAntitank, heavytank: drawHeavytank, drone: drawDrone, submarine: drawSubmarine,
+    mortar: drawMortar, samlauncher: drawSamlauncher, cruiser: drawCruiser, striker: drawStriker,
   };
-  const downDrawers = {infantry: drawInfantryDown, antitank: drawAntitankDown};
+  const downDrawers = {infantry: drawInfantryDown, antitank: drawAntitankDown, mortar: drawInfantryDown};
 
   // Poses for the 7-frame combat atlas.
   const poses = ['idle', 'aim', 'fire', 'recoil', 'hit', 'duck', 'down'];
