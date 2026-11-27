@@ -1260,7 +1260,15 @@ function renderMoveConfirm(waiting) {
   for (const cell of board.querySelectorAll('.tile.staged-origin')) cell.classList.remove('staged-origin');
   if (game.stagedMove) tileAt(game.stagedMove.from).classList.add('staged-origin');
   moveConfirm.hidden = !staged;
+  mapSurround.style.paddingBottom = '';
   if (!staged) return;
+  // The bar covers the bottom of the map; let the map scroll far enough that the last row clears it.
+  requestAnimationFrame(() => {
+    if (moveConfirm.hidden) return;
+    const cover = mapSurround.getBoundingClientRect().bottom - moveConfirm.getBoundingClientRect().top;
+    const base = parseFloat(getComputedStyle(mapSurround).paddingBottom) || 0;
+    if (cover > 0) mapSurround.style.paddingBottom = `${base + cover + 8}px`;
+  });
   const {unit, from} = staged;
   const site = game.facilityAt(unit.x, unit.y);
   const capture = capturesSites(unit.type) && site && site.owner !== 'friendly'
