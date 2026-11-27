@@ -6,7 +6,7 @@
   const width = 26;
   const height = 18;
   const half = width / 2;
-  const version = 1;
+  const version = 2;
 
   function rng(seed) {
     let s = seed >>> 0 || 1;
@@ -66,6 +66,25 @@
     return mask.map((row, y) => row.map((_, x) => keep.has(`${x},${y}`)));
   }
 
+  // Inland ponds look odd and no ship can reach them, so water cut off from the open sea
+  // (the left, top and bottom edges; the centre line is mirrored land/sea) becomes land.
+  function fillLakes(mask) {
+    const open = new Set();
+    const queue = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < half; x++) {
+        if (!mask[y][x] && (x === 0 || y === 0 || y === height - 1)) { open.add(`${x},${y}`); queue.push([x, y]); }
+      }
+    }
+    for (const [x, y] of queue) {
+      for (const [dx, dy] of steps) {
+        const nx = x + dx, ny = y + dy, key = `${nx},${ny}`;
+        if (inside(nx, ny) && !mask[ny][nx] && !open.has(key)) { open.add(key); queue.push([nx, ny]); }
+      }
+    }
+    for (let y = 0; y < height; y++) for (let x = 0; x < half; x++) if (!mask[y][x] && !open.has(`${x},${y}`)) mask[y][x] = true;
+  }
+
   function shortestPath(grid, from, to, passable) {
     const key = ({x, y}) => `${x},${y}`;
     const previous = new Map([[key(from), null]]);
@@ -89,6 +108,7 @@
     const random = rng(seed);
     const pick = list => list[Math.floor(random() * list.length)];
     const mask = landMask(random);
+    fillLakes(mask);
     const grid = mask.map(row => row.map(land => (land ? 'p' : 'o')));
     const landCount = mask.flat().filter(Boolean).length;
     if (landCount < 95 || landCount > 150) return null;
@@ -166,14 +186,15 @@
     // Forests, mountains and marshes in clusters on the remaining plains.
     const cover = noiseField(random, 2.2);
     const ridge = noiseField(random, 2.6);
-    for (const {x, y} of landTiles) {
-      if (grid[y][x] !== 'p' || taken.has(`${x},${y}`)) continue;
-      const near = Math.abs(x - hq.x) + Math.abs(y - hq.y);
-      if (near <= 1) continue;
-      if (ridge(x, y) > .7 && !coast(x, y)) grid[y][x] = 'm';
-      else if (cover(x, y) > .64) grid[y][x] = 'f';
-      else if (cover(x, y) < .14 && coast(x, y)) grid[y][x] = 's';
-    }
+    // Keep the mix playable: at most about 1 in 11 land tiles are mountains and 1 in 5 forests,
+    // taking the highest ridges and densest cover first so they still form clusters.
+    const open = landTiles.filter(({x, y}) => grid[y][x] === 'p' && !taken.has(`${x},${y}`)
+      && Math.abs(x - hq.x) + Math.abs(y - hq.y) > 1);
+    const ranked = (score, limit, filter) => open.filter(spot => grid[spot.y][spot.x] === 'p' && filter(spot) && score(spot) > 0)
+      .sort((a, b) => score(b) - score(a)).slice(0, limit);
+    for (const {x, y} of ranked(({x, y}) => ridge(x, y) - .62, Math.round(landTiles.length / 11), ({x, y}) => !coast(x, y))) grid[y][x] = 'm';
+    for (const {x, y} of ranked(({x, y}) => cover(x, y) - .58, Math.round(landTiles.length / 5), () => true)) grid[y][x] = 'f';
+    for (const {x, y} of ranked(({x, y}) => .2 - cover(x, y), Math.round(landTiles.length / 30), ({x, y}) => coast(x, y))) grid[y][x] = 's';
 
     const west = grid.map(row => row.join(''));
     const terrain = west.map(row => row + [...row].reverse().join(''));
