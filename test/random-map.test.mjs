@@ -12,12 +12,12 @@ test('ランダムマップは同じ種なら同じ形になり、左右対称�
     const map = generateMap(seed);
     assert.deepEqual(generateMap(seed), map);
     assert.equal(validateGeneratedMap(map), true);
-    assert.deepEqual([map.width, map.height], [26, 18]);
+    assert.deepEqual([map.width, map.height], [32, 22]);
     for (const row of map.terrain) assert.equal([...row].reverse().join(''), row);
     const {friendly, enemy} = map.headquarters;
     assert.deepEqual([enemy.x, enemy.y], [map.width - 1 - friendly.x, friendly.y]);
     const count = (owner, kind) => map.sites.filter(site => site.owner === owner && site.kind === kind).length;
-    for (const kind of ['factory', 'city', 'airfield', 'port']) assert.equal(count('friendly', kind), count('enemy', kind), kind);
+    for (const kind of ['factory', 'city', 'airfield', 'port', 'oilfield', 'depot']) assert.equal(count('friendly', kind), count('enemy', kind), kind);
     assert.ok(count('friendly', 'factory') >= 1);
     layouts.add(map.terrain.join(''));
   }

@@ -403,6 +403,12 @@ html.map-art-pending .board.art-ready .tile { --facility-image: none; }
 .map-art [data-facility-kind="airfield"][data-facility-owner="friendly"] { --facility-image: var(--art-airfield-friendly); }
 .map-art [data-facility-kind="airfield"][data-facility-owner="enemy"] { --facility-image: var(--art-airfield-enemy); }
 .map-art [data-facility-kind="airfield"][data-facility-owner="neutral"] { --facility-image: var(--art-airfield-neutral); }
+.map-art [data-facility-kind="oilfield"][data-facility-owner="friendly"] { --facility-image: var(--art-oilfield-friendly); }
+.map-art [data-facility-kind="oilfield"][data-facility-owner="enemy"] { --facility-image: var(--art-oilfield-enemy); }
+.map-art [data-facility-kind="oilfield"][data-facility-owner="neutral"] { --facility-image: var(--art-oilfield-neutral); }
+.map-art [data-facility-kind="depot"][data-facility-owner="friendly"] { --facility-image: var(--art-depot-friendly); }
+.map-art [data-facility-kind="depot"][data-facility-owner="enemy"] { --facility-image: var(--art-depot-enemy); }
+.map-art [data-facility-kind="depot"][data-facility-owner="neutral"] { --facility-image: var(--art-depot-neutral); }
 .map-art .base-legend i { image-rendering: auto; }
 
 /* Units: a glowing team base, a team-coloured rim light and cleaner badges. */
@@ -607,3 +613,10 @@ html.move-staged .orders-actions, html.move-staged .detail-open { visibility: hi
 .title-button:disabled { opacity: 1; color: #9aa6ad; border-color: #8c7a52; }
 .title-button:disabled small { color: #8a959b; }
 .title-button.minor { background: #0d1a2ccc; }
+
+/* New terrain: flat colours for the legend and before the painted map is ready. */
+.tile[data-terrain="hill"], .terrain-legend .hill-key { --terrain-image: none; background-color: #8fae5c; }
+.tile[data-terrain="beach"], .terrain-legend .beach-key { --terrain-image: none; background-color: #e3cf9b; }
+.tile[data-terrain="ruins"], .terrain-legend .ruins-key { --terrain-image: none; background-color: #9a958a; }
+.terrain-legend .oilfield-key { background: linear-gradient(#3a3a3a 0 55%, #b98a3c 55%); }
+.terrain-legend .depot-key { background: linear-gradient(#7d8c5a 0 60%, #c9a86a 60%); }
