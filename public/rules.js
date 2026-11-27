@@ -5,6 +5,9 @@ const terrainTypes = {
   r: Object.freeze({id: 'river', name: '川', defense: 0, cost: Infinity}),
   b: Object.freeze({id: 'bridge', name: '橋', defense: 0}),
   s: Object.freeze({id: 'marsh', name: '湿地', defense: 1, cost: 2}),
+  o: Object.freeze({id: 'sea', name: '外海', defense: 0, water: true}),
+  h: Object.freeze({id: 'shoal', name: '浅瀬', defense: 0, water: true, cost: 2}),
+  d: Object.freeze({id: 'road', name: '道路', defense: 0}),
 };
 const mainTerrain = [
   'pfmffrfmfpfppf',
@@ -30,6 +33,27 @@ const scout = Object.freeze({id: 'scout', name: '偵察車', movement: 4, minRan
 const support = Object.freeze({id: 'support', name: '支援車', movement: 1, minRange: 2, maxRange: 3, cost: 3000});
 const tank = Object.freeze({id: 'tank', name: '戦車', movement: 3, minRange: 1, maxRange: 1, cost: 4000, attackBonus: 1});
 const productionTypes = [infantry, scout, support, tank];
+const fieldScenario = typeof module === 'undefined' ? coastalScenario : require('./coastal-scenario.js');
+const land = 'land';
+const air = 'air';
+const sea = 'sea';
+const coastalTypes = new Map([
+  {...infantry, movement: 3, firepower: 3, targets: [land, sea], trait: '歩兵だけが施設を占領できる'},
+  {...scout, movement: 6, firepower: 3, targets: [land], trait: '移動力が高い。山は通れない'},
+  {...support, movement: 4, firepower: 4, targets: [land, sea], stationary: true, trait: '射程2〜3。移動したターンは攻撃できない'},
+  {...tank, movement: 4, firepower: 5, targets: [land, sea], trait: '装甲車両に強い。山は通れない', bonus: {scout: 1, support: 1, antiair: 1}},
+  {id: 'artillery', name: '自走砲', movement: 3, minRange: 2, maxRange: 4, cost: 5000, firepower: 5, targets: [land, sea], stationary: true, trait: '射程2〜4。移動したターンは攻撃できない'},
+  {id: 'rocket', name: 'ロケット砲', movement: 3, minRange: 3, maxRange: 6, cost: 7500, firepower: 5, targets: [land, sea], stationary: true, trait: '射程3〜6。接近されると攻撃できない'},
+  {id: 'antiair', name: '対空車', movement: 4, minRange: 1, maxRange: 2, cost: 4500, firepower: 3, targets: [land, air], bonus: {air: 3}, trait: '航空部隊への攻撃力が高い'},
+  {id: 'helicopter', name: '攻撃ヘリ', domain: air, movement: 5, minRange: 1, maxRange: 1, cost: 5500, firepower: 4, targets: [land, sea, air], bonus: {air: -2, tank: 1}, trait: '地形を越える。戦車に強く、空戦は苦手'},
+  {id: 'fighter', name: '戦闘機', domain: air, movement: 7, minRange: 1, maxRange: 2, cost: 7500, firepower: 6, targets: [air], trait: '航空部隊専用。広い範囲を迎撃できる'},
+  {id: 'bomber', name: '爆撃機', domain: air, movement: 6, minRange: 1, maxRange: 1, cost: 9500, firepower: 7, targets: [land, sea], trait: '地上・艦船に大ダメージ。空戦はできない'},
+  {id: 'patrol', name: '哨戒艇', domain: sea, movement: 6, minRange: 1, maxRange: 1, cost: 4000, firepower: 3, targets: [land, sea], bonus: {sea: 1}, trait: '低価格で足の速い小型艦'},
+  {id: 'destroyer', name: '駆逐艦', domain: sea, movement: 5, minRange: 1, maxRange: 2, cost: 6500, firepower: 4, targets: [land, sea, air], bonus: {air: 1, patrol: 1}, trait: '射程1〜2。航空部隊も攻撃可能'},
+  {id: 'battleship', name: '戦艦', domain: sea, movement: 4, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
+].map(type => [type.id, Object.freeze({domain: land, ...type})]));
+const facilityNames = {headquarters: '本拠地', city: '都市', factory: '工場', airfield: '飛行場', port: '港'};
+const fleetLimit = 14;
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function distanceBetween(from, to) {
@@ -70,7 +94,22 @@ class BattleMap {
   friendlyCapture = null;
   facilityHealing = [];
 
-  constructor() {
+  constructor(scenario = 'legacy') {
+    this.scenario = scenario === fieldScenario.id ? fieldScenario : null;
+    if (this.scenario) {
+      for (const side of ['friendly', 'enemy']) {
+        this[side + 'Units'] = this.scenario.units[side].map(([id, x, y]) => deploy(coastalTypes.get(id), x, y, this.maxHP));
+      }
+      this.funds = {friendly: 8000, enemy: 8000};
+      this.sites = this.scenario.sites.map(site => ({...site, production: null}));
+      for (const [owner, position] of Object.entries(this.headquarters)) {
+        this.sites.push({...position, owner, kind: 'headquarters', production: null});
+      }
+      this.cities = this.sites.filter(site => site.kind === 'city');
+      this.factories = this.sites.filter(site => site.kind === 'factory');
+      this.activeUnit = this.friendlyUnits[0];
+      return;
+    }
     this.friendlyUnits = [deploy(scout, 1, 6, this.maxHP), deploy(infantry, 3, 1, this.maxHP), deploy(support, 2, 1, this.maxHP)];
     this.enemyUnits = [deploy(infantry, 7, 1, this.maxHP), deploy(scout, 7, 5, this.maxHP), deploy(support, 7, 2, this.maxHP)];
     this.funds = {friendly: startingFunds, enemy: startingFunds};
@@ -82,6 +121,9 @@ class BattleMap {
       {x: 4, y: 1, owner: 'neutral'}, {x: 5, y: 5, owner: 'neutral'},
     ];
     this.activeUnit = this.friendlyUnits[0];
+    for (const factory of this.factories) factory.kind = 'factory';
+    for (const city of this.cities) city.kind = 'city';
+    this.sites = [...this.factories, ...this.cities];
   }
 
   crossingSnapshot() {
@@ -89,7 +131,7 @@ class BattleMap {
       type: type.id, x, y, hp, readyTurn, moved, attacked,
     }));
     const phase = this.enemyTurn;
-    return {
+    const snapshot = {
       turn: this.turn, selected: this.selected, capturedBy: this.capturedBy,
       activeUnit: this.friendlyUnits.indexOf(this.activeUnit),
       friendlyUnits: saveUnits(this.friendlyUnits), enemyUnits: saveUnits(this.enemyUnits),
@@ -102,11 +144,17 @@ class BattleMap {
       enemyProductions: this.enemyProductions.slice(),
       friendlyCapture: this.friendlyCapture, facilityHealing: this.facilityHealing.slice(),
     };
+    if (this.scenario) {
+      snapshot.scenario = this.scenario.id;
+      snapshot.sites = this.sites.map(({owner, production}) => ({owner, production}));
+    }
+    return snapshot;
   }
 
   static fromCrossingSnapshot(saved) {
-    const game = new BattleMap();
     if (!saved || !integerBetween(saved.turn, 1, Number.MAX_SAFE_INTEGER - 1)) return null;
+    if (saved.scenario !== undefined && saved.scenario !== fieldScenario.id) return null;
+    const game = new BattleMap(saved.scenario);
     const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
       enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
     const validPosition = position => position && integerBetween(position.x, 0, game.width - 1)
@@ -119,8 +167,8 @@ class BattleMap {
       const counts = new Map();
       const roster = [];
       for (const unit of units) {
-        const type = productionTypes.find(type => type.id === unit.type);
-        if (!type || game.terrainAt(unit.x, unit.y).cost === Infinity) return null;
+        const type = game.unitTypes.find(type => type.id === unit.type);
+        if (!type || (unit.hp && !Number.isFinite(game.movementCost(type, unit.x, unit.y)))) return null;
         const number = (counts.get(type) ?? 0) + 1;
         counts.set(type, number);
         roster.push({...deploy(type, unit.x, unit.y, unit.hp, number, unit.readyTurn), moved: unit.moved, attacked: unit.attacked});
@@ -138,35 +186,50 @@ class BattleMap {
     if (new Set(liveSpots).size !== liveSpots.length) return null;
 
     const names = new Set([...friendlyUnits, ...enemyUnits].map(unit => unit.name));
-    const isFacility = facility => facility === 'factory' || facility === 'city';
+    const isFacility = facility => Object.hasOwn(facilityNames, facility);
     const validProduction = entry => entry && names.has(entry.unit) && integerBetween(entry.turn, 1, turn)
-      && productionTypes.some(type => type.cost === entry.cost);
-    if (!validEntries(factories, site => isSide(site.owner) && (site.production === null || validProduction(site.production)))
+      && game.unitTypes.some(type => type.cost === entry.cost);
+    if (!validEntries(factories, site => (isSide(site.owner) || (game.scenario && site.owner === 'neutral'))
+      && (site.production === null || validProduction(site.production)))
       || factories.length !== game.factories.length
       || !validEntries(cityOwners, owner => isSide(owner) || owner === 'neutral') || cityOwners.length !== game.cities.length
       || !validEntries(enemyActions, entry => names.has(entry.enemy) && (!entry.friendly || names.has(entry.friendly))
         && validPosition(entry.from) && validPosition(entry.to)
+        && (entry.facility === undefined || isFacility(entry.facility))
         && [entry.captured, entry.cityCaptured, entry.factoryCaptured].every(flag => typeof flag === 'boolean'))
-      || !validEntries(enemyProductions, entry => validProduction(entry) && game.factoryAt(entry.x, entry.y))
+      || !validEntries(enemyProductions, entry => validProduction(entry) && game.productionSiteAt(entry.x, entry.y))
       || (friendlyCapture !== null && !(validPosition(friendlyCapture) && names.has(friendlyCapture.unit)
         && isFacility(friendlyCapture.facility) && integerBetween(friendlyCapture.turn, 1, turn)))
       || !validEntries(facilityHealing, entry => isSide(entry.side) && names.has(entry.unit)
         && isFacility(entry.facility) && integerBetween(entry.amount, 1, facilityRecovery))) return null;
 
+    if (game.scenario) {
+      if (!validEntries(saved.sites, (site) => (isSide(site.owner) || site.owner === 'neutral')
+        && (site.production === null || validProduction(site.production))) || saved.sites.length !== game.sites.length) return null;
+      for (const [index, site] of game.sites.entries()) {
+        const savedSite = saved.sites[index];
+        if (site.kind === 'headquarters' && site.owner !== savedSite.owner) return null;
+        const {owner, production} = savedSite;
+        Object.assign(site, {owner, production});
+      }
+    }
     Object.assign(game, {turn, selected, capturedBy, friendlyUnits, enemyUnits, activeUnit: friendlyUnits[activeUnit],
       funds: {friendly: funds.friendly, enemy: funds.enemy}, enemyActions, enemyProductions, friendlyCapture, facilityHealing});
-    game.factories.forEach((site, index) => {
+    if (!game.scenario) game.factories.forEach((site, index) => {
       const {owner, production} = factories[index];
       Object.assign(site, {owner, production});
     });
-    game.cities.forEach((city, index) => { city.owner = cityOwners[index]; });
+    if (!game.scenario) game.cities.forEach((city, index) => { city.owner = cityOwners[index]; });
     if (nextEnemy !== null) game.enemyTurn = {nextIndex: nextEnemy, action: null};
     return game;
   }
 
-  get headquarters() { return mainHeadquarters; }
-  get width() { return mainTerrain[0].length; }
-  get height() { return mainTerrain.length; }
+  get name() { return this.scenario?.name ?? 'はじまりの草原'; }
+  get headquarters() { return this.scenario?.headquarters ?? mainHeadquarters; }
+  get terrain() { return this.scenario?.terrain ?? mainTerrain; }
+  get width() { return this.terrain[0].length; }
+  get height() { return this.terrain.length; }
+  get unitTypes() { return this.scenario ? [...coastalTypes.values()] : productionTypes; }
   get x() { return this.activeUnit.x; }
   set x(x) { this.activeUnit.x = x; }
   get y() { return this.activeUnit.y; }
@@ -208,20 +271,50 @@ class BattleMap {
     return this.cities.find(city => city.x === x && city.y === y);
   }
 
+  facilityAt(x, y) {
+    return this.sites.find(site => site.x === x && site.y === y);
+  }
+
+  get productionSites() {
+    return this.sites.filter(site => this.domainAtSite(site));
+  }
+
+  productionSiteAt(x, y) {
+    const site = this.facilityAt(x, y);
+    return this.domainAtSite(site) ? site : undefined;
+  }
+
+  domainAtSite(site) {
+    if (!site) return null;
+    if (site.kind === 'factory' || site.kind === 'headquarters') return land;
+    if (site.kind === 'airfield') return air;
+    if (site.kind === 'port') return sea;
+    if (this.scenario && site.kind === 'city'
+      && Object.values(this.headquarters).some(base => distanceBetween(site, base) <= 3)) return land;
+    return null;
+  }
+
+  productionChoices(site) {
+    const domain = this.domainAtSite(site);
+    return domain ? this.unitTypes.filter(type => (type.domain ?? land) === domain) : [];
+  }
+
   incomeFor(side) {
     if (!Object.hasOwn(this.funds, side)) return 0;
-    return this.cities.filter(city => city.owner === side).length * cityIncome;
+    return this.cities.filter(city => city.owner === side).length * cityIncome + (this.scenario ? 1000 : 0);
   }
 
   productionCost(typeId) {
-    return productionTypes.find(type => type.id === typeId)?.cost;
+    return this.unitTypes.find(type => type.id === typeId)?.cost;
   }
 
   productionStatus(factory) {
-    if (this.result || !this.factories.includes(factory) || factory.owner !== 'friendly') return 'unavailable';
+    if (this.result || !this.sites.includes(factory) || !this.domainAtSite(factory) || factory.owner !== 'friendly') return 'unavailable';
     if (this.enemyTurn) return 'waiting';
     const status = this.#factoryStatus(factory);
-    if (status === 'ready' && !productionTypes.some(type => type.cost <= this.funds.friendly)) return 'insufficient';
+    if (status !== 'ready') return status;
+    if (this.scenario && this.friendlyUnits.filter(unit => unit.hp > 0).length >= fleetLimit) return 'limit';
+    if (!this.productionChoices(factory).some(type => type.cost <= this.funds.friendly)) return 'insufficient';
     return status;
   }
 
@@ -232,7 +325,7 @@ class BattleMap {
   }
 
   produce(typeId, factory) {
-    const type = productionTypes.find(type => type.id === typeId);
+    const type = this.productionChoices(factory).find(type => type.id === typeId);
     if (!type || this.productionStatus(factory) !== 'ready') return null;
     return this.#deployReinforcement(factory, type);
   }
@@ -258,11 +351,10 @@ class BattleMap {
 
   #captureFacility(unit, side) {
     if (unit.type.id !== infantry.id) return null;
-    const factory = this.factoryAt(unit.x, unit.y);
-    const site = factory ?? this.cityAt(unit.x, unit.y);
-    if (!site || site.owner === side) return null;
+    const site = this.facilityAt(unit.x, unit.y);
+    if (!site || site.kind === 'headquarters' || site.owner === side) return null;
     site.owner = side;
-    return factory ? 'factory' : 'city';
+    return site.kind;
   }
 
   enemyAt(x, y) {
@@ -274,7 +366,25 @@ class BattleMap {
   }
 
   terrainAt(x, y) {
-    return terrainTypes[mainTerrain[y]?.[x] ?? 'p'];
+    return terrainTypes[this.terrain[y]?.[x] ?? 'p'];
+  }
+
+  movementCost(type, x, y) {
+    const terrain = this.terrainAt(x, y);
+    if (!this.scenario) return terrain.cost ?? 1;
+    if (type.domain === air) return 1;
+    const port = this.facilityAt(x, y)?.kind === 'port';
+    if (type.domain === sea) return port || terrain.water ? terrain.cost ?? 1 : Infinity;
+    if (terrain.water && !port || (terrain.id === 'mountain' && type.id !== 'infantry')) return Infinity;
+    if (terrain.id === 'forest' && type.id !== 'infantry') return 2;
+    return terrain.cost ?? 1;
+  }
+
+  #canStrike(unit, target, position = unit, moved = unit.moved, counter = false) {
+    const {type} = unit;
+    if (type.targets && !type.targets.includes(target.type.domain)) return false;
+    if (type.stationary && (counter || moved)) return false;
+    return inRange(type, position, target);
   }
 
   get canAttack() {
@@ -283,8 +393,8 @@ class BattleMap {
 
   canUnitAttack(unit, enemy) {
     return !this.enemyTurn && !this.result && unit.hp > 0 && unit.readyTurn <= this.turn && !unit.attacked && (enemy
-      ? enemy.hp > 0 && inRange(unit.type, unit, enemy)
-      : this.enemyUnits.some(target => target.hp > 0 && inRange(unit.type, unit, target)));
+      ? this.enemyUnits.includes(enemy) && enemy.hp > 0 && this.#canStrike(unit, enemy)
+      : this.enemyUnits.some(target => target.hp > 0 && this.#canStrike(unit, target)));
   }
 
   previewAttack(enemy) {
@@ -323,8 +433,8 @@ class BattleMap {
         const y = route.y + dy;
         if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
         const key = `${x},${y}`;
-        if (occupied.has(key)) continue;
-        const stepCost = this.terrainAt(x, y).cost ?? 1;
+        if (from.type.domain !== air && occupied.has(key)) continue;
+        const stepCost = this.movementCost(from.type, x, y);
         const cost = route.cost + stepCost;
         if (stepCost === Infinity || stepCost > stepLimit || cost > budget || cost >= (routes.get(key)?.cost ?? Infinity)) continue;
         const next = {x, y, cost, previous: route};
@@ -332,6 +442,7 @@ class BattleMap {
         queue.push(next);
       }
     }
+    for (const key of occupied) routes.delete(key);
     return routes;
   }
 
@@ -385,14 +496,20 @@ class BattleMap {
       this.funds[side] += this.incomeFor(side);
       for (const unit of units) {
         if (!unit.hp || unit.hp >= this.maxHP) continue;
-        const factory = this.factoryAt(unit.x, unit.y);
-        const facility = factory ?? this.cityAt(unit.x, unit.y);
-        if (facility?.owner !== side) continue;
+        const facility = this.facilityAt(unit.x, unit.y);
+        if (!this.#canRecover(unit, side, facility)) continue;
         const amount = Math.min(facilityRecovery, this.maxHP - unit.hp);
         unit.hp += amount;
-        this.facilityHealing.push({side, unit: unit.name, amount, facility: factory ? 'factory' : 'city'});
+        this.facilityHealing.push({side, unit: unit.name, amount, facility: facility.kind});
       }
     }
+  }
+
+  #canRecover(unit, side, facility) {
+    if (facility?.owner !== side) return false;
+    if (unit.type.domain === air) return facility.kind === 'airfield';
+    if (unit.type.domain === sea) return facility.kind === 'port';
+    return true;
   }
 
   beginEnemyTurn() {
@@ -429,8 +546,10 @@ class BattleMap {
     const facility = this.#captureFacility(enemy, 'enemy');
     const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
     this.#restoreActiveUnit();
-    this.enemyActions.push({enemy: enemy.name, friendly: friendly?.name, from, to, captured,
-      cityCaptured: facility === 'city', factoryCaptured: facility === 'factory'});
+    const record = {enemy: enemy.name, friendly: friendly?.name, from, to, captured,
+      cityCaptured: facility === 'city', factoryCaptured: facility === 'factory'};
+    if (this.scenario && facility) record.facility = facility;
+    this.enemyActions.push(record);
     return strikes;
   }
 
@@ -444,6 +563,7 @@ class BattleMap {
   planEnemyProduction() {
     const phase = this.enemyTurn;
     if (!phase || this.result || phase.action || this.#nextEnemyIndex(phase.nextIndex) >= 0) return null;
+    if (this.scenario) return this.#planCoastalProduction();
     const factory = this.factories.find(site => site.owner === 'enemy' && this.#factoryStatus(site) === 'ready');
     if (!factory) return null;
     const counts = new Map(productionTypes.map(({id}) => [id, 0]));
@@ -452,6 +572,59 @@ class BattleMap {
     }
     const type = productionTypes.reduce((fewest, next) => counts.get(next.id) < counts.get(fewest.id) ? next : fewest);
     return this.funds.enemy >= type.cost ? {factory, type} : null;
+  }
+
+  #planCoastalProduction() {
+    const units = this.enemyUnits.filter(unit => unit.hp);
+    if (units.length >= fleetLimit) return null;
+    const foes = this.friendlyUnits.filter(unit => unit.hp);
+    const numbers = id => units.filter(unit => unit.type.id === id).length;
+    const opposing = domain => foes.filter(unit => unit.type.domain === domain).length;
+    const coastDistance = new Map(foes.map(foe => [foe, this.#distanceToSea(foe)]));
+    const savings = this.funds.enemy + this.incomeFor('enemy');
+    let best = null;
+    let bestScore = -Infinity;
+    let reserveScore = -Infinity;
+    for (const factory of this.productionSites) {
+      if (factory.owner !== 'enemy' || this.#factoryStatus(factory) !== 'ready') continue;
+      for (const type of this.productionChoices(factory)) {
+        const reachable = foes.filter(foe => type.targets.includes(foe.type.domain)
+          && (type.domain !== sea || coastDistance.get(foe) <= type.maxRange));
+        if (!reachable.length) continue;
+        let score = type.firepower * 2 - type.cost / 2000 - 5 * numbers(type.id);
+        if (type.id === 'infantry' && numbers(type.id) < 2) score += 12;
+        if (['antiair', 'fighter', 'destroyer'].includes(type.id)) score += Math.min(8, opposing(air) * 3);
+        if (type.id === 'fighter' && opposing(air) === 1) score -= 4;
+        if (type.domain === sea && opposing(sea)) score += 3;
+        const nearest = Math.min(...reachable.map(foe => distanceBetween(factory, foe)));
+        score -= nearest / (type.movement + type.maxRange);
+        if (type.cost > this.funds.enemy) {
+          if (units.length >= 8 && type.cost >= 6500 && type.cost <= savings) reserveScore = Math.max(reserveScore, score);
+          continue;
+        }
+        if (score <= bestScore) continue;
+        bestScore = score;
+        best = {factory, type};
+      }
+    }
+    return reserveScore > bestScore + 2 ? null : best;
+  }
+
+  #distanceToSea(position) {
+    const {x, y} = position;
+    const maxRange = coastalTypes.get('battleship').maxRange;
+    for (let radius = 0; radius <= maxRange; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        const row = y + dy;
+        if (row < 0 || row >= this.height) continue;
+        const dx = radius - Math.abs(dy);
+        for (const column of [x - dx, x + dx]) {
+          if (column < 0 || column >= this.width) continue;
+          if (Number.isFinite(this.movementCost(coastalTypes.get('patrol'), column, row))) return radius;
+        }
+      }
+    }
+    return Infinity;
   }
 
   produceEnemyUnit({factory, type}) {
@@ -471,8 +644,9 @@ class BattleMap {
   #exchange(attacker, friendly, enemy) {
     const strikes = [this.#strike(attacker, friendly, enemy)];
     const defender = attacker === 'player' ? 'enemy' : 'player';
-    const counterUnit = defender === 'player' ? friendly.type : enemy.type;
-    if (friendly.hp > 0 && enemy.hp > 0 && inRange(counterUnit, friendly, enemy)) {
+    const counterUnit = defender === 'player' ? friendly : enemy;
+    const counterTarget = defender === 'player' ? enemy : friendly;
+    if (friendly.hp > 0 && enemy.hp > 0 && this.#canStrike(counterUnit, counterTarget, counterUnit, false, true)) {
       strikes.push(this.#strike(defender, friendly, enemy));
     }
     return strikes;
@@ -484,8 +658,13 @@ class BattleMap {
     const defender = playerAttacks ? enemy : friendly;
     const terrain = this.terrainAt(defender.x, defender.y);
     const baseStrength = attackingUnit.hp >= 8 ? 3 : attackingUnit.hp >= 4 ? 2 : 1;
-    const strength = baseStrength + (attackingUnit.type.attackBonus ?? 0);
-    const protectedDamage = Math.max(1, strength - terrain.defense);
+    const {type} = attackingUnit;
+    const strength = this.scenario
+      ? Math.max(1, Math.ceil(type.firepower * attackingUnit.hp / this.maxHP)
+        + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0))
+      : baseStrength + (type.attackBonus ?? 0);
+    const cover = defender.type.domain && defender.type.domain !== land ? 0 : terrain.defense;
+    const protectedDamage = Math.max(1, strength - cover);
     const damage = Math.min(protectedDamage, defender.hp);
     defender.hp -= damage;
     return {attacker, damage, terrain: terrain.name, mitigation: strength - protectedDamage,
@@ -502,7 +681,74 @@ class BattleMap {
     return destination;
   }
 
+  #planCoastalAction(enemy) {
+    const from = {x: enemy.x, y: enemy.y};
+    const {type} = enemy;
+    const living = this.friendlyUnits.filter(unit => unit.hp > 0);
+    const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
+    const home = this.headquarters.friendly;
+    const homeRoute = routes.get(`${home.x},${home.y}`);
+    if (type.id === infantry.id && homeRoute?.cost <= type.movement) {
+      return {enemy, from, to: {...home}, path: routeSteps(homeRoute), friendly: null};
+    }
+    const capturable = position => {
+      const site = this.facilityAt(position.x, position.y);
+      if (type.id !== infantry.id || !site || site.owner === 'enemy') return 0;
+      return site.kind === 'headquarters' ? 24 : site.kind === 'city' ? 13 : 10;
+    };
+    const objectives = living.filter(unit => type.targets.includes(unit.type.domain));
+    let approach = null;
+    let bestGoal = -Infinity;
+    for (const route of routes.values()) {
+      const capture = capturable(route);
+      const firing = objectives.some(target => this.#canStrike(enemy, target, route, false));
+      if (!capture && !firing) continue;
+      const priority = Math.max(capture, firing ? 11 : 0) - route.cost;
+      if (priority <= bestGoal) continue;
+      approach = route;
+      bestGoal = priority;
+    }
+    while (approach && (approach.cost > type.movement || !routes.has(`${approach.x},${approach.y}`))) {
+      approach = approach.previous;
+    }
+    const danger = (route, destroyed) => living.reduce((risk, target) => {
+      if (target === destroyed || !target.type.targets.includes(type.domain)) return risk;
+      const distance = distanceBetween(route, target);
+      const cover = type.domain === land ? this.terrainAt(route.x, route.y).defense : 0;
+      if (inRange(target.type, target, route)) return risk + Math.max(1, target.type.firepower - cover) * .33;
+      if (!target.type.stationary && distance <= target.type.maxRange + target.type.movement) return risk + .3;
+      return risk;
+    }, 0);
+    let bestScore = -Infinity;
+    let choice;
+    for (const route of routes.values()) {
+      if (route.cost > type.movement) continue;
+      const site = this.facilityAt(route.x, route.y);
+      const capture = capturable(route);
+      const moved = route.cost > 0;
+      const recover = this.#canRecover(enemy, 'enemy', site) ? Math.min(facilityRecovery, this.maxHP - enemy.hp) : 0;
+      const holdingProduction = site?.owner === 'enemy' && this.domainAtSite(site);
+      const baseScore = capture + recover * 1.55 - (holdingProduction ? 2 : 0) - route.cost * .12
+        + (moved && route === approach ? 4.5 : 0);
+      const targets = objectives.filter(target => this.#canStrike(enemy, target, route, moved));
+      const risk = danger(route, null);
+      for (const target of [null, ...targets]) {
+        const strikes = target ? this.#exchange('enemy', {...target}, {...enemy, x: route.x, y: route.y}) : [];
+        const [hit, reply] = strikes;
+        const killed = hit?.playerHP === 0;
+        const lost = reply?.enemyHP === 0;
+        const combat = hit ? hit.damage * 2.1 + (killed ? 11 : 0) - (reply?.damage ?? 0) * 1.6 - (lost ? 12 : 0) : 0;
+        const score = baseScore + combat - (killed ? danger(route, target) : risk);
+        if (score <= bestScore) continue;
+        bestScore = score;
+        choice = {enemy, from, to: {x: route.x, y: route.y}, path: routeSteps(route), friendly: target};
+      }
+    }
+    return choice;
+  }
+
   planEnemyAction(enemy) {
+    if (this.scenario) return this.#planCoastalAction(enemy);
     const from = {x: enemy.x, y: enemy.y};
     const {type} = enemy;
     const living = this.friendlyUnits.filter(unit => unit.hp > 0);

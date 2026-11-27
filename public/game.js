@@ -1,5 +1,33 @@
-const crossingSave = createCrossingSave(() => window.localStorage);
-let game = crossingSave.load(BattleMap.fromCrossingSnapshot) ?? new BattleMap();
+const scenarioPreference = 'sumaho-wars:scenario';
+const coastalSaveKey = 'sumaho-wars:coastal-save';
+
+function openScenario(id) {
+  const save = createCrossingSave(() => window.localStorage, id === 'coastal' ? coastalSaveKey : crossingSaveKey);
+  const restored = save.load(state => {
+    const map = BattleMap.fromCrossingSnapshot(state);
+    return map && (map.scenario?.id ?? 'legacy') === id ? map : null;
+  });
+  return {save, restored};
+}
+
+function initialScenario() {
+  try {
+    const storage = window.localStorage;
+    if (storage.getItem(crossingSaveKey) && (storage.getItem(scenarioPreference) === 'legacy'
+      || (!storage.getItem(coastalSaveKey) && storage.getItem(scenarioPreference) !== 'coastal'))) return 'legacy';
+  } catch {
+    // A new match is still playable without storage.
+  }
+  return 'coastal';
+}
+
+let currentScenario = initialScenario();
+let {save: crossingSave, restored: game} = openScenario(currentScenario);
+if (!game && currentScenario === 'legacy') {
+  currentScenario = 'coastal';
+  ({save: crossingSave, restored: game} = openScenario(currentScenario));
+}
+game ??= new BattleMap(currentScenario);
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
 const mapScrollNote = document.getElementById('map-scroll-note');
@@ -36,7 +64,8 @@ const productionLaunch = document.getElementById('production-launch');
 const productionDialog = document.getElementById('production-dialog');
 const canOpenProductionDialog = typeof productionDialog.showModal === 'function';
 const compactControls = window.matchMedia('(max-width: 720px)');
-const productionButtons = [...document.querySelectorAll('[data-produce]')];
+const productionCatalog = document.querySelector('.production-choices');
+const guide = document.getElementById('guide');
 const productionStatus = document.getElementById('production-status');
 const productionMove = document.getElementById('production-move');
 const factoryLegend = document.getElementById('factory-legend');
@@ -225,35 +254,39 @@ function announceTurn(side, onComplete) {
 }
 
 function renderProduction() {
-  const owned = game.factories.filter(factory => factory.owner === 'friendly');
-  if (!owned.includes(selectedFactory)) selectedFactory = owned[0];
+  const owned = game.productionSites.filter(factory => factory.owner === 'friendly');
+  if (!owned.includes(selectedFactory)) selectedFactory = owned.find(site => game.productionStatus(site) === 'ready') ?? owned[0];
   const mapFactory = productionOrigin?.cell;
   factoryPicker.hidden = owned.length < 2 || Boolean(mapFactory);
   productionMove.hidden = !mapFactory || !game.canMoveTo(mapFactory.x, mapFactory.y);
   for (const {factory, icon, owner, button} of factoryEntries) {
-    icon.dataset.factory = factory.owner;
-    owner.textContent = `${ownerNames[factory.owner]}工場`;
+    icon.dataset.factory = factory.kind === 'factory' ? factory.owner : '';
+    icon.dataset.facilityOwner = factory.owner;
+    owner.textContent = `${ownerNames[factory.owner]}${facilityNames[factory.kind]}`;
     button.hidden = factory.owner !== 'friendly';
     button.setAttribute('aria-pressed', String(factory === selectedFactory));
   }
   document.getElementById('production-title-coordinate').textContent = selectedFactory
     ? coordinate(selectedFactory.x, selectedFactory.y) : '';
+  document.getElementById('production-title-kind').textContent = selectedFactory ? facilityNames[selectedFactory.kind] : 'ユニット生産';
   const status = game.productionStatus(selectedFactory);
   const purchase = selectedFactory?.production;
   const labels = {
     ready: '1ターンに1部隊を生産できます。',
-    occupied: '工場が使用中です。マスが空くと生産できます。',
+    occupied: '部隊がいます。マスが空くと生産できます。',
     used: purchase ? `${purchase.unit}を生産しました（−${currency.format(purchase.cost)}）。次のターンから操作できます。` : '',
     waiting: '敵のターンです。',
-    unavailable: game.result ? '対戦終了' : '工場を占領すると生産できます。',
+    unavailable: game.result ? '対戦終了' : '生産できる味方施設がありません。',
     insufficient: '生産に必要な資金が足りません。',
+    limit: `出撃できる上限（${fleetLimit}部隊）に達しました。`,
   };
   if (productionStatus.textContent !== labels[status]) productionStatus.textContent = labels[status];
   document.getElementById('production-funds').textContent = currency.format(game.funds.friendly);
-  for (const button of productionButtons) {
+  const available = new Set(game.productionChoices(selectedFactory).map(type => type.id));
+  for (const button of productionCatalog.children) {
     const affordable = game.funds.friendly >= game.productionCost(button.dataset.produce);
     const canBuy = status === 'ready' && affordable && !movingFriendly;
-    button.hidden = Boolean(mapFactory) && !canBuy;
+    button.hidden = !available.has(button.dataset.produce);
     button.setAttribute('aria-disabled', String(!canBuy));
   }
 }
@@ -263,21 +296,42 @@ function buildFactories() {
   factoryEntries.length = 0;
   factoryLegend.replaceChildren();
   factoryPicker.replaceChildren();
-  for (const factory of game.factories) {
+  productionCatalog.replaceChildren();
+  for (const type of game.unitTypes) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.produce = type.id;
+    const detail = document.createElement('small');
+    detail.textContent = `${currency.format(type.cost)} · 移動 ${type.movement} · 射程 ${rangeLabel(type)}`;
+    const trait = document.createElement('span');
+    trait.className = 'production-trait';
+    trait.textContent = type.trait ?? '';
+    button.append(type.name, detail, trait);
+    button.addEventListener('click', event => {
+      if (inputBlocked() || repeatedTap(event, productionOrigin?.event)) return;
+      const unit = game.produce(type.id, selectedFactory);
+      if (!unit) return;
+      saveProgress();
+      render();
+      flashMapTile(unit, 'deploy');
+    });
+    productionCatalog.append(button);
+  }
+  for (const factory of game.productionSites) {
     const spot = coordinate(factory.x, factory.y);
     const legend = document.createElement('span');
     const icon = document.createElement('i');
     icon.className = 'factory-key';
+    icon.dataset.facilityKind = factory.kind;
     icon.setAttribute('aria-hidden', 'true');
     const owner = document.createElement('span');
     const position = document.createElement('b');
     position.textContent = spot;
     legend.append(icon, owner, position);
-    factoryLegend.append(legend);
+    if (factory.kind !== 'headquarters' && factory.kind !== 'city') factoryLegend.append(legend);
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = spot;
-    button.setAttribute('aria-label', `${spot} の工場`);
+    button.textContent = `${spot} ${facilityNames[factory.kind]}`;
     button.addEventListener('click', () => {
       if (portraitMode.blocked) return;
       selectedFactory = factory;
@@ -300,11 +354,15 @@ function renderEconomy() {
   }
   const healing = document.getElementById('facility-healing');
   const restored = game.facilityHealing.map(({side, unit, amount, facility}) => {
-    const site = facility === 'factory' ? '工場' : '都市';
+    const site = facilityNames[facility];
     return `${ownerNames[side]}${unit}（${site}） +${amount} HP`;
   });
   const report = !game.enemyTurn && !game.result && restored.length ? `回復　${restored.join('、')}` : '';
   if (healing.textContent !== report) healing.textContent = report;
+}
+
+function rangeLabel({minRange, maxRange}) {
+  return minRange === maxRange ? maxRange : `${minRange}〜${maxRange}`;
 }
 
 function render() {
@@ -354,11 +412,12 @@ function render() {
     card.classList.toggle('defeated', !unit.hp);
   }
   for (const cell of cells) {
-    const {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city} = cell;
+    const {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city, facility} = cell;
     const terrain = game.terrainAt(x, y);
     const captured = Boolean(base && game.capturedBy && base !== game.capturedBy);
     if (city) button.dataset.city = city.owner;
-    if (factory) button.dataset.factory = factory.owner;
+    if (facility?.kind === 'factory') button.dataset.factory = facility.owner;
+    if (facility) button.dataset.facilityOwner = facility.owner;
     let friendly = game.friendlyAt(x, y);
     if (movingFriendly && movingFriendly.position.x === x && movingFriendly.position.y === y) friendly = movingFriendly.unit;
     else if (movingFriendly && friendly === movingFriendly.unit) friendly = undefined;
@@ -371,7 +430,6 @@ function render() {
     const actionInfo = unitActions[action];
     const target = !ordersLocked && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
-    const facility = factory ?? city;
     const captureTarget = reachable && game.playerUnit.id === 'infantry'
       && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly'));
     const productionReady = !ordersLocked && factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
@@ -391,21 +449,23 @@ function render() {
     button.classList.toggle('spent', action === 'spent' || action === 'deployed');
     button.setAttribute('aria-label', [coordinate(x, y), occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
       base ? `${base === 'friendly' ? '味方' : '敵'}の本拠地` : '', captured ? '占領済み' : '',
-      factory ? `${ownerNames[factory.owner]}の工場` : '',
-      city ? `${ownerNames[city.owner]}の都市` : '',
+      facility && !base ? `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
-      terrain.cost === Infinity ? '通行不可' : terrain.cost ? `消費移動力${terrain.cost}` : '',
+      reachable ? `消費移動力${movementTargets.get(`${x},${y}`).cost}` : '',
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean).join('、'));
     const unit = enemy ?? friendly;
-    image.hidden = idleSprite.hidden = !unit;
+    const motion = unit && mapUnitMotion[unit.type.id];
+    image.hidden = !unit;
+    idleSprite.hidden = !motion;
+    button.toggleAttribute('data-static-unit', Boolean(unit && !motion));
     if (unit) {
       showImage(image, unitImage(unit.type, Boolean(enemy)));
       const {id} = unit.type;
-      if (idleSprite.dataset.unit !== id) {
+      if (motion && idleSprite.dataset.unit !== id) {
         idleSprite.dataset.unit = id;
-        idleSprite.style.setProperty('--atlas-row', mapUnitMotion[id].row);
+        idleSprite.style.setProperty('--atlas-row', motion.row);
       }
     }
     hpBadge.hidden = !mobileField || image.hidden;
@@ -416,11 +476,13 @@ function render() {
       actionBadge.textContent = actionInfo.marker;
     }
   }
-  const {movement, minRange, maxRange, attackBonus} = game.playerUnit;
+  const {movement, attackBonus, trait, firepower} = game.playerUnit;
   document.getElementById('unit-name').textContent = game.activeUnit.name;
   document.getElementById('unit-movement').textContent = movement;
-  document.getElementById('unit-range').textContent = minRange === maxRange ? maxRange : `${minRange}〜${maxRange}`;
-  document.getElementById('unit-trait').hidden = !attackBonus;
+  document.getElementById('unit-range').textContent = rangeLabel(game.playerUnit);
+  const traitLabel = document.getElementById('unit-trait');
+  traitLabel.hidden = !trait && !attackBonus;
+  traitLabel.textContent = trait ? `攻撃力 ${firepower} · ${trait}` : attackBonus ? `攻撃力 ＋${attackBonus}` : '';
   showImage(document.getElementById('unit-portrait'), unitImage(game.playerUnit));
   const shownPosition = movingFriendly?.position ?? game.activeUnit;
   const position = coordinate(shownPosition.x, shownPosition.y);
@@ -462,9 +524,10 @@ function render() {
     state.textContent = '占領可能';
     message.textContent = '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
   } else if (announcedCapture) {
-    const factory = facilityCapture.facility === 'factory';
-    const site = factory ? '工場' : '都市';
-    const update = factory ? '工場マスが空くと生産できます。' : '次のターンから収入が入ります。';
+    const site = facilityNames[facilityCapture.facility];
+    const production = game.productionSiteAt(facilityCapture.x, facilityCapture.y);
+    const update = [facilityCapture.facility === 'city' ? '次のターンから収入が入ります。' : '',
+      production ? 'マスが空くと生産できます。' : ''].filter(Boolean).join('');
     state.textContent = game.canAttack ? '攻撃可能' : `${site}占領`;
     message.textContent = `${coordinate(facilityCapture.x, facilityCapture.y)} の${site}を占領しました。${update}`
       + (game.canAttack ? '印のある敵を攻撃できます。' : '');
@@ -499,18 +562,20 @@ function render() {
 
 function renderBattleStatus() {
   const report = document.getElementById('enemy-report');
-  const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured}) => {
+  const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured, facility}) => {
     const origin = coordinate(from.x, from.y);
     const destination = coordinate(to.x, to.y);
     if (origin === destination) {
       return `敵${enemy} ${destination}${friendly ? `から味方${friendly}を攻撃` : 'で待機'}`;
     }
-    const capture = captured ? '、本拠地を占領' : cityCaptured ? '、都市を占領' : factoryCaptured ? '、工場を占領' : '';
+    const site = captured ? 'headquarters' : facility ?? (cityCaptured ? 'city' : factoryCaptured ? 'factory' : null);
+    const capture = site ? `、${facilityNames[site]}を占領` : '';
     const attack = friendly ? `、味方${friendly}を攻撃` : '';
     return `敵${enemy} ${origin} → ${destination}${capture}${attack}`;
   });
   for (const {x, y, unit} of game.enemyProductions) {
-    lines.push(`敵は工場（${coordinate(x, y)}）で${unit}を生産`);
+    const name = facilityNames[game.facilityAt(x, y)?.kind];
+    lines.push(`敵は${name}（${coordinate(x, y)}）で${unit}を生産`);
   }
   report.hidden = lines.length === 0;
   report.textContent = lines.join('\n');
@@ -529,13 +594,13 @@ function showMap() {
   closeFieldDialogs();
   renderSaveStatus();
   setMobileFieldLayout();
+  document.getElementById('mission-title').textContent = game.name;
+  document.title = `スマホウォーズ｜${game.name}`;
+  document.getElementById('coastal-legend').hidden = !game.scenario;
   music.setTurn(game.enemyTurn ? 'enemy' : 'friendly');
   music.setScene(game.result ?? 'map');
   for (const [side, {x, y}] of Object.entries(game.headquarters)) {
     document.getElementById(`${side}-base-coordinate`).textContent = coordinate(x, y);
-  }
-  for (const button of productionButtons) {
-    button.querySelector('small').textContent = currency.format(game.productionCost(button.dataset.produce));
   }
   buildFactories();
   cityEntries.length = 0;
@@ -564,23 +629,21 @@ function revealTile(button, center = false) {
   const tile = button.getBoundingClientRect();
   const visibleLeft = viewport.left + mapNumbers.offsetWidth;
   const visibleRight = viewport.left + mapSurround.clientWidth;
-  if (mobileField) {
-    const visibleTop = viewport.top + mapLetters.offsetHeight;
-    const bottom = viewport.top + mapSurround.clientHeight;
-    if (center) {
-      mapSurround.scrollLeft += (tile.left + tile.right - visibleLeft - visibleRight) / 2;
-      mapSurround.scrollTop += (tile.top + tile.bottom - visibleTop - bottom) / 2;
-      return;
-    }
-    if (tile.top < visibleTop) mapSurround.scrollTop += tile.top - visibleTop - 8;
-    if (tile.bottom > bottom) mapSurround.scrollTop += tile.bottom - bottom + 8;
+  const visibleTop = viewport.top + mapLetters.offsetHeight;
+  const bottom = viewport.top + mapSurround.clientHeight;
+  if (center) {
+    mapSurround.scrollLeft += (tile.left + tile.right - visibleLeft - visibleRight) / 2;
+    mapSurround.scrollTop += (tile.top + tile.bottom - visibleTop - bottom) / 2;
+    return;
   }
+  if (tile.top < visibleTop) mapSurround.scrollTop += tile.top - visibleTop - 8;
+  if (tile.bottom > bottom) mapSurround.scrollTop += tile.bottom - bottom + 8;
   if (tile.left < visibleLeft) mapSurround.scrollLeft += tile.left - visibleLeft - 12;
   if (tile.right > visibleRight) mapSurround.scrollLeft += tile.right - visibleRight + 12;
 }
 
 function updateMapScrollNote() {
-  mapScrollNote.hidden = mapSurround.scrollWidth <= mapSurround.clientWidth;
+  mapScrollNote.hidden = mapSurround.scrollWidth <= mapSurround.clientWidth && mapSurround.scrollHeight <= mapSurround.clientHeight;
 }
 
 function closeFieldDialogs() {
@@ -605,14 +668,13 @@ function setMobileFieldLayout() {
 function drawOverview() {
   overviewGrid.style.setProperty('--columns', game.width);
   overviewGrid.style.setProperty('--rows', game.height);
-  const spots = cells.map(({button, base}) => {
+  const spots = cells.map(({button, base, facility}) => {
     const spot = document.createElement('span');
     spot.className = 'overview-cell';
     spot.setAttribute('aria-hidden', 'true');
     spot.dataset.terrain = button.dataset.terrain;
     if (base) spot.dataset.base = base;
-    const facility = button.dataset.factory ?? button.dataset.city;
-    if (facility) spot.dataset.facility = facility;
+    if (facility) spot.dataset.facility = facility.owner;
     if (button.classList.contains('occupied')) spot.dataset.side = 'friendly';
     if (button.classList.contains('enemy')) spot.dataset.side = 'enemy';
     return spot;
@@ -672,12 +734,14 @@ function addTile(x, y) {
   button.type = 'button';
   button.className = 'tile';
   const base = game.headquartersAt(x, y);
-  const factory = game.factoryAt(x, y);
-  const city = game.cityAt(x, y);
+  const facility = game.facilityAt(x, y);
+  const factory = game.productionSiteAt(x, y);
+  const city = facility?.kind === 'city' ? facility : null;
   const terrain = game.terrainAt(x, y).id;
   button.dataset.terrain = terrain;
   if (terrain === 'river' || terrain === 'bridge') drawWater(button, x, y);
   if (base) button.dataset.base = base;
+  if (facility) button.dataset.facilityKind = facility.kind;
   button.classList.toggle('last-column', x === game.width - 1);
   button.classList.toggle('last-row', y === game.height - 1);
   const image = document.createElement('img');
@@ -702,7 +766,7 @@ function addTile(x, y) {
   productionBadge.setAttribute('aria-hidden', 'true');
   productionBadge.textContent = '生産';
   button.append(productionBadge);
-  const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city};
+  const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city, facility};
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', (event) => {
     if (inputBlocked()) return;
@@ -722,10 +786,8 @@ function addTile(x, y) {
     const nextX = Math.max(0, Math.min(game.width - 1, x + dx));
     const nextY = Math.max(0, Math.min(game.height - 1, y + dy));
     const next = cells[nextY * game.width + nextX].button;
-    if (mobileField) {
-      next.focus({preventScroll: true});
-      revealTile(next);
-    } else next.focus();
+    next.focus({preventScroll: true});
+    revealTile(next);
   });
   cells.push(cell);
   board.append(button);
@@ -763,16 +825,25 @@ function highlightFriendlyRoute(path) {
 
 function showStride(unit, from, to, enemy, duration) {
   strideSprite?.remove();
-  if (!board.classList.contains('map-march-ready') || reducedMapMotion.matches || (from.x === to.x && from.y === to.y)) return;
+  const motion = mapUnitMotion[unit.type.id];
+  if ((motion && !board.classList.contains('map-march-ready')) || reducedMapMotion.matches
+    || (from.x === to.x && from.y === to.y)) return;
   const tile = tileAt(to);
   const shell = document.createElement('span');
-  const sprite = document.createElement('span');
+  const sprite = document.createElement(motion ? 'span' : 'img');
   shell.className = 'map-stride';
   shell.dataset.unit = unit.type.id;
+  shell.dataset.domain = unit.type.domain ?? 'land';
   shell.setAttribute('aria-hidden', 'true');
   sprite.className = 'map-stride-sprite';
-  const atlasRow = mapUnitMotion[unit.type.id].row + (enemy ? 4 : 0);
-  shell.style.setProperty('--atlas-row', `${atlasRow / 7 * 100}%`);
+  if (motion) {
+    const atlasRow = motion.row + (enemy ? 4 : 0);
+    shell.style.setProperty('--atlas-row', `${atlasRow / 7 * 100}%`);
+  } else {
+    shell.setAttribute('data-static', '');
+    sprite.src = unitImage(unit.type, enemy);
+    sprite.alt = '';
+  }
   shell.style.setProperty('--stride-x', `${(from.x - to.x) * 100}%`);
   shell.style.setProperty('--stride-y', `${(from.y - to.y) * 100}%`);
   shell.style.setProperty('--stride-duration', `${duration}ms`);
@@ -794,7 +865,7 @@ function flashMapTile(position, effect, text = '') {
 }
 
 function animateFriendlyMove(unit, from, path, onComplete) {
-  const duration = mapUnitMotion[unit.type.id].step;
+  const duration = mapUnitMotion[unit.type.id]?.step ?? 100;
   function advance(index, previous) {
     const position = path[index];
     if (!position || reducedMapMotion.matches) {
@@ -814,7 +885,7 @@ function animateFriendlyMove(unit, from, path, onComplete) {
 }
 
 function previewAction(cell, opener) {
-  const {x, y, base, factory, city} = cell;
+  const {x, y, base, facility} = cell;
   const unit = game.activeUnit;
   const enemy = game.enemyAt(x, y);
   const strikes = game.previewAttack(enemy);
@@ -831,11 +902,10 @@ function previewAction(cell, opener) {
     const route = game.movementTargets().get(`${x},${y}`);
     if (!route) return false;
     path = routeSteps(route);
-    const site = factory ?? city;
     let capture = '';
     if (unit.type.id === 'infantry') {
       if (base === 'enemy') capture = '敵本拠地を占領すると勝利';
-      else if (site && site.owner !== 'friendly') capture = `${factory ? '工場' : '都市'}を占領`;
+      else if (facility && facility.owner !== 'friendly') capture = `${facilityNames[facility.kind]}を占領`;
     }
     verb = capture ? '占領' : '移動';
     actionSummary.textContent = `${unit.name}  ${coordinate(unit.x, unit.y)} → ${destination}`;
@@ -868,7 +938,7 @@ actionConfirm.addEventListener('click', (event) => {
     presentAttack({attacker: 'player', enemy, resolve: () => game.choose(x, y)});
     return;
   }
-  const capturedFactory = factory?.owner === 'enemy';
+  const capturedFactory = factory && factory.owner !== 'friendly';
   const previousCapture = game.friendlyCapture;
   const from = {x: unit.x, y: unit.y};
   game.choose(x, y);
@@ -946,7 +1016,7 @@ function followEnemy(position) {
 
 function playEnemyAction(action, restoreFocus) {
   const {enemy, from, to, path, friendly} = action;
-  const site = game.factoryAt(to.x, to.y) ?? game.cityAt(to.x, to.y);
+  const site = game.facilityAt(to.x, to.y);
   const capture = enemy.type.id === 'infantry' && (game.headquartersAt(to.x, to.y) === 'friendly' || (site && site.owner !== 'enemy'));
   const commands = [];
   if (path.length) commands.push({id: 'move', label: '移動'});
@@ -958,9 +1028,12 @@ function playEnemyAction(action, restoreFocus) {
   openEnemyMenu('action', `敵${enemy.name}　${origin}${path.length ? ` → ${destination}` : ''}`, commands);
   const commandDetail = {move: `${destination} へ移動`, capture: `${destination} を占領`,
     attack: friendly ? `${coordinate(friendly.x, friendly.y)} の味方${friendly.name}を攻撃` : '', wait: `${origin} で待機`};
+  const fast = Boolean(game.scenario);
   const steps = commands.flatMap(({id}) => id === 'move'
-    ? [{id, position: from, delay: 260}, ...path.map(position => ({id, position, delay: mapUnitMotion[enemy.type.id].step}))]
-    : [{id, position: to, delay: 330}]);
+    ? [{id, position: from, delay: fast ? 100 : 260}, ...path.map(position => ({
+      id, position, delay: fast ? 75 : mapUnitMotion[enemy.type.id].step,
+    }))]
+    : [{id, position: to, delay: fast ? 130 : 330}]);
   highlightEnemyRoute(path, to);
 
   function advance(index, previous = from) {
@@ -985,7 +1058,7 @@ function playEnemyAction(action, restoreFocus) {
     game.resolveEnemyAction(action);
     saveProgress();
     const resolved = game.enemyActions.at(-1);
-    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured) flashMapTile(to, 'capture');
+    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured || resolved?.facility) flashMapTile(to, 'capture');
     runEnemyTurn(restoreFocus);
   }
   advance(0);
@@ -994,7 +1067,8 @@ function playEnemyAction(action, restoreFocus) {
 function playEnemyProduction(order, restoreFocus) {
   const {factory, type} = order;
   const spot = coordinate(factory.x, factory.y);
-  openEnemyMenu('production', `敵工場 ${spot}`, productionTypes.map(({id, name, cost}) => ({id, label: name, cost})));
+  openEnemyMenu('production', `敵${facilityNames[factory.kind]} ${spot}`,
+    game.productionChoices(factory).map(({id, name, cost}) => ({id, label: name, cost})));
   showEnemyChoice('factory', null, `資金 ${currency.format(game.funds.enemy)}`);
   highlightEnemyRoute([], factory);
   render();
@@ -1073,23 +1147,20 @@ function restoreBoardFocus(restoreFocus = true) {
 endTurn.addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
 });
-for (const button of productionButtons) {
-  button.addEventListener('click', event => {
-    if (inputBlocked() || repeatedTap(event, productionOrigin?.event)) return;
-    const unit = game.produce(button.dataset.produce, selectedFactory);
-    if (!unit) return;
-    saveProgress();
-    render();
-    flashMapTile(unit, 'deploy');
-  });
+function showOverview() {
+  if (portraitMode.blocked || waitingForEnemy() || movingFriendly || combatScreen.active || fieldOverview.open) return;
+  drawOverview();
+  fieldOverview.showModal();
+  updateOverviewWindow();
 }
+
+document.getElementById('desktop-overview').addEventListener('click', showOverview);
 for (const [index, button] of fieldButtons.entries()) {
   const dialog = fieldDialogs[index];
   button.addEventListener('click', () => {
     if (!mobileField || portraitMode.blocked || waitingForEnemy() || movingFriendly || combatScreen.active || dialog.open) return;
-    if (dialog === fieldOverview) drawOverview();
-    dialog.showModal();
-    if (dialog === fieldOverview) updateOverviewWindow();
+    if (dialog === fieldOverview) showOverview();
+    else dialog.showModal();
   });
 }
 fieldNextUnit.addEventListener('click', () => {
@@ -1159,11 +1230,39 @@ function positionProductionControls(opening = false) {
   }
 }
 document.getElementById('help').addEventListener('click', () => {
-  if (!portraitMode.blocked && !game.enemyTurn && !movingFriendly) document.getElementById('guide').showModal();
+  if (portraitMode.blocked || game.enemyTurn || movingFriendly) return;
+  document.getElementById('play-coastal').hidden = Boolean(game.scenario);
+  document.getElementById('play-legacy').hidden = !game.scenario || !openScenario('legacy').restored;
+  guide.showModal();
 });
+
+function switchScenario(id) {
+  if (portraitMode.blocked || game.enemyTurn || movingFriendly || combatScreen.active) return;
+  const {save, restored} = openScenario(id);
+  if (!restored && id === 'legacy') return;
+  crossingSave = save;
+  game = restored ?? new BattleMap(id);
+  currentScenario = id;
+  try {
+    window.localStorage.setItem(scenarioPreference, id);
+  } catch {
+    // The selected map is still available for this visit.
+  }
+  guide.close();
+  saveProgress();
+  showMap();
+  friendlyTile().focus({preventScroll: true});
+}
+
+document.getElementById('play-coastal').addEventListener('click', () => switchScenario('coastal'));
+document.getElementById('play-legacy').addEventListener('click', () => switchScenario('legacy'));
 replay.addEventListener('click', () => {
   if (portraitMode.blocked || combatScreen.active || game.enemyTurn || !game.result) return;
-  game = new BattleMap();
+  if (currentScenario === 'legacy') {
+    switchScenario('coastal');
+    return;
+  }
+  game = new BattleMap(currentScenario);
   saveProgress();
   showMap();
   friendlyTile().focus();

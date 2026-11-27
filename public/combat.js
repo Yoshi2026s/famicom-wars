@@ -11,12 +11,25 @@ const combatScreen = (() => {
   const impactEffects = camera.querySelector('.combat-hit');
   const formations = {player: camera.querySelector('.ally'), enemy: camera.querySelector('.foe')};
   const tactics = {
-    infantry: {slots: [[0, 0], [5, 0], [3, 0]], muzzle: [.89, .57], aim: 320, flight: 240, attack: '一斉射撃'},
-    scout: {slots: [[0, 0], [0, 82], [0, 164]], muzzle: [.88, .44], aim: 245, flight: 210, attack: '機銃を連射'},
-    support: {slots: [[0, 0], [0, 120]], muzzle: [.66, .16], aim: 415, flight: 525, attack: '支援弾を発射'},
-    tank: {slots: [[0, 0]], muzzle: [.96, .48], aim: 420, flight: 250, attack: '主砲を発射'},
+    infantry: {slots: [[0, 0], [5, 0], [3, 0]], muzzle: [.89, .57], hit: .56, aim: 320, flight: 240, attack: '一斉射撃'},
+    scout: {slots: [[0, 0], [0, 82], [0, 164]], muzzle: [.88, .44], hit: .66, aim: 245, flight: 210, attack: '機銃を連射'},
+    support: {slots: [[0, 0], [0, 120]], muzzle: [.66, .16], hit: .58, aim: 415, flight: 525, attack: '支援弾を発射'},
+    tank: {slots: [[0, 0]], muzzle: [.96, .48], hit: .61, aim: 420, flight: 250, attack: '主砲を発射'},
+    artillery: {profile: 'support', slots: [[0, 0]], muzzle: [.84, .34], flight: 575, attack: '榴弾を発射'},
+    rocket: {profile: 'support', slots: [[0, 0], [0, 85], [0, 170]], muzzle: [.72, .36], flight: 510, attack: 'ロケット弾を斉射'},
+    antiair: {profile: 'scout', muzzle: [.77, .38], flight: 185, attack: '対空砲を連射'},
+    helicopter: {profile: 'support', muzzle: [.77, .60], hit: .50, flight: 340, attack: 'ロケット弾を発射'},
+    fighter: {profile: 'scout', slots: [[0, 0], [0, 115]], muzzle: [.78, .48], hit: .48, flight: 235, attack: '空対空ミサイルを発射'},
+    bomber: {profile: 'tank', slots: [[0, 0], [0, 135]], muzzle: [.57, .68], hit: .52, flight: 440, attack: '爆弾を投下'},
+    patrol: {profile: 'scout', muzzle: [.78, .50], hit: .58, attack: '速射砲を連射'},
+    destroyer: {profile: 'support', muzzle: [.76, .45], hit: .57, flight: 410, attack: '誘導弾を発射'},
+    battleship: {profile: 'tank', slots: [[0, 0], [0, 125]], muzzle: [.78, .43], hit: .58, flight: 395, attack: '艦砲を斉射'},
   };
-  const hitHeight = {infantry: .56, scout: .66, support: .58, tank: .61};
+
+  function attackTactics(kind) {
+    const detail = tactics[kind] ?? tactics.tank;
+    return {...tactics[detail.profile], ...detail};
+  }
   const teamNames = {};
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let scene = null;
@@ -41,6 +54,11 @@ const combatScreen = (() => {
       while (formation.childElementCount < count) {
         const fighter = document.createElement('span');
         fighter.className = 'fighter';
+        if (formation.hasAttribute('data-static')) {
+          const sprite = document.createElement('span');
+          sprite.className = 'fighter-sprite';
+          fighter.append(sprite);
+        }
         const slot = formation.childElementCount;
         const column = slot % 5;
         const rank = Math.floor(slot / 5);
@@ -64,6 +82,9 @@ const combatScreen = (() => {
     dialog.dataset.attacker = attacker;
     dialog.dataset.armament = formations[attacker].dataset.kind;
     dialog.dataset.defender = formations[defender].dataset.kind;
+    dialog.dataset.attackProfile = formations[attacker].dataset.profile;
+    dialog.dataset.defenseProfile = formations[defender].dataset.profile;
+    dialog.dataset.defenseDomain = formations[defender].dataset.domain;
     delete dialog.dataset.lethal;
   }
 
@@ -75,12 +96,13 @@ const combatScreen = (() => {
     stage.textContent = first ? '先攻' : '反撃';
     const team = teamNames[attacker];
     status.textContent = first ? `${team}が構えた。` : `${team}が反撃の構え。`;
-    scene.timer = portraitMode.schedule(startVolley, motion.matches ? 90 : tactics[dialog.dataset.armament].aim);
+    scene.timer = portraitMode.schedule(startVolley, motion.matches ? 90 : attackTactics(dialog.dataset.armament).aim);
   }
 
   function startVolley() {
     const fromPlayer = dialog.dataset.attacker === 'player';
-    const {slots, muzzle, flight, attack} = tactics[dialog.dataset.armament];
+    const {slots, muzzle, flight, attack} = attackTactics(dialog.dataset.armament);
+    const hitHeight = attackTactics(dialog.dataset.defender).hit;
     const attackers = formations[fromPlayer ? 'player' : 'enemy'].children;
     const defenders = formations[fromPlayer ? 'enemy' : 'player'].children;
     const view = camera.getBoundingClientRect();
@@ -100,7 +122,7 @@ const combatScreen = (() => {
       ray.style.setProperty('--shot-delay', `${delay}ms`);
       ray.style.setProperty('--flight', `${flight}ms`);
       const [fromX, fromY] = point(shooter, fromPlayer ? muzzle[0] : 1 - muzzle[0], muzzle[1]);
-      const [toX, toY] = point(defenders[slot] ?? defenders[0], .50, hitHeight[dialog.dataset.defender] + lane * .03);
+      const [toX, toY] = point(defenders[slot] ?? defenders[0], .50, hitHeight + lane * .03);
       const dx = (toX - fromX) * view.width;
       const dy = (toY - fromY) * view.height;
       const angle = Math.atan2(dy, dx);
@@ -120,7 +142,7 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'attack';
     const team = teamNames[dialog.dataset.attacker];
     status.textContent = `${team}が${attack}！`;
-    if (motion.matches) combatAudio.play(`shot-${dialog.dataset.armament}`, fromPlayer ? -.62 : .62);
+    if (motion.matches) combatAudio.play(`shot-${dialog.dataset.attackProfile}`, fromPlayer ? -.62 : .62);
     scene.timer = portraitMode.schedule(showImpact, motion.matches ? 160 : lastShot + flight + 35);
   }
 
@@ -144,7 +166,7 @@ const combatScreen = (() => {
     status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.lethal = String(remaining === 0);
     dialog.dataset.phase = 'impact';
-    combatAudio.play(`${remaining ? 'impact' : 'defeat'}-${dialog.dataset.defender}`, hit.attacker === 'player' ? .55 : -.55);
+    combatAudio.play(`${remaining ? 'impact' : 'defeat'}-${dialog.dataset.defenseProfile}`, hit.attacker === 'player' ? .55 : -.55);
     const next = scene.strikes[scene.nextStrike];
     scene.timer = portraitMode.schedule(() => {
       if (next) beginStrike(next.attacker);
@@ -201,9 +223,10 @@ const combatScreen = (() => {
   advance.addEventListener('click', (event) => {
     if (!scene || portraitMode.blocked) return;
     if (event.detail > 0) {
-      // Some touch browsers report each tap as a single click.
-      if (scene.skipClickTime !== null && (event.detail > 1 || event.timeStamp - scene.skipClickTime < 300)) return;
-      if (dialog.dataset.phase !== 'result') scene.skipClickTime = event.timeStamp;
+      // Touch clicks can carry a timestamp from before the result appeared.
+      const now = performance.now();
+      if (scene.skipClickTime !== null && (event.detail > 1 || now - scene.skipClickTime < 300)) return;
+      if (dialog.dataset.phase !== 'result') scene.skipClickTime = now;
     }
     advanceScene();
   });
@@ -220,7 +243,7 @@ const combatScreen = (() => {
   volley.addEventListener('animationstart', (event) => {
     if (scene && !portraitMode.blocked && dialog.dataset.phase === 'attack'
       && (event.animationName === 'shot-trail' || event.animationName === 'rocket-trail')) {
-      combatAudio.play(`shot-${dialog.dataset.armament}`, dialog.dataset.attacker === 'player' ? -.62 : .62);
+      combatAudio.play(`shot-${dialog.dataset.attackProfile}`, dialog.dataset.attacker === 'player' ? -.62 : .62);
     }
   });
 
@@ -235,12 +258,27 @@ const combatScreen = (() => {
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
         document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
         formations[side].dataset.terrain = terrain.id;
-        const {id} = unit.type;
-        formations[side].dataset.kind = id;
+        const {id, domain = 'land'} = unit.type;
+        const formation = formations[side];
+        formation.replaceChildren();
+        const detail = attackTactics(id);
+        formation.dataset.kind = id;
+        formation.dataset.domain = domain;
+        formation.dataset.profile = detail.profile ?? (Object.hasOwn(tactics, id) ? id : 'tank');
+        formation.toggleAttribute('data-static', Boolean(detail.profile));
+        const staticSprite = side === 'enemy' ? `enemy-${id}` : id;
+        if (detail.profile) {
+          formation.style.setProperty('--unit-static', `url("./assets/${staticSprite}.png?v=coastal")`);
+          formation.style.setProperty('--muzzle-x', `${detail.muzzle[0] * 100}%`);
+          formation.style.setProperty('--muzzle-y', `${detail.muzzle[1] * 100 - 14}%`);
+        } else {
+          for (const property of ['--unit-static', '--muzzle-x', '--muzzle-y']) formation.style.removeProperty(property);
+        }
         const sprite = side === 'player' && id === 'support' ? 'friendly-support'
           : side === 'enemy' && (id === 'scout' || id === 'tank') ? `enemy-${id}` : id;
-        formations[side].dataset.unit = sprite;
+        formation.dataset.unit = sprite;
       }
+      dialog.toggleAttribute('data-coastal', Object.values(formations).some(formation => formation.dataset.domain === 'sea'));
       document.getElementById('combat-turn').textContent = `ターン ${map.turn} · ${attacker === 'enemy' ? '敵の手番' : '味方の手番'}`;
       advance.textContent = '演出をスキップ';
       showForces({playerHP: friendly.hp, enemyHP: enemy.hp});
