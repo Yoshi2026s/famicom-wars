@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=random-play">
-    <link rel="stylesheet" href="./combat.css?v=random-play">
-    <link rel="stylesheet" href="./battlefield.css?v=random-play">
+    <link rel="stylesheet" href="./style.css?v=unit-detail">
+    <link rel="stylesheet" href="./combat.css?v=unit-detail">
+    <link rel="stylesheet" href="./battlefield.css?v=unit-detail">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=random-play"></script>
-    <script defer src="./rules.js?v=random-play"></script>
+    <script defer src="./map-generator.js?v=unit-detail"></script>
+    <script defer src="./rules.js?v=unit-detail"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=random-play"></script>
-    <script defer src="./unit-art.js?v=random-play"></script>
-    <script defer src="./scene-art.js?v=random-play"></script>
-    <script defer src="./combat.js?v=random-play"></script>
-    <script defer src="./map-art.js?v=random-play"></script>
-    <script defer src="./game.js?v=random-play"></script>
+    <script defer src="./orientation.js?v=unit-detail"></script>
+    <script defer src="./unit-art.js?v=unit-detail"></script>
+    <script defer src="./scene-art.js?v=unit-detail"></script>
+    <script defer src="./combat.js?v=unit-detail"></script>
+    <script defer src="./map-art.js?v=unit-detail"></script>
+    <script defer src="./game.js?v=unit-detail"></script>
   </head>
   <body>
     <header class="masthead">
@@ -39,6 +39,7 @@
         <div class="sound-controls" id="map-sound-controls">
           <button class="sound-toggle" data-bgm type="button" aria-label="BGM" aria-pressed="true"><span class="sound-switch">BGM <b>ON</b></span></button>
           <button class="sound-toggle" data-combat-audio type="button" aria-label="効果音" aria-pressed="true"><span class="sound-switch">効果音 <b>ON</b></span></button>
+          <button class="sound-toggle level-toggle" id="level-open" type="button" aria-haspopup="dialog" aria-controls="new-match-dialog"><span class="sound-switch">CPU <b id="level-label">ふつう</b></span></button>
         </div>
         <div class="turn" id="turn-indicator" data-side="friendly" role="status" aria-atomic="true">
           <span class="turn-count">ターン <strong id="turn">01</strong></span>
@@ -75,8 +76,19 @@
           </div>
           <div class="field-status" id="field-status" hidden>
             <p id="field-unit" role="status" aria-atomic="true"></p>
+            <button type="button" class="detail-open" id="field-detail" aria-controls="unit-detail">詳細</button>
             <p class="field-funds">資金 <b id="field-funds"></b></p>
           </div>
+          <section class="unit-detail" id="unit-detail" aria-labelledby="unit-detail-title" hidden>
+            <header>
+              <h2 id="unit-detail-title" tabindex="-1">ユニット詳細</h2>
+              <span class="unit-detail-hp" id="unit-detail-hp"></span>
+              <button type="button" class="unit-detail-close" id="unit-detail-close">閉じる</button>
+            </header>
+            <p class="unit-detail-legend"><span class="detail-move-key"></span>移動できる <b id="detail-move-count"></b>マス <span class="detail-attack-key"></span>攻撃が届く <b id="detail-attack-count"></b>マス</p>
+            <dl class="unit-detail-stats" id="unit-detail-stats"></dl>
+            <div class="unit-detail-matchups" id="unit-detail-matchups"></div>
+          </section>
           <div id="map-intel">
             <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択"></div>
             <div class="friendly-roster enemy-roster" id="enemy-roster" role="group" aria-label="敵部隊の状況"></div>
@@ -104,7 +116,7 @@
         </section>
         <aside class="sidebar" aria-label="部隊と操作">
           <section class="unit-panel" id="unit-panel" aria-labelledby="unit-title">
-            <div class="panel-heading"><h2 id="unit-title">部隊情報</h2><span class="state" id="state">行動可能</span></div>
+            <div class="panel-heading"><h2 id="unit-title">部隊情報</h2><button type="button" class="detail-open" id="panel-detail" aria-controls="unit-detail">詳細</button><span class="state" id="state">行動可能</span></div>
             <div class="portrait" aria-hidden="true"><img id="unit-portrait" src="./assets/infantry.png?v=graphics-bgm" alt=""></div>
             <div class="unit-details">
               <h3 id="unit-name">歩兵</h3>
@@ -188,6 +200,16 @@
       <span class="portrait-phone" aria-hidden="true"></span>
       <h2 id="portrait-title" tabindex="-1" autofocus>端末を縦向きにしてください</h2>
       <p id="portrait-description">縦向きに戻すと、続きから遊べます。</p>
+    </dialog>
+    <dialog id="new-match-dialog" class="new-match-dialog" aria-labelledby="new-match-title">
+      <h2 id="new-match-title">新しい対戦</h2>
+      <p id="new-match-note">CPUの強さを選ぶと、新しいマップで対戦を始めます。今の対戦の進行は上書きされます。</p>
+      <div class="level-choices">
+        <button type="button" data-level="easy"><b>やさしい</b><small>CPUの収入75%。判断が甘く、危険をあまり気にしない</small></button>
+        <button type="button" data-level="normal"><b>ふつう</b><small>標準の収入と判断</small></button>
+        <button type="button" data-level="hard"><b>つよい</b><small>CPUの収入125%。反撃をより慎重に避ける</small></button>
+      </div>
+      <form method="dialog"><button class="replay" autofocus>やめる</button></form>
     </dialog>
     <dialog id="guide" aria-labelledby="guide-title">
       <h2 id="guide-title">遊び方</h2>

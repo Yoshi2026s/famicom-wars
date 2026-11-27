@@ -41,6 +41,18 @@ const mapGenerator = typeof module === 'undefined' ? self.MapGenerator : require
 const generatedStartingFunds = 10000;
 // Facility repairs cost a tenth of the unit's price for every HP restored.
 const repairCostPerHP = type => Math.ceil(type.cost / 10);
+// CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
+// most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
+const difficulties = Object.freeze({
+  easy: Object.freeze({income: .75, jitter: 3, caution: .35}),
+  normal: Object.freeze({income: 1, jitter: 0, caution: 1}),
+  hard: Object.freeze({income: 1.25, jitter: 0, caution: 1.3}),
+});
+function jitter(...parts) {
+  let h = 2166136261;
+  for (const part of String(parts.join('|'))) h = Math.imul(h ^ part.charCodeAt(0), 16777619);
+  return ((h >>> 0) / 4294967296) * 2 - 1;
+}
 const land = 'land';
 const air = 'air';
 const sea = 'sea';
@@ -102,12 +114,15 @@ class BattleMap {
   facilityHealing = [];
 
   // Starts a new match. The coastal theatre gets a freshly generated map every time.
-  static newMatch(scenario = fieldScenario.id, seed) {
-    if (scenario !== fieldScenario.id) return new BattleMap(scenario);
-    return new BattleMap(scenario, {map: mapGenerator.generateMap(seed)});
+  static newMatch(scenario = fieldScenario.id, seed, {difficulty = 'normal'} = {}) {
+    if (scenario !== fieldScenario.id) return new BattleMap(scenario, {difficulty});
+    return new BattleMap(scenario, {map: mapGenerator.generateMap(seed), difficulty});
   }
 
-  constructor(scenario = 'legacy', {map} = {}) {
+  static get difficulties() { return Object.keys(difficulties); }
+
+  constructor(scenario = 'legacy', {map, difficulty = 'normal'} = {}) {
+    this.difficulty = Object.hasOwn(difficulties, difficulty) ? difficulty : 'normal';
     this.scenario = scenario !== fieldScenario.id ? null : map ? generatedScenario(map) : fieldScenario;
     if (this.scenario) {
       for (const side of ['friendly', 'enemy']) {
@@ -149,7 +164,7 @@ class BattleMap {
       turn: this.turn, selected: this.selected, capturedBy: this.capturedBy,
       activeUnit: this.friendlyUnits.indexOf(this.activeUnit),
       friendlyUnits: saveUnits(this.friendlyUnits), enemyUnits: saveUnits(this.enemyUnits),
-      funds: {...this.funds},
+      funds: {...this.funds}, difficulty: this.difficulty,
       factories: this.factories.map(({owner, production}) => ({owner, production})),
       cityOwners: this.cities.map(city => city.owner),
       // A planned action is recalculated on resume until it has been resolved.
@@ -170,7 +185,8 @@ class BattleMap {
     if (!saved || !integerBetween(saved.turn, 1, Number.MAX_SAFE_INTEGER - 1)) return null;
     if (saved.scenario !== undefined && saved.scenario !== fieldScenario.id) return null;
     if (saved.map !== undefined && (saved.scenario !== fieldScenario.id || !validSavedMap(saved.map))) return null;
-    const game = new BattleMap(saved.scenario, {map: saved.map});
+    if (saved.difficulty !== undefined && !Object.hasOwn(difficulties, saved.difficulty)) return null;
+    const game = new BattleMap(saved.scenario, {map: saved.map, difficulty: saved.difficulty});
     const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
       enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
     const validPosition = position => position && integerBetween(position.x, 0, game.width - 1)
@@ -326,7 +342,9 @@ class BattleMap {
 
   incomeFor(side) {
     if (!Object.hasOwn(this.funds, side)) return 0;
-    return this.cities.filter(city => city.owner === side).length * cityIncome + (this.scenario ? 1000 : 0);
+    const income = this.cities.filter(city => city.owner === side).length * cityIncome + (this.scenario ? 1000 : 0);
+    if (side !== 'enemy') return income;
+    return Math.round(income * difficulties[this.difficulty].income / 100) * 100;
   }
 
   productionCost(typeId) {
@@ -872,7 +890,9 @@ class BattleMap {
         const killed = hit?.playerHP === 0;
         const lost = reply?.enemyHP === 0;
         const combat = hit ? hit.damage * 2.1 + (killed ? 11 : 0) - (reply?.damage ?? 0) * 1.6 - (lost ? 12 : 0) : 0;
-        const score = baseScore + combat - (killed ? danger(route, target) : risk);
+        const {caution, jitter: spread} = difficulties[this.difficulty];
+        const noise = spread ? spread * jitter(this.turn, enemy.name, route.x, route.y, target?.name ?? '') : 0;
+        const score = baseScore + combat - (killed ? danger(route, target) : risk) * caution + noise;
         if (score <= bestScore) continue;
         bestScore = score;
         choice = {enemy, from, to: {x: route.x, y: route.y}, path: routeSteps(route), friendly: target};
@@ -920,6 +940,68 @@ class BattleMap {
     return {enemy, from, to, path: routeSteps(goal), friendly: targetAt(to) ?? null};
   }
 }
+
+// Damage one full-strength hit would deal (the same formula as a real strike), or null when
+// the attacker cannot target that kind of unit at all.
+BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp = 10, cover = 0} = {}) {
+  if (attackerType.targets && !attackerType.targets.includes(defenderType.domain ?? land)) return null;
+  const shield = defenderType.domain && defenderType.domain !== land ? 0 : cover;
+  if (this.scenario) {
+    const ratio = hp / this.maxHP;
+    const full = Math.max(1, attackerType.firepower + (attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0));
+    return Math.max(1, Math.round(Math.max(1, full - shield) * ratio));
+  }
+  const strength = (hp >= 8 ? 3 : hp >= 4 ? 2 : 1) + (attackerType.attackBonus ?? 0);
+  return Math.max(1, strength - shield);
+};
+
+// Where a unit could move and strike on its next action, ignoring whether it has acted.
+BattleMap.prototype.unitReach = function (unit) {
+  const own = this.enemyUnits.includes(unit) ? this.enemyUnits : this.friendlyUnits;
+  const others = [...this.friendlyUnits, ...this.enemyUnits].filter(other => other.hp > 0 && other !== unit);
+  const foes = others.filter(other => !own.includes(other));
+  const allies = others.filter(other => own.includes(other));
+  const move = new Map();
+  const attack = new Set();
+  if (!unit?.hp) return {move, attack};
+  const {type} = unit;
+  const width = this.width, height = this.height;
+  const start = {x: unit.x, y: unit.y, cost: 0};
+  const queue = [start];
+  const best = new Map([[`${unit.x},${unit.y}`, 0]]);
+  const blocked = new Set(foes.map(({x, y}) => `${x},${y}`));
+  for (const at of queue) {
+    for (const [dx, dy] of directions) {
+      const x = at.x + dx, y = at.y + dy, key = `${x},${y}`;
+      if (x < 0 || y < 0 || x >= width || y >= height) continue;
+      if (type.domain !== air && blocked.has(key)) continue;
+      const step = this.movementCost(type, x, y);
+      const cost = at.cost + step;
+      if (!Number.isFinite(step) || cost > type.movement || cost >= (best.get(key) ?? Infinity)) continue;
+      best.set(key, cost);
+      queue.push({x, y, cost});
+    }
+  }
+  const stops = [];
+  for (const [key, cost] of best) {
+    const [x, y] = key.split(',').map(Number);
+    const taken = blocked.has(key) || allies.some(ally => ally.x === x && ally.y === y);
+    if (cost > 0 && !taken) move.set(key, cost);
+    if (cost === 0 || !taken) stops.push({x, y});
+  }
+  const origins = type.stationary ? [{x: unit.x, y: unit.y}] : stops;
+  for (const from of origins) {
+    for (let dy = -type.maxRange; dy <= type.maxRange; dy++) {
+      for (let dx = -type.maxRange; dx <= type.maxRange; dx++) {
+        const distance = Math.abs(dx) + Math.abs(dy);
+        const x = from.x + dx, y = from.y + dy;
+        if (distance < type.minRange || distance > type.maxRange || x < 0 || y < 0 || x >= width || y >= height) continue;
+        attack.add(`${x},${y}`);
+      }
+    }
+  }
+  return {move, attack};
+};
 
 function validSavedMap(map) {
   const ids = new Set(Object.keys(terrainTypes));
