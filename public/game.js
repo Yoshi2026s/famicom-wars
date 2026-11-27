@@ -670,8 +670,8 @@ function render() {
   } else if (result) {
     state.textContent = lost ? '敗北' : '勝利';
     if (game.capturedBy) {
-      message.textContent = lost ? '敗北。敵歩兵に味方の本拠地を占領されました。'
-        : '勝利！ 味方歩兵が敵の本拠地を占領しました。';
+      message.textContent = lost ? '敗北。敵部隊に味方の本拠地を占領されました。'
+        : '勝利！ 味方部隊が敵の本拠地を占領しました。';
     } else {
       message.textContent = lost ? '敗北。味方部隊が全滅しました。' : '勝利！ 敵部隊をすべて撃破しました。';
     }
@@ -688,7 +688,7 @@ function render() {
     message.textContent = `${friendlyName}は次のターンから操作できます。`;
   } else if (captureReady) {
     state.textContent = '占領可能';
-    message.textContent = game.scenario ? '「占領」の印がある敵本拠地に歩兵を移動させると占領が進みます。占領しきると勝利です。'
+    message.textContent = game.scenario ? '「占領」の印がある敵本拠地に歩兵・対戦車兵を移動させると占領が進みます。占領しきると勝利です。'
       : '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
   } else if (announcedCapture && facilityCapture.points > 0) {
     const site = facilityCapture.facility === 'headquarters' ? '敵本拠地' : facilityNames[facilityCapture.facility];
@@ -1269,7 +1269,8 @@ function cancelStagedMove() {
 }
 moveCancel.addEventListener('click', cancelStagedMove);
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && game.stagedMove && !actionDialog.open && !event.defaultPrevented) cancelStagedMove();
+  // Escape inside an open dialog (menu, guide, field panels) only closes that dialog.
+  if (event.key === 'Escape' && game.stagedMove && !event.defaultPrevented && !document.querySelector('dialog[open]')) cancelStagedMove();
 });
 
 actionDialog.addEventListener('close', () => {
@@ -1510,6 +1511,8 @@ for (const button of fieldOverview.querySelectorAll('[data-jump]')) {
 }
 mapSurround.addEventListener('scroll', updateOverviewWindow, {passive: true});
 productionLaunch.addEventListener('click', event => {
+  // A double tap on the move bar's キャンセル must not open production underneath it.
+  if (event.detail > 1) return;
   if (!productionLaunch.hidden && compactControls.matches) openProduction(event);
 });
 
@@ -1778,6 +1781,8 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
       try { window.localStorage.setItem(scenarioPreference, 'coastal'); } catch { /* not stored */ }
     }
     game = BattleMap.newMatch(currentScenario, undefined, {difficulty: level});
+    // Choosing a new match on purpose replaces a save that could not be read.
+    crossingSave.discardUnreadable();
     saveProgress();
     showMap();
     friendlyTile().focus({preventScroll: true});
@@ -1832,7 +1837,7 @@ function paintTitleArt() {
 function showTitle() {
   paintTitleArt();
   for (const dialog of [gameMenu, menuConfirm, guide, newMatchDialog]) if (dialog.open) dialog.close();
-  const resumable = savedMatchExists() && !game.result;
+  const resumable = savedMatchExists() && crossingSave.status !== 'unreadable' && !game.result;
   titleResume.disabled = !resumable;
   titleResume.classList.toggle('primary', resumable);
   titleNew.classList.toggle('primary', !resumable);

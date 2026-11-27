@@ -702,7 +702,8 @@
     if (pose === 'recoil') { ctx.translate(-7, 1); }
     if (pose === 'hit') { ctx.translate(128, GROUND); ctx.rotate(-.04); ctx.translate(-124, -GROUND); }
     const {muzzle, angle} = drawers[id](ctx, p, pose);
-    muzzles.set(id, muzzle);
+    // The muzzle flash is aimed from the aiming pose, whatever pose was drawn last.
+    if (pose === 'aim') muzzles.set(id, muzzle);
     if (pose === 'hit') {
       ctx.globalCompositeOperation = 'source-atop';
       ctx.fillStyle = 'rgba(255,240,220,.38)';

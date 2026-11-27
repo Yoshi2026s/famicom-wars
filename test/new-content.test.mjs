@@ -129,3 +129,16 @@ test('地形防御はダメージを最大で半分までしか減らさない',
   assert.equal(game.damageEstimate(type(game, 'tank'), infantry, {cover: 2}), 3);
   assert.equal(game.damageEstimate(type(game, 'tank'), type(game, 'heavytank'), {cover: 0}), 4);
 });
+
+test('CPUは占領の続きより、届く本拠地の占領を優先する', () => {
+  const game = BattleMap.newMatch(undefined, 1);
+  const hq = game.headquarters.friendly;
+  const gap = site => Math.abs(site.x - hq.x) + Math.abs(site.y - hq.y);
+  const site = game.sites.filter(item => item.kind !== 'headquarters' && item.owner !== 'enemy').sort((a, b) => gap(a) - gap(b))[0];
+  assert.ok(gap(site) <= 3);
+  game.enemyUnits.push({type: type(game, 'infantry'), name: '歩兵', x: site.x, y: site.y, hp: 10, readyTurn: 1, moved: false, attacked: false});
+  site.capture = {side: 'enemy', unit: '歩兵', points: 5};
+  game.beginEnemyTurn();
+  const action = game.prepareEnemyAction();
+  assert.deepEqual([action.to.x, action.to.y], [hq.x, hq.y]);
+});
