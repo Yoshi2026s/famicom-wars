@@ -309,7 +309,8 @@ const combatScreen = (() => {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
-        document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
+        const fortress = map.scenario && map.facilityAt(position.x, position.y)?.kind === 'fortress';
+        document.getElementById('combat-' + side + '-terrain').textContent = fortress ? '要塞' : terrain.name;
         formations[side].dataset.terrain = terrain.id;
         paintScenery();
         if (window.SceneArt && ['forest', 'mountain', 'marsh'].includes(terrain.id)) {

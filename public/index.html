@@ -14,16 +14,16 @@
     <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=balance2"></script>
-    <script defer src="./rules.js?v=balance2"></script>
+    <script defer src="./rules.js?v=debug2a"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
     <script defer src="./orientation.js?v=content2"></script>
     <script defer src="./unit-art.js?v=content2"></script>
     <script defer src="./scene-art.js?v=content2"></script>
-    <script defer src="./combat.js?v=content2"></script>
+    <script defer src="./combat.js?v=debug2a"></script>
     <script defer src="./map-art.js?v=content2"></script>
-    <script defer src="./game.js?v=content2"></script>
+    <script defer src="./game.js?v=debug2a"></script>
   </head>
   <body>
     <header class="masthead">
@@ -269,7 +269,7 @@
       </ol>
       <h3>湾岸の攻防</h3>
       <p>マップは新しい対戦ごとに40列×26行でランダムに作られ、左右対称なので両軍の地形・施設・距離は同じです。両軍とも部隊なし、資金10,000から始まるので、最初のターンに部隊を生産します。陸・空・海の21兵種が登場します。歩兵と対戦車兵が施設を占領できます。施設の占領値は10で、1回の占領で部隊のHP分だけ減ります（HP10なら1回）。足りないときは施設に残し、次のターンに歩兵を選んで自分のマスを選ぶと占領を続けられます。離れると進行は戻ります。地上部隊は外海や浅瀬へ進めません。航空部隊は地形と他の部隊のいるマスを越えられます。</p>
-      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが最大2回復します。回復には1HPあたり兵種価格の1割の資金を使い、足りないときは払える分だけ回復します。補給所では全種の部隊を半額で、野戦病院では地上部隊を最大3回復できます（油田では回復できません）。要塞にいる地上部隊は防御3になります。都市・油田・補給所を占領すると収入が増えます。</p>
+      <p>本拠地・本拠地近くの都市・工場では地上部隊を、飛行場では航空部隊を、港では艦船を生産できます。ターン開始時に、自軍施設にいる地上部隊、自軍飛行場の航空部隊、自軍港の艦船はHPが最大2回復します。回復には1HPあたり兵種価格の1割の資金を使い、足りないときは払える分だけ回復します。補給所では全種の部隊を半額で、野戦病院では地上部隊を最大3回復できます（油田では回復できません）。要塞にいる地上部隊は防御3になります。都市・油田・補給所・要塞を占領すると収入が増えます。</p>
       <p>自走砲や戦艦などの間接攻撃は、移動したターンには使えません。兵種ごとの射程と特性は「部隊情報」で確認できます。</p>
       <h3>マップの操作</h3>
       <p>スマホでは盤面を上下左右にスワイプできます。「次の部隊」で行動できる味方へ、「全体図」で指定した場所へ移動できます。移動や攻撃の対象ではないマスを選ぶと、地形や防御などのマス情報を表示します。味方部隊のマスは通過できますが、止まれません。キーボードでは矢印キーでマスを移り、Enterまたはスペースで選べます。</p>
