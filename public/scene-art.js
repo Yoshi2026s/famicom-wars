@@ -2,6 +2,15 @@
 // a golden-hour highland panorama (layered mountain ranges with atmospheric haze, snow,
 // tree lines and a sunlit meadow) and foreground cover for forests, mountains and marshes.
 (() => {
+  // Works on the page and inside scene-worker.js (OffscreenCanvas, no DOM).
+  const inWorker = typeof document === 'undefined';
+  function makeCanvas(width, height) {
+    if (inWorker) return new OffscreenCanvas(width, height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
   function rng(seed) {
     let s = seed >>> 0 || 1;
     return () => ((s = Math.imul(s ^ (s >>> 15), 2246822507) + 0x9e3779b9 >>> 0) / 4294967296);
@@ -47,9 +56,7 @@
   // Clusters of soft cumulus: lit warm on the sun side and on top, cool and darker beneath.
   // Painted at quarter size and scaled up so the puffs melt together softly.
   function paintClouds(target, w, horizon, sun, seed) {
-    const q = 4, layer = document.createElement('canvas');
-    layer.width = Math.ceil(w / q);
-    layer.height = Math.ceil(horizon / q);
+    const q = 4, layer = makeCanvas(Math.ceil(w / q), Math.ceil(horizon / q));
     const ctx = layer.getContext('2d');
     ctx.scale(1 / q, 1 / q);
     const r = rng(seed);
@@ -114,9 +121,7 @@
     const tops = new Float32Array(lw);
     for (let i = 0; i < lw; i++) { tops[i] = top(i * k) / k; minTop = Math.min(minTop, tops[i]); }
     const y0 = Math.floor(minTop), y1 = Math.ceil(h / k), lh = y1 - y0;
-    const layer = document.createElement('canvas');
-    layer.width = lw;
-    layer.height = lh;
+    const layer = makeCanvas(lw, lh);
     const lctx = layer.getContext('2d');
     const img = lctx.createImageData(lw, lh), d = img.data;
     const lit = [255, 214, 170], shade = [28, 32, 62], snowLit = [255, 244, 232], snowShade = [168, 180, 220];
@@ -211,9 +216,7 @@
   }
 
   function landscape(width = 1280, height = 900) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    const canvas = makeCanvas(width, height);
     const ctx = canvas.getContext('2d');
     const horizon = height * .58, sun = [width * .7, height * .37];
     const haze = [236, 190, 160];
@@ -339,11 +342,46 @@
     return cache.get('backdrop');
   }
 
+  if (inWorker) {
+    self.SceneArt = {landscape};
+    return;
+  }
   let supported = false;
   try {
     supported = Boolean(document.createElement('canvas').getContext('2d'));
   } catch {
     supported = false;
   }
-  window.SceneArt = supported ? {backdrop, cover, landscape} : null;
+  // Paints the panorama in a worker when the browser can, so the page never stalls;
+  // otherwise on the page. Calls back with an image URL.
+  let pending = null;
+  function backdropAsync(done) {
+    if (cache.has('backdrop')) { done(cache.get('backdrop')); return; }
+    if (pending) { pending.push(done); return; }
+    pending = [done];
+    const finish = url => {
+      cache.set('backdrop', url);
+      const callbacks = pending;
+      pending = null;
+      callbacks.forEach(callback => callback(url));
+    };
+    const local = () => finish(backdrop());
+    if (typeof Worker !== 'function' || typeof OffscreenCanvas !== 'function' || !('convertToBlob' in OffscreenCanvas.prototype)) {
+      local();
+      return;
+    }
+    try {
+      const worker = new Worker('./scene-worker.js?v=speed');
+      worker.onmessage = ({data}) => {
+        worker.terminate();
+        if (data instanceof Blob) finish(URL.createObjectURL(data));
+        else local();
+      };
+      worker.onerror = () => { worker.terminate(); local(); };
+      worker.postMessage('landscape');
+    } catch {
+      local();
+    }
+  }
+  window.SceneArt = supported ? {backdrop, backdropAsync, cover, landscape} : null;
 })();

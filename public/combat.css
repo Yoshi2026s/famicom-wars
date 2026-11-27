@@ -1,5 +1,5 @@
-body:has(#combat-screen[open]) { overflow: hidden; }
-body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
+html.combat-open body { overflow: hidden; }
+html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 .tile, #end { -webkit-tap-highlight-color: transparent; }
 #combat-screen {
   position: fixed; inset: 0; margin: 0; width: 100%; height: 100%; height: 100dvh;

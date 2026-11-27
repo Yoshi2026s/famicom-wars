@@ -45,12 +45,20 @@ const combatScreen = (() => {
   });
 
   // Swap in the code-painted realistic panorama (scene-art.js) once the browser is idle.
+  let sceneryRequested = false;
   function paintScenery() {
-    if (!window.SceneArt || document.documentElement.classList.contains('scene-art')) return;
+    if (!window.SceneArt || sceneryRequested) return;
+    sceneryRequested = true;
     try {
-      backdrop.src = window.SceneArt.backdrop();
-      document.documentElement.classList.add('scene-art');
-      backdrop.decode().then(() => backdrop.classList.add('is-ready')).catch(() => {});
+      window.SceneArt.backdropAsync(url => {
+        const image = new Image();
+        image.src = url;
+        image.decode().then(() => {
+          backdrop.src = url;
+          document.documentElement.classList.add('scene-art');
+          backdrop.classList.add('is-ready');
+        }).catch(() => {});
+      });
     } catch {
       // Keep the original panorama.
     }
@@ -243,6 +251,7 @@ const combatScreen = (() => {
     combatAudio.stop();
     removeRetreatingFighters();
     dialog.close();
+    document.documentElement.classList.remove('combat-open');
     if (!completed.map.result) music.setScene('map');
     completed.onReturn(restoreFocus);
   }
@@ -342,6 +351,7 @@ const combatScreen = (() => {
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';
       dialog.showModal();
+      document.documentElement.classList.add('combat-open');
       scene.strikes = resolve();
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});
