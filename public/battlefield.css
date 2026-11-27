@@ -514,3 +514,63 @@ html.move-staged .orders-actions, html.move-staged .detail-open { visibility: hi
 .move-confirm-buttons button { justify-content: center; text-align: center; }
 .tile.staged-origin { box-shadow: inset 0 0 0 3px #2d6fc4cc; }
 .tile.staged-origin::before { content: "元"; position: absolute; top: 2px; right: 2px; z-index: 2; padding: 0 3px; border-radius: 3px; background: #2d6fc4; color: #fff; font-size: 11px; font-weight: 850; line-height: 1.3; pointer-events: none; }
+
+/* Header actions: 遊び方 and メニュー side by side. */
+.mast-actions { display: flex; align-items: center; gap: 2px; }
+.menu-open span { border-radius: 4px; font-size: 13px; }
+
+/* Title screen: an original night-sea scene behind the emblem and the two main choices. */
+.title-screen {
+  position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0;
+  border: 0; background: #142235; color: #f6eed8; overflow: auto; overscroll-behavior: contain;
+}
+.title-screen::backdrop { background: #142235; }
+.title-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  background: linear-gradient(#1b2d47 0%, #26476a 46%, #3f6f8e 62%, #1d3e5c 63%, #17304a 100%); }
+.title-sun { position: absolute; left: 50%; top: 52%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%;
+  background: radial-gradient(circle, #ffd88a 0 38%, #f3a95f55 39% 60%, transparent 61%); }
+.title-ridge { position: absolute; left: -10%; right: -10%; bottom: 37%; height: 18%; background: #20384f;
+  clip-path: polygon(0 100%, 0 70%, 12% 40%, 22% 62%, 34% 22%, 46% 58%, 58% 30%, 70% 64%, 82% 36%, 92% 55%, 100% 45%, 100% 100%); }
+.title-ridge.back { bottom: 40%; height: 22%; background: #2c4d69; opacity: .8; transform: scaleX(-1); }
+.title-sea { position: absolute; left: 0; right: 0; top: 63%; bottom: 0;
+  background: repeating-linear-gradient(180deg, transparent 0 14px, #ffffff12 14px 16px); }
+.title-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 100%;
+  padding: max(28px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); box-sizing: border-box; }
+.title-emblem { width: 88px; height: 88px; margin-top: 4vh; border-radius: 20px; box-shadow: 0 6px 0 #0c1626, 0 0 0 3px #f2c56b; image-rendering: pixelated; }
+.title-logo { display: grid; gap: 4px; margin: 0; text-align: center; font-size: clamp(34px, 11vw, 52px); font-weight: 900; letter-spacing: .06em;
+  color: #fff6da; text-shadow: 0 3px 0 #9b5a22, 0 6px 0 #0c1626; }
+.title-logo small { font-size: 13px; font-weight: 700; letter-spacing: .12em; color: #f2c56b; text-shadow: none; }
+.title-actions { display: grid; gap: 12px; width: min(100%, 360px); margin-top: auto; }
+.title-button { display: grid; gap: 2px; min-height: 64px; padding: 10px 16px; border: 2px solid #f2c56b; border-radius: 12px;
+  background: #142235e6; color: #fff6da; text-align: left; font-size: 19px; font-weight: 900; }
+.title-button small { font-size: 12px; font-weight: 600; color: #d6dcc8; line-height: 1.4; }
+.title-button.primary { background: #f2c56b; color: #2a1a08; border-color: #fff1c4; box-shadow: 0 4px 0 #9b5a22; }
+.title-button.primary small { color: #5a3f1c; }
+.title-button:disabled { opacity: .55; border-style: dashed; }
+.title-button.minor { min-height: 48px; font-size: 15px; text-align: center; background: transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  .title-sun { animation: title-sun 6s ease-in-out infinite alternate; }
+  @keyframes title-sun { to { transform: translateY(-6px); } }
+}
+
+/* In-game menu and its confirmation. */
+.game-menu, .menu-confirm { width: min(400px, 100% - 24px); padding: 16px; }
+.game-menu h2, .menu-confirm h2 { margin: 0 0 10px; font-size: 18px; }
+.menu-actions { display: grid; gap: 10px; margin-bottom: 12px; }
+.menu-actions button { display: grid; gap: 2px; min-height: 60px; padding: 8px 12px; border: 1px solid #8a7c62; border-radius: 8px;
+  background: #fff; color: #23313a; text-align: left; font-size: 16px; font-weight: 800; }
+.menu-actions button small { font-size: 12px; font-weight: 500; color: #5a6158; }
+.menu-actions .danger { border-color: #b5452f; color: #8f2a1a; }
+.menu-actions button:disabled { opacity: .45; }
+/* The surrender row is separated from the others to avoid mis-taps. */
+#menu-surrender { margin-top: 10px; }
+.game-menu form button { width: 100%; min-height: 48px; margin: 0; }
+.menu-confirm p { margin: 0 0 4px; line-height: 1.5; }
+.menu-confirm-buttons { display: flex; gap: 16px; margin-top: 14px; }
+.menu-confirm-buttons button { flex: 1; margin: 0; min-height: 52px; padding-inline: 6px; justify-content: center; text-align: center; }
+.menu-confirm-buttons .danger { background: #b5452f; border-color: #7d2a1b; color: #fff; }
+.brand, .mast-actions .help { white-space: nowrap; }
+@media (max-width: 380px) {
+  .mast-actions .help { gap: 4px; padding: 0 6px; }
+  .mast-actions .help span { display: none; }
+}
