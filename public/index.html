@@ -9,21 +9,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=unit-detail">
-    <link rel="stylesheet" href="./combat.css?v=unit-detail">
-    <link rel="stylesheet" href="./battlefield.css?v=unit-detail">
+    <link rel="stylesheet" href="./style.css?v=confirm-orders">
+    <link rel="stylesheet" href="./combat.css?v=confirm-orders">
+    <link rel="stylesheet" href="./battlefield.css?v=confirm-orders">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=unit-detail"></script>
-    <script defer src="./rules.js?v=unit-detail"></script>
+    <script defer src="./map-generator.js?v=confirm-orders"></script>
+    <script defer src="./rules.js?v=confirm-orders"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=unit-detail"></script>
-    <script defer src="./unit-art.js?v=unit-detail"></script>
-    <script defer src="./scene-art.js?v=unit-detail"></script>
-    <script defer src="./combat.js?v=unit-detail"></script>
-    <script defer src="./map-art.js?v=unit-detail"></script>
-    <script defer src="./game.js?v=unit-detail"></script>
+    <script defer src="./orientation.js?v=confirm-orders"></script>
+    <script defer src="./unit-art.js?v=confirm-orders"></script>
+    <script defer src="./scene-art.js?v=confirm-orders"></script>
+    <script defer src="./combat.js?v=confirm-orders"></script>
+    <script defer src="./map-art.js?v=confirm-orders"></script>
+    <script defer src="./game.js?v=confirm-orders"></script>
   </head>
   <body>
     <header class="masthead">
@@ -88,6 +88,15 @@
             <p class="unit-detail-legend"><span class="detail-move-key"></span>移動できる <b id="detail-move-count"></b>マス <span class="detail-attack-key"></span>攻撃が届く <b id="detail-attack-count"></b>マス</p>
             <dl class="unit-detail-stats" id="unit-detail-stats"></dl>
             <div class="unit-detail-matchups" id="unit-detail-matchups"></div>
+          </section>
+          <section class="move-confirm" id="move-confirm" aria-labelledby="move-confirm-title" aria-describedby="move-confirm-route move-confirm-hint" hidden>
+            <h2 id="move-confirm-title">移動を確定しますか？</h2>
+            <p id="move-confirm-route"></p>
+            <p id="move-confirm-hint"></p>
+            <div class="move-confirm-buttons">
+              <button class="replay" id="move-cancel" type="button">キャンセル</button>
+              <button class="end" id="move-commit" type="button">移動を確定</button>
+            </div>
           </section>
           <div id="map-intel">
             <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択"></div>

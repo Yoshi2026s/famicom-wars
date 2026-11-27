@@ -106,6 +106,7 @@ function routeSteps(destination) {
 class BattleMap {
   turn = 1;
   selected = false;
+  #staged = null;
   enemyTurn = null;
   enemyActions = [];
   capturedBy = null;
@@ -156,12 +157,16 @@ class BattleMap {
   }
 
   crossingSnapshot() {
-    const saveUnits = units => units.map(({type, x, y, hp, readyTurn, moved, attacked}) => ({
-      type: type.id, x, y, hp, readyTurn, moved, attacked,
-    }));
+    // A move that is still waiting for confirmation is saved as not yet made.
+    const staged = this.#staged;
+    const saveUnits = units => units.map(unit => {
+      const {type, hp, readyTurn, attacked} = unit;
+      const {x, y, moved} = unit === staged?.unit ? {...staged, moved: false} : unit;
+      return {type: type.id, x, y, hp, readyTurn, moved, attacked};
+    });
     const phase = this.enemyTurn;
     const snapshot = {
-      turn: this.turn, selected: this.selected, capturedBy: this.capturedBy,
+      turn: this.turn, selected: this.selected || Boolean(staged), capturedBy: this.capturedBy,
       activeUnit: this.friendlyUnits.indexOf(this.activeUnit),
       friendlyUnits: saveUnits(this.friendlyUnits), enemyUnits: saveUnits(this.enemyUnits),
       funds: {...this.funds}, difficulty: this.difficulty,
@@ -551,8 +556,63 @@ class BattleMap {
     return routes;
   }
 
+  /** The move made with stageMove that still waits for confirmMove or cancelMove. */
+  get stagedMove() {
+    const staged = this.#staged;
+    return staged ? {unit: staged.unit, from: {x: staged.x, y: staged.y}} : null;
+  }
+
+  /** Moves the active unit without taking the tile yet, so the move can still be cancelled. */
+  stageMove(x, y) {
+    if (this.result || this.enemyTurn || this.#staged || !this.canMoveTo(x, y)) return false;
+    const unit = this.activeUnit;
+    this.#staged = {unit, x: unit.x, y: unit.y};
+    unit.x = x;
+    unit.y = y;
+    unit.moved = true;
+    this.selected = false;
+    return true;
+  }
+
+  /** Returns a staged unit to where it started, still selected and free to move. */
+  cancelMove() {
+    const staged = this.#staged;
+    if (!staged) return false;
+    this.#staged = null;
+    Object.assign(staged.unit, {x: staged.x, y: staged.y, moved: false});
+    this.activeUnit = staged.unit;
+    this.selected = this.canMove;
+    return true;
+  }
+
+  /** Completes a staged move, including any capture on the destination. */
+  confirmMove() {
+    const staged = this.#staged;
+    if (!staged) return false;
+    this.#staged = null;
+    const unit = staged.unit;
+    const {x, y} = unit;
+    if (this.scenario) {
+      const step = this.#advanceCapture(unit, 'friendly');
+      if (step) this.friendlyCapture = {facility: step.site.kind, unit: unit.name, x, y, turn: this.turn, points: step.points};
+      return true;
+    }
+    this.#captureHeadquarters(unit, 'friendly');
+    const facility = this.#captureFacility(unit, 'friendly');
+    if (facility) this.friendlyCapture = {facility, unit: unit.name, x, y, turn: this.turn};
+    return true;
+  }
+
   choose(x, y) {
     if (this.result || this.enemyTurn) return;
+    const staged = this.#staged;
+    if (staged) {
+      // Only an attack from the staged tile completes the move from here.
+      const target = this.enemyAt(x, y);
+      if (!target || !this.canUnitAttack(staged.unit, target)) return;
+      this.confirmMove();
+      if (this.result) return;
+    }
     const enemy = this.enemyAt(x, y);
     if (enemy && this.canUnitAttack(this.activeUnit, enemy)) {
       this.activeUnit.attacked = true;
@@ -566,23 +626,8 @@ class BattleMap {
       const same = friendly === this.activeUnit;
       this.activeUnit = friendly;
       this.selected = this.canMove && !(same && this.selected);
-    } else if (this.canMoveTo(x, y)) {
-      this.x = x;
-      this.y = y;
-      this.selected = false;
-      this.activeUnit.moved = true;
-      if (this.scenario) {
-        const step = this.#advanceCapture(this.activeUnit, 'friendly');
-        if (step) {
-          this.friendlyCapture = {facility: step.site.kind, unit: this.activeUnit.name, x, y, turn: this.turn, points: step.points};
-        }
-        return;
-      }
-      this.#captureHeadquarters(this.activeUnit, 'friendly');
-      const facility = this.#captureFacility(this.activeUnit, 'friendly');
-      if (facility) {
-        this.friendlyCapture = {facility, unit: this.activeUnit.name, x, y, turn: this.turn};
-      }
+    } else if (this.stageMove(x, y)) {
+      this.confirmMove();
     }
   }
 
@@ -639,6 +684,8 @@ class BattleMap {
 
   beginEnemyTurn() {
     if (this.enemyTurn || this.result) return false;
+    this.confirmMove();
+    if (this.result) return false;
     this.selected = false;
     this.enemyActions = [];
     this.enemyProductions = [];
