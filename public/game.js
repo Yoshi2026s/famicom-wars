@@ -223,7 +223,8 @@ function endCelebration() {
 }
 celebration.addEventListener('click', endCelebration);
 
-const captureBenefit = {city: '収入が増えます', oilfield: '収入が大きく増えます', depot: '全部隊を半額で回復できます'};
+const captureBenefit = {city: '収入が増えます', oilfield: '収入が大きく増えます', depot: '全部隊を半額で回復できます',
+  fortress: '収入が増え、中の地上部隊が防御3になります', hospital: '地上部隊が毎ターン最大3回復します'};
 function celebrateCapture(step, side) {
   if (!step?.site) return;
   if (!step.completed) {
@@ -597,7 +598,7 @@ function render() {
     const info = [occupied ? '味方' + friendly.name : enemy ? '敵' + enemy.name : '',
       base ? `${base === 'friendly' ? '味方' : '敵'}の本拠地` : '', captured ? '占領済み' : '',
       facility && !base ? `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}` : '',
-      terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
+      terrain.name, game.coverAt(x, y) ? `防御${game.coverAt(x, y)}` : '',
       reachable ? `消費移動力${movementTargets.get(`${x},${y}`).cost}` : '',
       progress ? `${progress.side === 'friendly' ? '味方' : '敵'}が占領中 残り${progress.points}/${game.maxHP}` : '',
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
@@ -701,7 +702,7 @@ function render() {
   } else if (announcedCapture) {
     const site = facilityNames[facilityCapture.facility];
     const production = game.productionSiteAt(facilityCapture.x, facilityCapture.y);
-    const update = [['city', 'oilfield', 'depot'].includes(facilityCapture.facility) ? '次のターンから収入が入ります。' : '',
+    const update = [['city', 'oilfield', 'depot', 'fortress'].includes(facilityCapture.facility) ? '次のターンから収入が入ります。' : '',
       production ? 'マスが空くと生産できます。' : ''].filter(Boolean).join('');
     state.textContent = game.canAttack ? '攻撃可能' : `${site}占領`;
     message.textContent = `${site}を占領しました。${update}`
@@ -1707,7 +1708,7 @@ function renderUnitDetail(reach) {
   document.getElementById('detail-move-count').textContent = reach.move.size;
   document.getElementById('detail-attack-count').textContent = reach.attack.size;
   const terrain = game.terrainAt(unit.x, unit.y);
-  const cover = type.domain && type.domain !== 'land' ? 0 : terrain.defense;
+  const cover = type.domain && type.domain !== 'land' ? 0 : game.coverAt(unit.x, unit.y);
   const ranged = type.minRange > 1 || type.stationary;
   const rows = [
     ['種別', `${domainNames[type.domain ?? 'land']}${type.cost ? ` · ${currency.format(type.cost)}` : ''}`],

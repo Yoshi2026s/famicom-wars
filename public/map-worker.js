@@ -1,5 +1,5 @@
 // Paints the map terrain and facility sprites off the main thread (see public/map-art.js).
-importScripts('./map-art.js?v=more-content');
+importScripts('./map-art.js?v=content2');
 self.onmessage = async ({data}) => {
   const {id, type} = data;
   try {

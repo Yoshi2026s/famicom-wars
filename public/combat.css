@@ -120,7 +120,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   --fire-motion: scout-fire; --hit-motion: scout-hit; --loss-motion: scout-down;
   --fire-time: .41s; --muzzle-x: 84%; --muzzle-y: 30%; --muzzle-size: 29%;
 }
-.formation:not([data-kind="infantry"], [data-kind="antitank"]) { --hit-frames: vehicle-hit-frames; }
+.formation:not([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) { --hit-frames: vehicle-hit-frames; }
 .formation[data-profile="support"] {
   --fire-motion: support-fire; --hit-motion: support-hit; --loss-motion: support-down;
   --fire-time: .56s; --muzzle-x: 63%; --muzzle-y: 5%; --muzzle-size: 39%;
@@ -163,7 +163,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   --fire-motion: air-fire; --hit-motion: air-hit; --loss-motion: air-down;
 }
 .formation[data-static][data-domain="sea"] { --hit-motion: sea-hit; --loss-motion: sea-down; }
-.platoon .formation:is([data-kind="infantry"], [data-kind="antitank"]) .fighter {
+.platoon .formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter {
   left: calc(72% - var(--column) * 16% + var(--rank) * 3%);
   bottom: calc(10% + var(--rank) * min(7vw, 48px) + var(--column) * 0.35%);
   width: 25%; max-width: min(86px, 16dvh); z-index: calc(2 - var(--rank));
@@ -175,7 +175,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 [data-phase="attack"] .formation[data-role="attacking"] .fighter {
   animation: var(--fire-motion) var(--fire-time) var(--fire-delay) steps(1, end) both;
 }
-:is([data-phase="aim"], [data-phase="attack"]) .formation[data-role="defending"]:is([data-kind="infantry"], [data-kind="antitank"]) .fighter { background-position-y: var(--pose-duck); }
+:is([data-phase="aim"], [data-phase="attack"]) .formation[data-role="defending"]:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter { background-position-y: var(--pose-duck); }
 @keyframes infantry-fire {
   from { background-position-y: var(--pose-fire); transform: translate(6%, 1%); }
   24% { background-position-y: var(--pose-recoil); transform: translate(-7%, -2%); }
@@ -430,7 +430,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 }
 
 /* ---- Combat screen visual upgrade: squadrons, skies, blasts and cinematic framing ---- */
-.platoon .formation:not([data-kind="infantry"], [data-kind="antitank"]) .fighter {
+.platoon .formation:not([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter {
   left: var(--vx, 31%); bottom: calc(var(--vy, 11%) + var(--lift, 0%)); width: 46%; max-width: 132px;
   scale: var(--vs, 1); z-index: var(--vz, 2); transform-origin: 50% 100%;
 }

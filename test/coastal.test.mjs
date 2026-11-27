@@ -88,11 +88,11 @@ test('地形による移動費を陸海空で区別し、航空部隊も他の�
   assert.equal(game.terrainAt(4, 1).id, 'shoal');
 });
 
-test('17兵種の補充を施設別に制御し、本拠地・近郊都市・工場から陸上部隊を出せる', () => {
+test('21兵種の補充を施設別に制御し、本拠地・近郊都市・工場から陸上部隊を出せる', () => {
   const game = new BattleMap('coastal');
-  const ground = ['infantry', 'antitank', 'scout', 'support', 'tank', 'heavytank', 'artillery', 'rocket', 'antiair'];
-  const air = ['drone', 'helicopter', 'fighter', 'bomber'];
-  const sea = ['patrol', 'destroyer', 'submarine', 'battleship'];
+  const ground = ['infantry', 'antitank', 'scout', 'support', 'tank', 'heavytank', 'artillery', 'rocket', 'mortar', 'samlauncher', 'antiair'];
+  const air = ['drone', 'helicopter', 'fighter', 'striker', 'bomber'];
+  const sea = ['patrol', 'destroyer', 'submarine', 'cruiser', 'battleship'];
   const [city, secondCity] = sites(game, 'city');
   const [headquarters] = sites(game, 'headquarters');
   const [factory] = sites(game, 'factory');

@@ -1,6 +1,6 @@
 const combatScreen = (() => {
   // Foot soldiers show one figure per HP; vehicles, aircraft and ships one per 2 HP.
-  const footKinds = new Set(['infantry', 'antitank']);
+  const footKinds = new Set(['infantry', 'antitank', 'mortar']);
   const dialog = document.getElementById('combat-screen');
   const advance = document.getElementById('combat-advance');
   const status = document.getElementById('combat-status');
@@ -36,6 +36,10 @@ const combatScreen = (() => {
     heavytank: {profile: 'tank', attack: '主砲を発射'},
     drone: {profile: 'scout', hit: .5, attack: '誘導ミサイルを発射'},
     submarine: {profile: 'support', hit: .62, flight: 460, attack: '魚雷を発射'},
+    mortar: {profile: 'infantry', flight: 520, attack: '迫撃砲を発射'},
+    samlauncher: {profile: 'support', flight: 380, attack: '対空ミサイルを発射'},
+    cruiser: {profile: 'support', hit: .57, flight: 400, attack: '艦対空ミサイルを発射'},
+    striker: {profile: 'tank', hit: .52, flight: 300, attack: '対地ロケットを発射'},
   };
 
   function attackTactics(kind) {
