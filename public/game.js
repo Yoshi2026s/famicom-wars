@@ -91,7 +91,8 @@ const ownerNames = {friendly: '味方', enemy: '敵', neutral: '中立'};
 const unitActions = {
   ready: {label: '移動可能'}, spent: {label: '行動済み', marker: '済'},
   attack: {label: '攻撃可能', marker: '攻可'}, deployed: {label: '次のターンから', marker: '次'},
-  acting: {label: '行動中', marker: '動'}, moving: {label: '移動中', marker: '動'}, defeated: {label: '撃破'}, ended: {label: '対戦終了'},
+  acting: {label: '行動中', marker: '動'}, moving: {label: '移動中', marker: '動'},
+  staged: {label: '確定待ち', marker: '仮'}, defeated: {label: '撃破'}, ended: {label: '対戦終了'},
 };
 const main = document.querySelector('main');
 const saveStatus = document.getElementById('crossing-save-status');
@@ -106,6 +107,11 @@ const fieldStatus = document.getElementById('field-status');
 let detailUnit = null;
 let shownDetail = null;
 const unitDetail = document.getElementById('unit-detail');
+const moveConfirm = document.getElementById('move-confirm');
+const moveConfirmRoute = document.getElementById('move-confirm-route');
+const moveConfirmHint = document.getElementById('move-confirm-hint');
+const moveCommit = document.getElementById('move-commit');
+const moveCancel = document.getElementById('move-cancel');
 const detailOpeners = [document.getElementById('field-detail'), document.getElementById('panel-detail')];
 const domainNames = {land: '地上部隊', air: '航空部隊', sea: '艦船'};
 const targetNames = {land: '地上', sea: '艦船', air: '航空'};
@@ -269,8 +275,9 @@ function waitingForEnemy() {
   return Boolean(game.enemyTurn);
 }
 
-function inputBlocked() {
-  return portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(movingFriendly || game.result);
+// A staged move only accepts its own confirm/cancel buttons and attacks from the new tile.
+function inputBlocked(allowStaged = false) {
+  return (!allowStaged && Boolean(game.stagedMove)) || portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(movingFriendly || game.result);
 }
 
 function extendRoster(container, entries, units, interactive) {
@@ -320,6 +327,7 @@ function friendlyAction(unit) {
   if (!unit.hp) return 'defeated';
   if (movingFriendly?.unit === unit) return 'moving';
   if (game.result) return 'ended';
+  if (game.stagedMove?.unit === unit) return 'staged';
   if (unit.readyTurn > game.turn) return 'deployed';
   if (unit.attacked) return 'spent';
   if (unit.moved) return game.canUnitAttack(unit) ? 'attack' : 'spent';
@@ -643,6 +651,7 @@ function render() {
   replay.hidden = !result;
   renderBattleStatus();
   renderUnitDetail(detailReach);
+  renderMoveConfirm(waiting);
   for (const opener of detailOpeners) opener.hidden = noUnit || Boolean(result) || waiting;
   if (movingFriendly) {
     state.textContent = '移動中';
@@ -912,8 +921,13 @@ board.addEventListener('focusin', (event) => {
 });
 board.addEventListener('click', (event) => {
   const cell = boardCell(event.target);
-  if (!cell || inputBlocked()) return;
+  if (!cell || inputBlocked(true)) return;
   const {x, y, factory} = cell;
+  if (game.stagedMove) {
+    const enemy = game.enemyAt(x, y);
+    if (enemy && game.canUnitAttack(game.activeUnit, enemy)) previewAction(cell, event);
+    return;
+  }
   inspectedCell = null;
   if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
   if (game.selected && game.friendlyAt(x, y) === game.activeUnit && previewCaptureHere(cell, event)) return;
@@ -1111,17 +1125,8 @@ function previewAction(cell, opener) {
     const reply = counter ? `反撃で味方 HP ${unit.hp} → ${counter.playerHP}` : '反撃なし';
     actionDetail.textContent = `戦力 ${Math.round(unit.hp / game.maxHP * 100)}% ／ 敵 HP ${enemy.hp} → ${hit.enemyHP} ／ ${reply}`;
   } else {
-    const route = game.movementTargets().get(`${x},${y}`);
-    if (!route) return false;
-    path = routeSteps(route);
-    let capture = '';
-    if (unit.type.id === 'infantry') {
-      if (base === 'enemy' && !game.scenario) capture = '敵本拠地を占領すると勝利';
-      else if (facility && facility.owner !== 'friendly') capture = captureForecast(facility, unit);
-    }
-    verb = capture ? '占領' : '移動';
-    actionSummary.textContent = `${unit.name}  ${placeName(unit.x, unit.y)} → ${destination}`;
-    actionDetail.textContent = [game.terrainAt(x, y).name, `移動力 ${route.cost} 消費`, capture].filter(Boolean).join(' ／ ');
+    // Moves happen first and wait on the board for 確定 or キャンセル.
+    return stageFriendlyMove(cell);
   }
   actionTitle.textContent = `${verb}を確認`;
   actionConfirm.textContent = `${verb}する`;
@@ -1133,7 +1138,7 @@ function previewAction(cell, opener) {
 }
 
 actionConfirm.addEventListener('click', (event) => {
-  if (!pendingAction || inputBlocked() || repeatedTap(event, pendingAction.opener)) return;
+  if (!pendingAction || inputBlocked(true) || repeatedTap(event, pendingAction.opener)) return;
   const {cell, unit, enemy, captureHere} = pendingAction;
   const {x, y, factory} = cell;
   if (captureHere) {
@@ -1159,24 +1164,101 @@ actionConfirm.addEventListener('click', (event) => {
   pendingAction = undefined;
   cell.button.classList.remove('action-pending');
   actionDialog.close();
-  if (enemy) {
-    presentAttack({attacker: 'player', enemy, resolve: () => game.choose(x, y)});
+  // Attacking from a staged tile completes that move first (including any capture there).
+  const moved = game.stagedMove ? commitStagedMove() : null;
+  const celebrate = () => {
+    if (!moved?.step) return;
+    flashMapTile(moved.cell, 'capture');
+    celebrateCapture(moved.step, 'friendly');
+  };
+  if (game.result) {
+    restoreBoardFocus();
+    celebrate();
     return;
   }
+  presentAttack({attacker: 'player', enemy, resolve: () => game.choose(x, y), onReturn: () => {
+    restoreBoardFocus();
+    celebrate();
+  }});
+});
+
+function stageFriendlyMove(cell) {
+  const unit = game.activeUnit;
+  const route = game.movementTargets().get(`${cell.x},${cell.y}`);
+  const from = {x: unit.x, y: unit.y};
+  if (!route || !game.stageMove(cell.x, cell.y)) return false;
+  detailUnit = null;
+  inspectedCell = null;
+  animateFriendlyMove(unit, from, routeSteps(route), () => {
+    render();
+    moveCommit.focus({preventScroll: true});
+    // Keep the moved unit visible above the confirm bar.
+    requestAnimationFrame(() => {
+      if (moveConfirm.hidden) return;
+      const tile = tileAt(unit).getBoundingClientRect();
+      const view = mapSurround.getBoundingClientRect();
+      const visibleBottom = Math.min(view.bottom, moveConfirm.getBoundingClientRect().top) - 8;
+      if (tile.bottom > visibleBottom) mapSurround.scrollTop += tile.bottom - visibleBottom + tile.height;
+    });
+  });
+  return true;
+}
+
+function cellAt(x, y) {
+  return cells[y * game.width + x];
+}
+
+/** Completes the staged move and reports any capture it made. */
+function commitStagedMove() {
+  const {unit} = game.stagedMove;
+  const cell = cellAt(unit.x, unit.y);
+  const factory = cell.factory;
   const capturedFactory = factory && factory.owner !== 'friendly';
   const previousCapture = game.friendlyCapture;
-  const from = {x: unit.x, y: unit.y};
-  game.choose(x, y);
+  game.confirmMove();
   if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
   saveProgress();
   const captured = game.capturedBy === 'friendly' || game.friendlyCapture !== previousCapture;
   const step = captured ? {site: cell.facility, points: game.friendlyCapture?.points ?? 0,
     completed: game.capturedBy === 'friendly' || !(game.friendlyCapture?.points > 0)} : null;
-  animateFriendlyMove(unit, from, routeSteps(route), () => {
-    restoreBoardFocus();
-    if (captured) flashMapTile(cell, 'capture');
-    if (step) celebrateCapture(step, 'friendly');
-  });
+  return {cell, step: captured ? step : null, captured};
+}
+
+function renderMoveConfirm(waiting) {
+  const staged = !waiting && !movingFriendly ? game.stagedMove : null;
+  document.documentElement.classList.toggle('move-staged', Boolean(game.stagedMove));
+  for (const cell of board.querySelectorAll('.tile.staged-origin')) cell.classList.remove('staged-origin');
+  if (game.stagedMove) tileAt(game.stagedMove.from).classList.add('staged-origin');
+  moveConfirm.hidden = !staged;
+  if (!staged) return;
+  const {unit, from} = staged;
+  const site = game.facilityAt(unit.x, unit.y);
+  const capture = unit.type.id === 'infantry' && site && site.owner !== 'friendly'
+    ? captureForecast(site, unit)
+    : !game.scenario && unit.type.id === 'infantry' && game.headquartersAt(unit.x, unit.y) === 'enemy' ? '敵本拠地を占領すると勝利' : '';
+  moveConfirmRoute.textContent = `味方${unit.name}  ${placeName(from.x, from.y)} → ${placeName(unit.x, unit.y)}`;
+  moveConfirmHint.textContent = [capture,
+    game.canAttack ? '「攻撃」の印がある敵をタップすると、ここから攻撃できます' : 'ここから攻撃できる敵はいません',
+  ].filter(Boolean).join(' ／ ');
+  moveCommit.textContent = capture ? '占領して確定' : '移動を確定';
+}
+
+moveCommit.addEventListener('click', () => {
+  if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
+  const moved = commitStagedMove();
+  restoreBoardFocus();
+  if (moved.captured) flashMapTile(moved.cell, 'capture');
+  if (moved.step) celebrateCapture(moved.step, 'friendly');
+});
+
+function cancelStagedMove() {
+  if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
+  game.cancelMove();
+  restoreBoardFocus();
+}
+moveCancel.addEventListener('click', cancelStagedMove);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && game.stagedMove && !actionDialog.open && !event.defaultPrevented) cancelStagedMove();
 });
 
 actionDialog.addEventListener('close', () => {
