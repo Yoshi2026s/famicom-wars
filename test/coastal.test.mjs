@@ -151,8 +151,8 @@ test('施設の占領・修復と陸海空の補充を再開後も引き継げ�
   assert.deepEqual(game.facilityHealing.map(item => item.facility).sort(), ['factory', 'headquarters', 'port']);
   // Each repaired HP costs a tenth of the unit's price.
   assert.deepEqual(game.facilityHealing.map(({unit, cost}) => [unit, cost]).sort(),
-    [['偵察車', 500], ['哨戒艇', 800], ['自走砲', 1000]]);
-  assert.equal(game.funds.friendly, 20000 + game.incomeFor('friendly') - 2300);
+    [['偵察車', 400], ['哨戒艇', 800], ['自走砲', 900]]);
+  assert.equal(game.funds.friendly, 20000 + game.incomeFor('friendly') - 2100);
   move(game, infantry, airport.x - 1, airport.y);
   assert.equal(game.produce('bomber', airport)?.type.id, 'bomber');
   const saved = game.crossingSnapshot();

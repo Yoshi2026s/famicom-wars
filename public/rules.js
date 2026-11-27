@@ -48,13 +48,18 @@ const repairCostPerHP = (type, facility) => Math.ceil(type.cost / (facility?.kin
 // Income per owned facility on the coastal maps (headquarters adds a flat 1000).
 const siteIncome = Object.freeze({city: 1000, oilfield: 2000, depot: 500});
 // Foot soldiers (infantry and anti-tank troops) can capture facilities and climb mountains.
+// Terrain cover removes at most half of a hit, so weak units can still dislodge troops on ruins or mountains.
+const coveredHit = (full, cover, armor = 0) => {
+  const base = Math.max(1, full - armor);
+  return Math.max(1, base - Math.min(cover, Math.floor(base / 2)));
+};
 const canCapture = type => type.id === infantry.id || Boolean(type.captures);
 // CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
 // most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
 const difficulties = Object.freeze({
-  easy: Object.freeze({income: .75, jitter: 3, caution: .35}),
+  easy: Object.freeze({income: .55, jitter: 5, caution: .25}),
   normal: Object.freeze({income: 1, jitter: 0, caution: 1}),
-  hard: Object.freeze({income: 1.25, jitter: 0, caution: 1.3}),
+  hard: Object.freeze({income: 1.35, jitter: 0, caution: 1.3}),
 });
 function jitter(...parts) {
   let h = 2166136261;
@@ -66,15 +71,15 @@ const air = 'air';
 const sea = 'sea';
 const coastalTypes = new Map([
   {...infantry, movement: 3, firepower: 3, targets: [land, sea], foot: true, captures: true, trait: '施設を占領できる。安価で山も越えられる'},
-  {id: 'antitank', name: '対戦車兵', movement: 2, minRange: 1, maxRange: 1, cost: 2500, firepower: 3, targets: [land, sea], foot: true, captures: true,
-    bonus: {tank: 3, heavytank: 3, scout: 2, antiair: 2, support: 2, artillery: 2, rocket: 2}, trait: '施設を占領できる。車両に強いが足は遅い'},
-  {...scout, movement: 6, firepower: 3, targets: [land], trait: '移動力が高い。山は通れない'},
-  {...support, movement: 4, firepower: 4, targets: [land, sea], stationary: true, trait: '射程2〜3。移動したターンは攻撃できない'},
+  {id: 'antitank', name: '対戦車兵', movement: 3, minRange: 1, maxRange: 1, cost: 2500, firepower: 3, targets: [land, sea], foot: true, captures: true,
+    bonus: {tank: 2, heavytank: 2, scout: 2, antiair: 2, support: 2, artillery: 2, rocket: 2}, trait: '施設を占領できる。車両に強いが足は遅い'},
+  {...scout, movement: 6, cost: 2000, firepower: 3, targets: [land], bonus: {support: 2, artillery: 2, rocket: 2}, trait: '移動力が高く、砲撃車両に強い。山は通れない'},
+  {...support, movement: 4, cost: 3500, firepower: 4, targets: [land, sea], stationary: true, trait: '射程2〜3。移動したターンは攻撃できない'},
   {...tank, movement: 4, firepower: 5, targets: [land, sea], trait: '装甲車両に強い。山は通れない', bonus: {scout: 1, support: 1, antiair: 1}},
-  {id: 'heavytank', name: '重戦車', movement: 3, minRange: 1, maxRange: 1, cost: 9000, firepower: 7, armor: 1, targets: [land, sea],
+  {id: 'heavytank', name: '重戦車', movement: 3, minRange: 1, maxRange: 1, cost: 8000, firepower: 7, armor: 1, targets: [land, sea],
     bonus: {scout: 1, support: 1, antiair: 1, tank: 1}, trait: '装甲が厚く受けるダメージ-1。足は遅く山は通れない'},
-  {id: 'artillery', name: '自走砲', movement: 3, minRange: 2, maxRange: 4, cost: 5000, firepower: 5, targets: [land, sea], stationary: true, trait: '射程2〜4。移動したターンは攻撃できない'},
-  {id: 'rocket', name: 'ロケット砲', movement: 3, minRange: 3, maxRange: 6, cost: 7500, firepower: 5, targets: [land, sea], stationary: true, trait: '射程3〜6。接近されると攻撃できない'},
+  {id: 'artillery', name: '自走砲', movement: 4, minRange: 2, maxRange: 4, cost: 4500, firepower: 5, targets: [land, sea], stationary: true, trait: '射程2〜4。移動したターンは攻撃できない'},
+  {id: 'rocket', name: 'ロケット砲', movement: 4, minRange: 3, maxRange: 6, cost: 6500, firepower: 6, targets: [land, sea], stationary: true, trait: '射程3〜6。接近されると攻撃できない'},
   {id: 'antiair', name: '対空車', movement: 4, minRange: 1, maxRange: 2, cost: 4500, firepower: 3, targets: [land, air], bonus: {air: 3}, trait: '航空部隊への攻撃力が高い'},
   {id: 'drone', name: '無人攻撃機', domain: air, movement: 6, minRange: 1, maxRange: 1, cost: 3000, firepower: 3, targets: [land, sea],
     bonus: {infantry: 1, antitank: 1}, trait: '安価な航空部隊。歩兵に強い'},
@@ -85,10 +90,10 @@ const coastalTypes = new Map([
   {id: 'destroyer', name: '駆逐艦', domain: sea, movement: 5, minRange: 1, maxRange: 2, cost: 6500, firepower: 4, targets: [land, sea, air], bonus: {air: 1, patrol: 1, submarine: 2}, antisub: true, trait: '射程1〜2。航空部隊も攻撃でき、潜水艦に強い'},
   {id: 'submarine', name: '潜水艦', domain: sea, movement: 5, minRange: 1, maxRange: 1, cost: 8000, firepower: 6, targets: [sea], submerged: true, antisub: true,
     bonus: {battleship: 2}, trait: '艦船だけを魚雷で攻撃。哨戒艇・駆逐艦・潜水艦にしか攻撃されない'},
-  {id: 'battleship', name: '戦艦', domain: sea, movement: 4, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
+  {id: 'battleship', name: '戦艦', domain: sea, movement: 5, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
 ].map(type => [type.id, Object.freeze({domain: land, ...type})]));
 const facilityNames = {headquarters: '本拠地', city: '都市', factory: '工場', airfield: '飛行場', port: '港', oilfield: '油田', depot: '補給所'};
-const fleetLimit = 14;
+const fleetLimit = 20;
 const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function distanceBetween(from, to) {
@@ -819,6 +824,9 @@ class BattleMap {
         if (!reachable.length) continue;
         let score = type.firepower * 2 - type.cost / 2000 - 5 * numbers(type.id);
         if (type.id === 'infantry' && numbers(type.id) < 2) score += 12;
+        // Keep enough capturers to hold sites, and don't fill the fleet with ships the player can't see.
+        if (canCapture(type) && units.filter(unit => canCapture(unit.type)).length < 4) score += 6;
+        if (type.domain === sea && units.filter(unit => unit.type.domain === sea).length >= Math.max(1, opposing(sea) + 1)) continue;
         if (['antiair', 'fighter', 'destroyer'].includes(type.id)) score += Math.min(8, opposing(air) * 3);
         if (type.id === 'fighter' && opposing(air) === 1) score -= 4;
         if (type.domain === sea && opposing(sea)) score += 3;
@@ -894,7 +902,7 @@ class BattleMap {
       const ratio = attackingUnit.hp / this.maxHP;
       const full = Math.max(1, type.firepower + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0));
       strength = Math.max(1, Math.round(full * ratio));
-      protectedDamage = Math.max(1, Math.round(Math.max(1, full - cover - (defender.type.armor ?? 0)) * ratio));
+      protectedDamage = Math.max(1, Math.round(coveredHit(full, cover, defender.type.armor) * ratio));
     } else {
       strength = baseStrength + (type.attackBonus ?? 0);
       protectedDamage = Math.max(1, strength - cover);
@@ -954,7 +962,7 @@ class BattleMap {
       if (target === destroyed || !target.type.targets.includes(type.domain)) return risk;
       const distance = distanceBetween(route, target);
       const cover = type.domain === land ? this.terrainAt(route.x, route.y).defense : 0;
-      if (inRange(target.type, target, route)) return risk + Math.max(1, target.type.firepower - cover) * .33;
+      if (inRange(target.type, target, route)) return risk + coveredHit(target.type.firepower, cover) * .33;
       if (!target.type.stationary && distance <= target.type.maxRange + target.type.movement) return risk + .3;
       return risk;
     }, 0);
@@ -1038,7 +1046,7 @@ BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp =
   if (this.scenario) {
     const ratio = hp / this.maxHP;
     const full = Math.max(1, attackerType.firepower + (attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0));
-    return Math.max(1, Math.round(Math.max(1, full - shield - (defenderType.armor ?? 0)) * ratio));
+    return Math.max(1, Math.round(coveredHit(full, shield, defenderType.armor) * ratio));
   }
   const strength = (hp >= 8 ? 3 : hp >= 4 ? 2 : 1) + (attackerType.attackBonus ?? 0);
   return Math.max(1, strength - shield);
