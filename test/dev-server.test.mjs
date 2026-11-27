@@ -13,8 +13,10 @@ test('トップページを配信し、公開範囲外のファイルを返さ�
   const page = await fetch(base);
   assert.equal(page.status, 200);
   const html = await page.text();
-  assert.match(html, /ファミコンウォーズ/);
-  assert.match(html, /id="mission-title" tabindex="-1">はじまりの草原/);
+  assert.match(html, /<title>スマホウォーズ｜湾岸の攻防<\/title>/);
+  assert.match(html, /name="apple-mobile-web-app-title" content="スマホウォーズ"/);
+  assert.match(html, /id="mission-title" tabindex="-1">湾岸の攻防/);
+  assert.match(html, /coastal-scenario\.js[^>]*><\/script>\s*<script defer src="\.\/rules\.js/);
   assert.doesNotMatch(html, /歩兵訓練|歩兵戦|水辺の攻防|href="#(?:training|battle|crossing)"/);
   assert.match(html, /rel="manifest" href="\.\/manifest\.webmanifest"/);
   assert.match(html, /rel="apple-touch-icon" sizes="180x180" href="\.\/assets\/home-icon-180\.png"/);
@@ -23,6 +25,8 @@ test('トップページを配信し、公開範囲外のファイルを返さ�
   assert.equal(manifestResponse.status, 200);
   assert.match(manifestResponse.headers.get('content-type'), /^application\/manifest\+json/);
   const manifest = await manifestResponse.json();
+  assert.equal(manifest.name, 'スマホウォーズ');
+  assert.equal(manifest.short_name, 'スマホウォーズ');
   assert.equal(new URL(manifest.start_url, manifestResponse.url).href, base + '/');
   assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512']);
   for (const {src, sizes} of [...manifest.icons, {src: './assets/home-icon-180.png', sizes: '180x180'}]) {

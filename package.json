@@ -1,5 +1,5 @@
 {
-  "name": "famicom-wars-prototype",
+  "name": "sumaho-wars",
   "private": true,
   "devDependencies": {
     "@breezystack/lamejs": "1.2.7"

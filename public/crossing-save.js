@@ -1,7 +1,7 @@
 const crossingSaveKey = 'famicom-wars:crossing-save';
 const crossingSaveVersion = 1;
 
-function createCrossingSave(getStorage) {
+function createCrossingSave(getStorage, key = crossingSaveKey) {
   let knownSave;
   let status = 'ready';
 
@@ -9,7 +9,7 @@ function createCrossingSave(getStorage) {
     get status() { return status; },
     load(restore) {
       try {
-        knownSave = getStorage().getItem(crossingSaveKey);
+        knownSave = getStorage().getItem(key);
       } catch {
         status = 'unavailable';
         return null;
@@ -34,15 +34,15 @@ function createCrossingSave(getStorage) {
       if (status === 'unreadable' || status === 'changed-elsewhere') return false;
       try {
         const storage = getStorage();
-        const current = storage.getItem(crossingSaveKey);
+        const current = storage.getItem(key);
         if (current !== (knownSave ?? null)) {
           status = 'changed-elsewhere';
           return false;
         }
         const data = JSON.stringify({version: crossingSaveVersion, state});
         if (data !== current) {
-          storage.setItem(crossingSaveKey, data);
-          if (storage.getItem(crossingSaveKey) !== data) {
+          storage.setItem(key, data);
+          if (storage.getItem(key) !== data) {
             status = 'unavailable';
             return false;
           }

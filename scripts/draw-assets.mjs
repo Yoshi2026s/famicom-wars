@@ -362,7 +362,9 @@ for (const [side, roof, light, flag] of [
   base.save(`headquarters-${side}.png`);
 }
 
-for (const [side, wall, bright] of [['friendly', '347485', '81bfba'], ['enemy', '954e3b', 'df9a6d']]) {
+for (const [side, wall, bright] of [
+  ['friendly', '347485', '81bfba'], ['enemy', '954e3b', 'df9a6d'], ['neutral', '7b725d', 'cec199'],
+]) {
   const factory = new Pixels(64, 64);
   factory.ellipse(32, 52, 28, 7, '586d54');
   factory.rect(5, 47, 54, 8, 'a29574');
@@ -832,3 +834,310 @@ function drawHomeIcon(size) {
 }
 
 for (const size of [180, 192, 512]) drawHomeIcon(size);
+
+const coastalTerrain = {
+  sea: ['285c79', '326d88', '4b91a3', '75b7bb'],
+  shoal: ['408e93', '57a29f', '80bfaa', 'b1d6b7'],
+};
+for (const [name, [base, trough, crest, foam]] of Object.entries(coastalTerrain)) {
+  const tile = new Pixels(48, 48);
+  tile.rect(0, 0, 48, 48, base);
+  for (let row = 0; row < 48; row += 6) {
+    const x = (row * 5 + 7) % 38;
+    tile.rect((x + 21) % 35, row, 12, 2, trough);
+    tile.rect(x, row + 2, 10, 1, crest);
+    tile.rect(x + 2, row + 1, 4, 1, foam);
+    tile.rect((x + 27) % 43, row + 4, 4, 1, trough);
+  }
+  if (name === 'shoal') {
+    for (const [x, y] of [[4, 11], [33, 18], [16, 29], [38, 41]]) {
+      tile.rect(x, y, 7, 3, '94bfa5');
+      tile.rect(x + 2, y + 1, 6, 2, 'b3c6a0');
+    }
+  }
+  tile.save(`terrain-${name}.png`);
+}
+
+const road = new Pixels(48, 48);
+road.rect(0, 0, 48, 48, '8ba368');
+road.rect(0, 14, 48, 20, '7d6a54');
+road.rect(0, 16, 48, 16, 'b5a38b');
+road.rect(0, 17, 48, 1, 'd6c7a2');
+road.rect(0, 30, 48, 1, '9a876e');
+for (const x of [3, 19, 35]) road.rect(x, 23, 9, 2, 'e7d8b4');
+for (const [x, y] of [[3, 5], [16, 9], [27, 3], [38, 8], [6, 38], [21, 42], [33, 37], [42, 44]]) {
+  road.rect(x, y, 3, 1, '60815d');
+  road.rect(x + 2, y - 1, 3, 1, 'afb979');
+}
+road.save('terrain-road.png');
+
+const facilityColors = {
+  friendly: {h: '9ce2dc', b: '348a92', d: '254757'},
+  neutral: {h: 'f1dca0', b: 'a89564', d: '685d52'},
+  enemy: {h: 'f8be91', b: 'b9654f', d: '743f41'},
+};
+const facilities = {
+  port: [
+    '........................',
+    '........................',
+    '.....ddd................',
+    '.....dhd................',
+    '.....dhd................',
+    '.....dhd.....ddddd......',
+    '.....dhddddd.dhhhd......',
+    '.....dhbbbbdddhdhd......',
+    '.....dhd........hd......',
+    '..ddddhddd.....ddddd....',
+    '.dhhhhhhhhd...dhhhhhdd..',
+    '.dhddddddbd...dhdhbbbd..',
+    '.dhdbbbbdbd...dhhbbbd...',
+    '.dhdbbbbdbdddddhdhbd....',
+    '.dhddddddbddbbbbbbd.....',
+    '.dhbbbbbbbd.dddddd......',
+    '.dhddddddbd.............',
+    '.dhdbbbbdbd.......ccc...',
+    '.dhdbbbbdbd..cc.cc......',
+    '.dhddddddbd.cc.cc.......',
+    '.dhbbbbbbbd......ccc....',
+    '.dddddddddd...ccc.......',
+    '............cc..........',
+    '........................',
+  ],
+  airfield: [
+    '........................',
+    '.................ddd....',
+    '.................dhd....',
+    '...............ddddddd..',
+    '..............dhhhccbd..',
+    '..............dhddccbd..',
+    '.....dddddddddddddddhd..',
+    '....dhhhhhhhhhhhhhhdbd..',
+    '...dcccccccccccccchdbd..',
+    '..dcddcddcddcddcddhdhd..',
+    '..dcddcddcddcddcddhddd..',
+    '..dcddcddcddcddcddhdd...',
+    '..dcddccccccccddddhdd...',
+    '..dcddcddcddcddcddhdd...',
+    '..dcddcddcddcddcddhdd...',
+    '..dcddcddcddcddcddhdd...',
+    '..dccccccccccccccchdd...',
+    '..dhhhhhhhhhhhhhhhhdd...',
+    '..ddddddddddddddddddd...',
+    '....dhd....dhd....dhd...',
+    '....ddd....ddd....ddd...',
+    '........................',
+    '........................',
+    '........................',
+  ],
+};
+for (const [type, rows] of Object.entries(facilities)) {
+  for (const [side, palette] of Object.entries(facilityColors)) {
+    const icon = new Pixels(48, 48);
+    icon.sprite(0, 0, rows, {...palette, c: 'dce4c9'}, 2);
+    icon.save(`${type}-${side}.png`);
+  }
+}
+
+const unitSilhouettes = {
+  artillery: [
+    '.....................xx.....',
+    '...................xxhbx....',
+    '................xxhhbxx.....',
+    '.............xxhhbxx........',
+    '...........xxhbxx...........',
+    '.........xxhbxx.............',
+    '.........xhhxx..............',
+    '........xhhhbx..............',
+    '.....xxxxhhhbxxx............',
+    '..xxxhhhhhhhhhhbxxxx........',
+    '.xhhhbbbbbbbbbbsbbbbxxx.....',
+    'xhhsbbdccdbbbssdcsbbbbbx....',
+    'xxbbssssssssssssssssssxx....',
+    '.xxxxwwxwwxwwxwwxwwxxxx.....',
+    '..xxdxwxwxwxwxwxwxdxxx......',
+    '...xxxxxxxxxxxxxxxxx........',
+  ],
+  rocket: [
+    '..................xxxxx.....',
+    '................xxhbbbxx....',
+    '...............xhbhbhdxx....',
+    '.............xxhbhbhdxx.....',
+    '............xhbhbhdxx.......',
+    '..........xxhbhbhdxx........',
+    '.........xhbhbhdxx..........',
+    '.......xxhbhbhdxx...........',
+    '......xhbhbhdxx....xxx......',
+    '.....xbbbbdxx....xxhhbx.....',
+    '..xxxsbbbxx.....xhccbbxx....',
+    '.xhhhxxxxhhhhxxxxbcbbbbbxx..',
+    'xhbbbbbbbbbbsbbbbbbbbsbbbex.',
+    'xxbbssssssssssssssssssssbxx.',
+    '..xxxxxx..xxxxxxx...xxxxxx..',
+    '...xwdx....xwdx......xwdx...',
+    '...xxxx....xxxx......xxxx...',
+  ],
+  antiair: [
+    '...................x........',
+    '..................xhx.......',
+    '..............x..xhx........',
+    '.............xhxxhx.........',
+    '............xhxxhx..........',
+    '...........xhxxhx...........',
+    '..........xhxxhx............',
+    '.........xhxxhx.............',
+    '........xhxxhx..............',
+    '.......xxxxxxxxx............',
+    '.......xhhhbhhbxx...........',
+    '......xhhbsbsbbsx...........',
+    '..xxxxxhhhhhhhhhhxxxxx......',
+    '.xhhhbbbbbbbbsbbbbbbbbxx....',
+    'xxhbbdccdbbssdbbcdbbbebx....',
+    '.xsssssssssssssssssssssx....',
+    '..xxxwxwxwxwxwxwxwxwxxx.....',
+    '...xxxxxxxxxxxxxxxxxx.......',
+  ],
+  helicopter: [
+    '............................',
+    '...xxxxxxxxxxxxxxxxxxxxx....',
+    '..xhddddddddddddddddddddx...',
+    '...xxxxxxxxxxxxxxxxxxxxx....',
+    '...............xdx..........',
+    '.x............xxdxxx........',
+    'xhx.........xxhbbbbbxx......',
+    'xbxx...xxxxxhhhhhcccbbxx....',
+    'xbbbxxxhhhhhhhhddccccbbbxx..',
+    'xxbbhhhhbbbbbbbbddccbbbbbbx.',
+    '..xxxbbbbbssbbbbbbbbbbbbbxx.',
+    '.....xxxxxssbbbbbbbbbxxxx...',
+    '...........xxxxxxxxxx.......',
+    '.............x.....x........',
+    '..........xxxxxxxxxxxxx.....',
+  ],
+  fighter: [
+    '............................',
+    '..xx........................',
+    '.xhbx.......................',
+    '.xhbbx......................',
+    '.xhbbsx.....xx..............',
+    'xxxbbbsx...xhcx.............',
+    'xehhbbbbxxxxhcbbxxx.........',
+    'xehhhhhbhhhbhddbbbbxxxxxx...',
+    '.xbbbbbbbbbbbbbbbbbbbbbbbxx.',
+    '..xxxxxbbbbbshhhhhhhhhbbxxx.',
+    '......xxbxbbbbbbbbxxxxxx....',
+    '.......xxxbbbbbxxx..........',
+    '.........xhbbxx.............',
+    '........xhbbx...............',
+    '.......xhbbx................',
+    '.......xxxx.................',
+  ],
+  bomber: [
+    '............................',
+    '..xxx.......................',
+    '.xhbxx......................',
+    '.xhhbbx.....................',
+    '.xhhbbbx.........xxxx.......',
+    '.xhhbbbxxxxxx..xxhhhhxx.....',
+    'xxhhhhhhhhhhxxxhhccccbbxx...',
+    'xehhhhhhhhhhhhhddccccbbbxxx.',
+    'xehbbbbbbbbbsbbbbbbbbbbbbbxx',
+    '.xxssssssssssssssssssssssxx.',
+    '...xxxxxxbbbbbbbbbbxxxxxx...',
+    '......xhhxxxxbbbbsbx........',
+    '.....xhbbebbxbbbsbx.........',
+    '....xhhbbbbbxbsbxx..........',
+    '....xxxxxdxxbxxx............',
+    '..........xxx...............',
+  ],
+  patrol: [
+    '...............x............',
+    '..............xhx...........',
+    '...............x............',
+    '..............xxx...........',
+    '.........xxxxxxhx...........',
+    '........xhhhhhhbxxxx........',
+    '.......xhbccdhbbbbbxx..xx...',
+    '......xhbcdddhbbbbbbxxxhx...',
+    '...xxxxhhhhhhhhhhhhbbbbbbxx.',
+    '..xhbbbbbbbbbbbbbbbbbbbbbbx.',
+    '...xbbbbbsbbbbbbbbbbbbbbxx..',
+    '....xxssssssssssssssxxxx....',
+    '.cc.ccxxxxxxxxxxxxxx.cc.cc..',
+  ],
+  destroyer: [
+    '.............x..............',
+    '............hhx.............',
+    '...........xxxxx............',
+    '.............x..............',
+    '..........xx.x..............',
+    '.........xhdxx..............',
+    '.........xhdxhxx............',
+    '......xxxxhhxhbxxx..xhxxxx..',
+    '...xxxxhhhhhhhhhhbxxxhbxxx..',
+    '..xhhbbdcccdbbbbbbbsbbbbbhx.',
+    '.xxhhhhhhhhhhhhhhhhhhhhhhhxx',
+    '.xhhhhbbbbbbbbbbbbbbbbsbbbxx',
+    '..xxbbbsbbbbbbbbbbbbbssbxxx.',
+    '....xxssssssssssssssxxxx....',
+    '.cc...xxxxxxxxxxxxxx...cc...',
+  ],
+  battleship: [
+    '..............x.............',
+    '............xhxx............',
+    '.............xx.............',
+    '...........xxxxxx...........',
+    '..........xhbcbbx...........',
+    '.........xxhdchbxx..........',
+    '..xxxx..xhhhhhbbbbx..xxxxx..',
+    'xxhhhxxxxbbdcccdbbsxxhhhhxxx',
+    'xxxhbbbxcbbdcccdbbcxxbsssxxx',
+    '.xxhhhhhhhhhhhhhhhhhhhhhhhxx',
+    'xxhbbbbbbbbbbbbbbbbbbbbbbbbx',
+    '.xxbbbbdssdsdssssddsbbsbxxx.',
+    '...xxssssssssssssssbxxxxx...',
+    '.cc..xxxxxxxxxxxxxxx....cc..',
+  ],
+};
+const coastalUnitColors = {
+  friendly: {x: '172f43', h: '9cdddd', b: '4b96a4', s: '2c607b', d: '234356', c: 'e0eee2', w: '637783', e: 'ffe2a8'},
+  enemy: {x: '402a39', h: 'fac69b', b: 'c37763', s: '8f5055', d: '623949', c: 'ffe7bf', w: '8a6f75', e: 'f7dd9e'},
+};
+for (const [type, rows] of Object.entries(unitSilhouettes)) {
+  const domain = ['patrol', 'destroyer', 'battleship'].includes(type) ? 'sea'
+    : ['helicopter', 'fighter', 'bomber'].includes(type) ? 'air' : 'land';
+  const bottom = {sea: 52, air: 42, land: 50}[domain];
+  for (const [side, palette] of Object.entries(coastalUnitColors)) {
+    const enemy = side === 'enemy';
+    const sprite = new Pixels(64, 56);
+    const profile = enemy ? rows.map(row => [...row].reverse().join('')) : rows;
+    sprite.sprite(4, bottom - rows.length * 2, profile, palette, 2);
+    sprite.save(`${enemy ? 'enemy-' : ''}${type}.png`);
+  }
+}
+
+const seascape = new Pixels(384, 216);
+const skyBands = ['33445e', '4b5a73', '786f82', 'b88786', 'e1a995', 'f2c7a4'];
+for (const [index, color] of skyBands.entries()) seascape.rect(0, index * 14, 384, 14, color);
+seascape.ellipse(258, 53, 22, 22, 'ffddb1');
+seascape.ellipse(258, 53, 20, 20, 'ffebbb');
+for (const [x, y, width] of [[12, 26, 73], [44, 39, 36], [135, 19, 78], [293, 31, 63], [289, 54, 90], [200, 61, 56]]) {
+  seascape.rect(x, y, width, 2, 'dfa396');
+  seascape.rect(x + 9, y - 2, width - 22, 2, 'efd0b1');
+}
+for (let x = 0; x < 384; x++) {
+  const rise = Math.max(0, 18 * Math.sin(x / 35), 9 * Math.cos(x / 15));
+  const top = 84 - Math.round(rise);
+  seascape.rect(x, top, 1, 85 - top, x < 190 ? '596877' : '777981');
+}
+const waterBands = ['7a8f9c', '5c8195', '4f788d', '436b85', '345975'];
+for (const [index, color] of waterBands.entries()) seascape.rect(0, 84 + index * 27, 384, 27, color);
+for (let i = 0; i < 1150; i++) {
+  const x = random(384);
+  const y = 87 + random(129);
+  const reflected = Math.abs(x - 257) < 10 + (y - 84) / 4;
+  const width = 2 + random(3 + Math.round((y - 84) / 9));
+  const color = reflected ? ['d7a19c', 'e6bfa4', '9a8d9e'][random(3)]
+    : ['5d829a', '446983', '809ca8', '476e88'][random(4)];
+  seascape.rect(x, y, width, 1, color);
+}
+seascape.save('combat-sea.png');
