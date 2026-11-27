@@ -209,3 +209,33 @@ test('追加の兵種: 迫撃砲兵は山を越えるが占領できず、対空
   assert.equal(game.damageEstimate(type(game, 'striker'), type(game, 'fighter')), null);
   assert.ok(game.damageEstimate(type(game, 'cruiser'), type(game, 'submarine')) > 0);
 });
+
+test('CPUの瀕死部隊は、いま立っている回復施設に留まって回復する', () => {
+  const game = BattleMap.newMatch('coastal', 1, {difficulty: 'normal'});
+  const cities = game.sites.filter(site => site.kind === 'city');
+  for (const city of cities) city.owner = 'enemy';
+  const hq = game.headquarters.friendly;
+  const gap = site => Math.abs(site.x - hq.x) + Math.abs(site.y - hq.y);
+  const city = [...cities].sort((a, b) => gap(b) - gap(a))[0];
+  const tank = {type: type(game, 'tank'), name: '戦車', x: city.x, y: city.y, hp: 3, readyTurn: 1, moved: false, attacked: false};
+  game.enemyUnits.push(tank);
+  game.friendlyUnits.push({type: type(game, 'infantry'), name: '歩兵', x: hq.x, y: hq.y, hp: 10, readyTurn: 1, moved: false, attacked: false});
+  game.funds.enemy = 50000;
+  game.beginEnemyTurn();
+  const action = game.prepareEnemyAction();
+  assert.deepEqual([action.to.x, action.to.y], [city.x, city.y]);
+});
+
+test('要塞で軽減した攻撃は、地形ではなく要塞の軽減として表示する', () => {
+  const game = BattleMap.newMatch('coastal', 1);
+  const fortress = game.sites.find(site => site.kind === 'fortress');
+  const plainsNext = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({x: fortress.x + dx, y: fortress.y + dy}))
+    .find(at => game.terrainAt(at.x, at.y).id === 'plains' && !game.facilityAt(at.x, at.y));
+  assert.ok(plainsNext);
+  const tank = place(game, 'friendly', 'tank', plainsNext.x, plainsNext.y);
+  const target = place(game, 'enemy', 'infantry', fortress.x, fortress.y);
+  game.activeUnit = tank;
+  const [hit] = game.previewAttack(target);
+  assert.equal(hit.terrain, '要塞');
+  assert.ok(hit.mitigation > 0);
+});

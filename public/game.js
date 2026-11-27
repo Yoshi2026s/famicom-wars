@@ -778,6 +778,7 @@ function showMap() {
   document.title = `スマホウォーズ｜${game.name}`;
   renderLevel();
   document.getElementById('coastal-legend').hidden = !game.scenario;
+  document.querySelector('.crossing-objective').textContent = `${game.scenario ? '歩兵・対戦車兵' : '歩兵'}で敵本拠地を占領するか、敵部隊を全滅させると勝利です。`;
   music.setTurn(game.enemyTurn ? 'enemy' : 'friendly');
   music.setScene(game.result ?? 'map');
   buildFactories();
@@ -1600,7 +1601,7 @@ function switchScenario(id) {
   crossingSave = save;
   // Opening a fresh map here is on purpose, so it may replace a save that could not be read.
   if (!restored) crossingSave.discardUnreadable();
-  game = restored ?? BattleMap.newMatch(id);
+  game = restored ?? BattleMap.newMatch(id, undefined, {difficulty: preferredLevel()});
   currentScenario = id;
   try {
     window.localStorage.setItem(scenarioPreference, id);
@@ -1664,10 +1665,10 @@ function capturesSites(type) {
 
 function movementNote(type) {
   if (type.domain === 'air') return '地形と部隊を越えて移動';
-  if (type.domain === 'sea') return '海と港だけを移動';
+  if (type.domain === 'sea') return game.scenario ? '海と港だけを移動。浅瀬は2、岩礁は不可' : '海と港だけを移動';
   if (!game.scenario) return '川は橋だけ、湿地は2';
-  if (type.foot) return '山・丘陵・廃墟も通れる。外海・浅瀬は不可';
-  return '山は通れない。森・丘陵・廃墟は2。外海・浅瀬は不可';
+  if (type.foot) return '山・丘陵・廃墟も通れる。雪原・湿地・密林は2。外海・浅瀬・岩礁は不可';
+  return '山は通れない。森・丘陵・廃墟・雪原・湿地は2、密林は3。外海・浅瀬・岩礁は不可';
 }
 
 function matchupChips(entries) {

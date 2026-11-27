@@ -733,10 +733,10 @@ class BattleMap {
     }
   }
 
-  #affordableRecovery(unit, side, funds = this.funds[side]) {
-    const rate = this.facilityAt(unit.x, unit.y)?.kind === 'hospital' ? hospitalRecovery : facilityRecovery;
+  #affordableRecovery(unit, side, funds = this.funds[side], site = this.facilityAt(unit.x, unit.y)) {
+    const rate = site?.kind === 'hospital' ? hospitalRecovery : facilityRecovery;
     const wanted = Math.min(rate, this.maxHP - unit.hp);
-    return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type, this.facilityAt(unit.x, unit.y)))));
+    return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type, site))));
   }
 
   repairCost(unit, amount) {
@@ -952,7 +952,8 @@ class BattleMap {
     }
     const damage = Math.min(protectedDamage, defender.hp);
     defender.hp -= damage;
-    return {attacker, damage, terrain: terrain.name, mitigation: Math.max(0, strength - protectedDamage),
+    const fortified = this.scenario && cover > terrain.defense && this.facilityAt(defender.x, defender.y)?.kind === 'fortress';
+    return {attacker, damage, terrain: fortified ? facilityNames.fortress : terrain.name, mitigation: Math.max(0, strength - protectedDamage),
       ...(this.scenario && defender.type.armor ? {armored: true, covered: cover > 0} : {}),
       playerHP: friendly.hp, enemyHP: enemy.hp};
   }
@@ -1005,7 +1006,7 @@ class BattleMap {
       let haven = null;
       for (const site of this.sites) {
         const route = routes.get(`${site.x},${site.y}`);
-        if (!route?.cost || !this.#canRecover(enemy, 'enemy', site) || this.friendlyAt(site.x, site.y)) continue;
+        if (!route || !this.#canRecover(enemy, 'enemy', site) || this.friendlyAt(site.x, site.y)) continue;
         const cost = route.cost - (site.kind === 'hospital' ? type.movement : 0);
         if (cost <= type.movement * 3 && cost < (haven?.weight ?? Infinity)) haven = {route, weight: cost};
       }
@@ -1030,7 +1031,7 @@ class BattleMap {
       const capture = capturable(route);
       const moved = route.cost > 0;
       const recover = this.#canRecover(enemy, 'enemy', site)
-        ? this.#affordableRecovery(enemy, 'enemy', this.funds.enemy + this.incomeFor('enemy')) : 0;
+        ? this.#affordableRecovery(enemy, 'enemy', this.funds.enemy + this.incomeFor('enemy'), site) : 0;
       const holdingProduction = site?.owner === 'enemy' && this.domainAtSite(site);
       const baseScore = capture + recover * 1.55 - (holdingProduction ? 2 : 0) - route.cost * .12
         + (moved && route === approach ? 4.5 : 0);
