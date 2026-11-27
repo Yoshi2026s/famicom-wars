@@ -151,6 +151,66 @@ function placeName(x, y) {
   return game.terrainAt(x, y).name;
 }
 
+// Describes the next capture step of an infantry unit on a site (10 points; each step removes the unit's HP).
+function captureForecast(site, unit) {
+  const name = site.kind === 'headquarters' ? '敵本拠地' : facilityNames[site.kind];
+  if (!game.scenario) return site.kind === 'headquarters' ? '敵本拠地を占領すると勝利' : `${name}を占領`;
+  const progress = game.captureProgress(site);
+  const current = progress?.side === 'friendly' && progress.unit === unit.name ? progress.points : game.maxHP;
+  const after = Math.max(0, current - unit.hp);
+  if (after > 0) return `${name}の占領 残り${current}→${after}（あと${Math.ceil(after / unit.hp)}回）`;
+  return site.kind === 'headquarters' ? '敵本拠地を占領して勝利' : `${name}を占領`;
+}
+
+const celebration = document.getElementById('celebration');
+let celebrationTimer;
+let celebratedResult = null;
+
+// Big on-map effects for completed captures and the final result. They never block input:
+// a capture banner fades by itself, and a result can be dismissed with a tap.
+function celebrate(kind, title, sub, duration) {
+  if (celebrationTimer) portraitMode.cancel(celebrationTimer);
+  celebration.hidden = false;
+  celebration.dataset.kind = kind;
+  celebration.querySelector('.celebration-title').textContent = title;
+  celebration.querySelector('.celebration-sub').textContent = sub;
+  celebration.classList.remove('is-playing');
+  void celebration.offsetWidth;
+  celebration.classList.add('is-playing');
+  celebrationTimer = portraitMode.schedule(endCelebration, reducedMapMotion.matches ? Math.min(duration, 1400) : duration);
+}
+
+function endCelebration() {
+  if (celebrationTimer) portraitMode.cancel(celebrationTimer);
+  celebrationTimer = undefined;
+  celebration.hidden = true;
+  celebration.classList.remove('is-playing');
+}
+celebration.addEventListener('click', endCelebration);
+
+function celebrateCapture(step, side) {
+  if (!step?.site) return;
+  if (!step.completed) {
+    flashMapTile(step.site, 'capture', `残り${step.points}`);
+    return;
+  }
+  if (step.site.kind === 'headquarters' || game.result) {
+    celebrateResult();
+    return;
+  }
+  const name = facilityNames[step.site.kind];
+  celebrate(side === 'friendly' ? 'capture' : 'lost', side === 'friendly' ? `${name}占領！` : `${name}を奪われた`,
+    side === 'friendly' ? (step.site.kind === 'city' ? '収入が増えます' : '生産・補給に使えます') : '取り返しましょう', 1700);
+}
+
+function celebrateResult() {
+  if (!game.result || celebratedResult === game.result) return;
+  celebratedResult = game.result;
+  const win = game.result === 'victory';
+  const reason = game.capturedBy ? (win ? '敵本拠地を占領' : '本拠地を占領された') : (win ? '敵部隊を全滅' : '味方部隊が全滅');
+  celebrate(win ? 'victory' : 'defeat', win ? '勝利' : '敗北', reason, 4200);
+}
+
 function siteLabel(site) {
   const name = facilityNames[site.kind];
   if (site.kind === 'headquarters') return name;
@@ -435,12 +495,22 @@ function render() {
     const actionInfo = unitActions[action];
     const target = !ordersLocked && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
-    const captureTarget = reachable && game.playerUnit.id === 'infantry'
-      && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly'));
+    const captureHere = active && game.selected && !ordersLocked && game.canCaptureHere;
+    const captureTarget = captureHere || (reachable && game.playerUnit.id === 'infantry'
+      && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly')));
+    const progress = game.scenario && facility ? game.captureProgress(facility) : null;
+    button.classList.toggle('capturing', Boolean(progress));
+    if (progress) {
+      button.dataset.captureSide = progress.side;
+      button.style.setProperty('--capture-done', (game.maxHP - progress.points) / game.maxHP);
+    } else {
+      delete button.dataset.captureSide;
+      button.style.removeProperty('--capture-done');
+    }
     const productionReady = !ordersLocked && factory && canOpenProductionDialog && game.productionStatus(factory) === 'ready';
     productionBadge.hidden = !productionReady;
     button.classList.toggle('action-pending', pendingAction?.cell === cell);
-    if (productionReady || reachable || target) button.setAttribute('aria-haspopup', 'dialog');
+    if (productionReady || reachable || target || captureHere) button.setAttribute('aria-haspopup', 'dialog');
     else button.removeAttribute('aria-haspopup');
     button.classList.toggle('occupied', occupied);
     button.classList.toggle('enemy', Boolean(enemy));
@@ -457,6 +527,7 @@ function render() {
       facility && !base ? `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}` : '',
       terrain.name, terrain.defense ? `防御${terrain.defense}` : '',
       reachable ? `消費移動力${movementTargets.get(`${x},${y}`).cost}` : '',
+      progress ? `${progress.side === 'friendly' ? '味方' : '敵'}が占領中 残り${progress.points}/${game.maxHP}` : '',
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean);
@@ -528,7 +599,16 @@ function render() {
     message.textContent = `${friendlyName}は次のターンから操作できます。`;
   } else if (captureReady) {
     state.textContent = '占領可能';
-    message.textContent = '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
+    message.textContent = game.scenario ? '「占領」の印がある敵本拠地に歩兵を移動させると占領が進みます。占領しきると勝利です。'
+      : '「占領」の印がある敵本拠地に歩兵を移動させると勝利します。';
+  } else if (announcedCapture && facilityCapture.points > 0) {
+    const site = facilityCapture.facility === 'headquarters' ? '敵本拠地' : facilityNames[facilityCapture.facility];
+    state.textContent = game.canAttack ? '攻撃可能' : '占領中';
+    message.textContent = `${site}を占領中です（残り${facilityCapture.points}/${game.maxHP}）。次のターンも歩兵のマスを選んで「占領する」で続けられます。離れると最初からになります。`
+      + (game.canAttack ? '印のある敵を攻撃できます。' : '');
+  } else if (game.selected && game.canCaptureHere) {
+    state.textContent = '占領可能';
+    message.textContent = '歩兵のいるマスを選ぶと、その場で占領を続けられます。印のあるマスへ移動もできます。';
   } else if (announcedCapture) {
     const site = facilityNames[facilityCapture.facility];
     const production = game.productionSiteAt(facilityCapture.x, facilityCapture.y);
@@ -570,14 +650,15 @@ function render() {
 
 function renderBattleStatus() {
   const report = document.getElementById('enemy-report');
-  const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured, facility}) => {
-    if (from.x === to.x && from.y === to.y) {
-      return `敵${enemy}が${friendly ? `味方${friendly}を攻撃` : '待機'}`;
-    }
+  const lines = game.enemyActions.map(({enemy, friendly, from, to, captured, cityCaptured, factoryCaptured, facility, capturing, points}) => {
     const site = captured ? 'headquarters' : facility ?? (cityCaptured ? 'city' : factoryCaptured ? 'factory' : null);
-    const capture = site ? `、${facilityNames[site]}を占領` : '';
+    const capture = site ? `${facilityNames[site]}を占領`
+      : capturing ? `${facilityNames[capturing]}を占領中（残り${points}）` : '';
+    if (from.x === to.x && from.y === to.y) {
+      return `敵${enemy}が${friendly ? `味方${friendly}を攻撃` : capture || '待機'}`;
+    }
     const attack = friendly ? `、味方${friendly}を攻撃` : '';
-    return `敵${enemy}が${placeName(to.x, to.y)}へ移動${capture}${attack}`;
+    return `敵${enemy}が${placeName(to.x, to.y)}へ移動${capture ? '、' + capture : ''}${attack}`;
   });
   for (const {x, y, unit} of game.enemyProductions) {
     const name = facilityNames[game.facilityAt(x, y)?.kind];
@@ -588,6 +669,8 @@ function renderBattleStatus() {
 }
 
 function showMap() {
+  endCelebration();
+  celebratedResult = game.result;
   if (turnChangeTimer) portraitMode.cancel(turnChangeTimer);
   turnChangeTimer = undefined;
   turnChange.hidden = true;
@@ -761,12 +844,17 @@ function addTile(x, y) {
   productionBadge.setAttribute('aria-hidden', 'true');
   productionBadge.textContent = '生産';
   button.append(productionBadge);
+  const captureMeter = document.createElement('span');
+  captureMeter.className = 'capture-meter';
+  captureMeter.setAttribute('aria-hidden', 'true');
+  button.append(captureMeter);
   const cell = {x, y, button, image, idleSprite, hpBadge, actionBadge, productionBadge, base, factory, city, facility};
   button.addEventListener('focus', () => setBoardTabStop(button));
   button.addEventListener('click', (event) => {
     if (inputBlocked()) return;
     inspectedCell = null;
     if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
+    if (game.selected && game.friendlyAt(x, y) === game.activeUnit && previewCaptureHere(cell, event)) return;
     if (previewAction(cell, event)) return;
     if (!game.friendlyAt(x, y)) {
       inspectedCell = cell;
@@ -884,6 +972,20 @@ function animateFriendlyMove(unit, from, path, onComplete) {
   advance(0, from);
 }
 
+function previewCaptureHere(cell, opener) {
+  const unit = game.activeUnit;
+  if (!game.canCaptureHere || unit.x !== cell.x || unit.y !== cell.y) return false;
+  actionTitle.textContent = '占領を確認';
+  actionSummary.textContent = `${unit.name}（HP ${unit.hp}）  ${placeName(cell.x, cell.y)}`;
+  actionDetail.textContent = captureForecast(cell.facility, unit);
+  actionConfirm.textContent = '占領する';
+  pendingAction = {cell, unit, enemy: null, opener, captureHere: true};
+  highlightFriendlyRoute([]);
+  cell.button.classList.add('action-pending');
+  actionDialog.showModal();
+  return true;
+}
+
 function previewAction(cell, opener) {
   const {x, y, base, facility} = cell;
   const unit = game.activeUnit;
@@ -904,8 +1006,8 @@ function previewAction(cell, opener) {
     path = routeSteps(route);
     let capture = '';
     if (unit.type.id === 'infantry') {
-      if (base === 'enemy') capture = '敵本拠地を占領すると勝利';
-      else if (facility && facility.owner !== 'friendly') capture = `${facilityNames[facility.kind]}を占領`;
+      if (base === 'enemy' && !game.scenario) capture = '敵本拠地を占領すると勝利';
+      else if (facility && facility.owner !== 'friendly') capture = captureForecast(facility, unit);
     }
     verb = capture ? '占領' : '移動';
     actionSummary.textContent = `${unit.name}  ${placeName(unit.x, unit.y)} → ${destination}`;
@@ -922,8 +1024,21 @@ function previewAction(cell, opener) {
 
 actionConfirm.addEventListener('click', (event) => {
   if (!pendingAction || inputBlocked() || repeatedTap(event, pendingAction.opener)) return;
-  const {cell, unit, enemy} = pendingAction;
+  const {cell, unit, enemy, captureHere} = pendingAction;
   const {x, y, factory} = cell;
+  if (captureHere) {
+    pendingAction = undefined;
+    cell.button.classList.remove('action-pending');
+    actionDialog.close();
+    if (unit !== game.activeUnit || !game.canCaptureHere) return;
+    const step = game.captureHere();
+    if (step?.completed && factory) selectedFactory = factory;
+    saveProgress();
+    render();
+    restoreBoardFocus();
+    celebrateCapture(step, 'friendly');
+    return;
+  }
   const route = enemy ? null : game.movementTargets().get(`${x},${y}`);
   if (unit !== game.activeUnit || (enemy
     ? enemy !== game.enemyAt(x, y) || !game.canUnitAttack(unit, enemy)
@@ -945,9 +1060,12 @@ actionConfirm.addEventListener('click', (event) => {
   if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
   saveProgress();
   const captured = game.capturedBy === 'friendly' || game.friendlyCapture !== previousCapture;
+  const step = captured ? {site: cell.facility, points: game.friendlyCapture?.points ?? 0,
+    completed: game.capturedBy === 'friendly' || !(game.friendlyCapture?.points > 0)} : null;
   animateFriendlyMove(unit, from, routeSteps(route), () => {
     restoreBoardFocus();
     if (captured) flashMapTile(cell, 'capture');
+    if (step) celebrateCapture(step, 'friendly');
   });
 });
 
@@ -1060,6 +1178,9 @@ function playEnemyAction(action, restoreFocus) {
     saveProgress();
     const resolved = game.enemyActions.at(-1);
     if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured || resolved?.facility) flashMapTile(to, 'capture');
+    if (game.scenario && (resolved?.captured || resolved?.facility)) {
+      celebrateCapture({site: game.facilityAt(to.x, to.y), points: 0, completed: true}, 'enemy');
+    }
     runEnemyTurn(restoreFocus);
   }
   advance(0);

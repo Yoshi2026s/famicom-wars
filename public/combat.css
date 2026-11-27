@@ -545,3 +545,10 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
   .combat-camera { animation: none !important; }
   .combat-letterbox::before, .combat-letterbox::after { transition: none; }
 }
+
+/* Fireworks over the final victory (e.g. enemy forces wiped out); hidden on defeat. */
+.combat-outcome .fireworks { z-index: -1; }
+[data-outcome="defeat"] .combat-outcome .fireworks { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  #combat-screen[data-outcome="victory"] .combat-outcome .fireworks i { animation: firework-burst 1.5s var(--d) ease-out infinite !important; }
+}

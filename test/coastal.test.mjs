@@ -138,7 +138,7 @@ test('施設の占領・修復と陸海空の補充を再開後も引き継げ�
   Object.assign(guns, {x: factory.x, y: factory.y, hp: 6});
   Object.assign(patrol, {x: port.x, y: port.y, hp: 7});
   Object.assign(helicopter, {x: enemyAirport.x, y: enemyAirport.y, hp: 8});
-  Object.assign(infantry, {x: airport.x - 1, y: airport.y, hp: 9});
+  Object.assign(infantry, {x: airport.x - 1, y: airport.y, hp: 10});
   move(game, infantry, airport.x, airport.y);
   assert.equal(airport.owner, 'friendly');
   assert.equal(game.friendlyCapture.facility, 'airfield');
@@ -147,7 +147,7 @@ test('施設の占領・修復と陸海空の補充を再開後も引き継げ�
   leaveEnemiesWaiting(game);
   game.endTurn();
   assert.deepEqual([scout.hp, guns.hp, patrol.hp, helicopter.hp, infantry.hp], [6, 8, 9, 8, 10]);
-  assert.deepEqual(game.facilityHealing.map(item => item.facility).sort(), ['airfield', 'factory', 'headquarters', 'port']);
+  assert.deepEqual(game.facilityHealing.map(item => item.facility).sort(), ['factory', 'headquarters', 'port']);
   move(game, infantry, airport.x - 1, airport.y);
   assert.equal(game.produce('bomber', airport)?.type.id, 'bomber');
   const saved = game.crossingSnapshot();
@@ -302,4 +302,64 @@ test('攻撃側の残りHPに比例して与えるダメージが減る', () => 
   };
   assert.deepEqual([10, 8, 6, 4, 2, 1].map(damageAt), [5, 4, 3, 2, 1, 1]);
   assert.equal(scout.hp, 10);
+});
+
+test('歩兵の残りHPぶん占領が進み、HP10なら1回、少ないと複数回かかる', () => {
+  const game = new BattleMap('coastal');
+  const infantry = unit(game, 'infantry');
+  const [city] = sites(game, 'city', 'neutral');
+  Object.assign(infantry, {x: city.x - 1, y: city.y, hp: 4});
+  move(game, infantry, city.x, city.y);
+  assert.equal(city.owner, 'neutral');
+  assert.deepEqual(game.captureProgress(city), {side: 'friendly', unit: infantry.name, points: 6});
+  assert.equal(game.friendlyCapture.points, 6);
+  assert.equal(game.canCaptureHere, false);
+
+  const loaded = roundTrip(game.crossingSnapshot());
+  assert.deepEqual(loaded.captureProgress(loaded.facilityAt(city.x, city.y)), {side: 'friendly', unit: infantry.name, points: 6});
+
+  leaveEnemiesWaiting(game);
+  game.endTurn();
+  game.choose(infantry.x, infantry.y);
+  assert.equal(game.canCaptureHere, true);
+  assert.deepEqual(game.captureHere().points, 2);
+  assert.equal(city.owner, 'neutral');
+  leaveEnemiesWaiting(game);
+  game.endTurn();
+  game.choose(infantry.x, infantry.y);
+  const done = game.captureHere();
+  assert.equal(done.completed, true);
+  assert.equal(city.owner, 'friendly');
+  assert.equal(game.captureProgress(city), null);
+});
+
+test('占領途中で歩兵が離れると進行度は失われる', () => {
+  const game = new BattleMap('coastal');
+  const infantry = unit(game, 'infantry');
+  const [city] = sites(game, 'city', 'neutral');
+  Object.assign(infantry, {x: city.x - 1, y: city.y, hp: 5});
+  move(game, infantry, city.x, city.y);
+  assert.equal(game.captureProgress(city).points, 5);
+  leaveEnemiesWaiting(game);
+  game.endTurn();
+  move(game, infantry, city.x - 1, city.y);
+  assert.equal(game.captureProgress(city), null);
+  leaveEnemiesWaiting(game);
+  game.endTurn();
+  move(game, infantry, city.x, city.y);
+  assert.equal(game.captureProgress(city).points, 5);
+});
+
+test('敵歩兵は占領途中の施設にとどまって占領を続ける', () => {
+  const game = new BattleMap('coastal');
+  const [city] = sites(game, 'city', 'neutral');
+  const raider = game.enemyUnits.find(enemy => enemy.type.id === 'infantry');
+  for (const enemy of game.enemyUnits) if (enemy !== raider) enemy.readyTurn = game.turn + 5;
+  game.funds.enemy = 0;
+  Object.assign(raider, {x: city.x, y: city.y, hp: 6});
+  city.capture = {side: 'enemy', unit: raider.name, points: 4};
+  game.endTurn();
+  assert.deepEqual([raider.x, raider.y], [city.x, city.y]);
+  assert.equal(city.owner, 'enemy');
+  assert.equal(game.enemyActions.find(action => action.enemy === raider.name).facility, 'city');
 });
