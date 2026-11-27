@@ -30,6 +30,10 @@ function createCrossingSave(getStorage, key = crossingSaveKey) {
       status = 'unreadable';
       return null;
     },
+    // Lets a new match replace a save that could not be read.
+    discardUnreadable() {
+      if (status === 'unreadable') status = 'ready';
+    },
     write(state) {
       if (status === 'unreadable' || status === 'changed-elsewhere') return false;
       try {

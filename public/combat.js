@@ -193,7 +193,9 @@ const combatScreen = (() => {
   }
 
   function defenseMessage(hit) {
-    return hit.mitigation ? `${hit.terrain}で${hit.mitigation}軽減` : '';
+    if (!hit.mitigation) return '';
+    const source = hit.armored ? (hit.covered ? `${hit.terrain}と装甲` : '装甲') : hit.terrain;
+    return `${source}で${hit.mitigation}軽減`;
   }
 
   function showImpact() {

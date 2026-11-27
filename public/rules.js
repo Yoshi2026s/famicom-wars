@@ -745,13 +745,27 @@ class BattleMap {
     if (phase.action) return phase.action;
     const index = this.#nextEnemyIndex(phase.nextIndex);
     if (index < 0) return null;
-    phase.action = this.planEnemyAction(this.enemyUnits[index]);
+    phase.action = this.planEnemyAction(this.enemyUnits[this.#enemyOrder()[index]]);
     phase.nextIndex = index + 1;
     return phase.action;
   }
 
+  // Roster indexes of the enemy units that may act this turn, in acting order. On the coastal maps
+  // units that cannot capture go first, so a capturer can still step onto a headquarters that an
+  // earlier unit has just cleared. Units produced this turn are left out, so the order stays the
+  // same for the whole turn and after resuming a save.
+  #enemyOrder() {
+    const order = [];
+    this.enemyUnits.forEach((unit, index) => { if (unit.readyTurn <= this.turn) order.push(index); });
+    if (!this.scenario) return this.enemyUnits.map((_, index) => index);
+    return order.sort((a, b) => canCapture(this.enemyUnits[a].type) - canCapture(this.enemyUnits[b].type));
+  }
+
   #nextEnemyIndex(after) {
-    return this.enemyUnits.findIndex((unit, index) => index >= after && unit.hp > 0 && unit.readyTurn <= this.turn);
+    return this.#enemyOrder().findIndex((unitIndex, index) => {
+      const unit = this.enemyUnits[unitIndex];
+      return index >= after && unit.hp > 0 && unit.readyTurn <= this.turn;
+    });
   }
 
   resolveEnemyAction(action) {
@@ -910,6 +924,7 @@ class BattleMap {
     const damage = Math.min(protectedDamage, defender.hp);
     defender.hp -= damage;
     return {attacker, damage, terrain: terrain.name, mitigation: Math.max(0, strength - protectedDamage),
+      ...(this.scenario && defender.type.armor ? {armored: true, covered: cover > 0} : {}),
       playerHP: friendly.hp, enemyHP: enemy.hp};
   }
 
@@ -931,12 +946,13 @@ class BattleMap {
     const home = this.headquarters.friendly;
     const homeRoute = routes.get(`${home.x},${home.y}`);
     const holding = this.captureProgress(this.facilityAt(from.x, from.y));
+    // Taking the player's headquarters wins, so it comes before finishing any other capture.
+    if (canCapture(type) && homeRoute?.cost <= type.movement) {
+      return {enemy, from, to: {...home}, path: routeSteps(homeRoute), friendly: null};
+    }
     if (holding?.side === 'enemy' && holding.unit === enemy.name) {
       // Stay on the site to continue an unfinished capture.
       return {enemy, from, to: {...from}, path: [], friendly: null};
-    }
-    if (canCapture(type) && homeRoute?.cost <= type.movement) {
-      return {enemy, from, to: {...home}, path: routeSteps(homeRoute), friendly: null};
     }
     const capturable = position => {
       const site = this.facilityAt(position.x, position.y);

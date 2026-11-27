@@ -124,6 +124,8 @@ h2 { font-size: 16px; font-weight: 850; }
 [data-facility-kind="airfield"][data-facility-owner="friendly"] { --facility-image: url("./assets/airfield-friendly.png"); }
 [data-facility-kind="airfield"][data-facility-owner="enemy"] { --facility-image: url("./assets/airfield-enemy.png"); }
 [data-facility-kind="airfield"][data-facility-owner="neutral"] { --facility-image: url("./assets/airfield-neutral.png"); }
+[data-facility-kind="oilfield"] { --facility-image: linear-gradient(#3a3a3a 0 55%, #b98a3c 55%); }
+[data-facility-kind="depot"] { --facility-image: linear-gradient(#7d8c5a 0 60%, #c9a86a 60%); }
 .tile.last-column { border-right: 0; }
 .tile.last-row { border-bottom: 0; }
 .tile img { position: absolute; z-index: 1; left: 50%; bottom: 10%; width: 68%; height: 83%; object-fit: contain; transform: translateX(-50%); image-rendering: pixelated; pointer-events: none; filter: drop-shadow(1px 2px 0 #1b282f60); }

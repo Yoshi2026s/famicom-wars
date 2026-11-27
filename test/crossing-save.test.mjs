@@ -111,6 +111,19 @@ test('壊れた保存や未対応の保存形式を上書きしない', () => {
   }
 });
 
+test('読めない保存は、新しい対戦を選んだときだけ置き換える', () => {
+  const snapshot = new BattleMap().crossingSnapshot();
+  let stored = '{';
+  const area = {getItem: () => stored, setItem: (_key, value) => { stored = value; }};
+  const {save} = openSave(area);
+  assert.equal(save.status, 'unreadable');
+  assert.equal(save.write(snapshot), false);
+  assert.equal(stored, '{');
+  save.discardUnreadable();
+  assert.equal(save.write(snapshot), true);
+  assert.notEqual(stored, '{');
+});
+
 test('保存の例外と書き込み未反映を表示でき、復旧後の書き込みで続きが残る', () => {
   let stored = null;
   let store = value => { stored = value; };
