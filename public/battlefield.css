@@ -382,7 +382,9 @@ html:is(.portrait-blocked, .combat-open) .map-stride::after { animation-play-sta
 @keyframes firework-burst { 0% { opacity: 0; scale: .15; } 12% { opacity: 1; } 70% { opacity: .85; } to { opacity: 0; scale: 1.25; } }
 
 /* ---- Painted map art (public/map-art.js) ---- */
-.terrain-art { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: auto; }
+.terrain-art { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: auto; opacity: 0; transition: opacity .18s ease-out; }
+.terrain-art.painted { opacity: 1; }
+html.map-art-pending .board.art-ready .tile { --facility-image: none; }
 .board.art-ready { background: #2a7aa4; }
 .board.art-ready .tile { --terrain-image: none; image-rendering: auto; border-color: #14302018; }
 .board.art-ready .water-surface { display: none; }
