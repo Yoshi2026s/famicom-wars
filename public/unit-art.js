@@ -717,12 +717,22 @@
 
   const cache = new Map();
   const muzzles = new Map();
+  // Battle sprites travel through inherited CSS custom properties; a short blob: URL keeps every
+  // fighter from re-parsing a 300 KB data: URL. The cache has a fixed set of keys, so nothing leaks.
+  function pngObjectURL(canvas) {
+    const data = canvas.toDataURL('image/png');
+    if (typeof Blob === 'undefined' || !URL.createObjectURL) return data;
+    const binary = atob(data.slice(data.indexOf(',') + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], {type: 'image/png'}));
+  }
   function canvasURL(width, height, paint) {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     paint(canvas.getContext('2d'));
-    return canvas.toDataURL('image/png');
+    return pngObjectURL(canvas);
   }
   // Enemy stills face left by default, like the original sprites.
   function still(id, team, facing = team === 'enemy' ? 'left' : 'right') {

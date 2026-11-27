@@ -320,23 +320,25 @@ const combatScreen = (() => {
         formation.dataset.kind = id;
         formation.dataset.domain = domain;
         formation.dataset.profile = detail.profile ?? (Object.hasOwn(tactics, id) ? id : 'tank');
-        formation.toggleAttribute('data-static', Boolean(detail.profile));
+        const art = window.UnitArt;
+        // Foot soldiers use the posed atlas (aim, duck, hit, down) whenever code-drawn art is available.
+        const posed = !detail.profile || Boolean(art && footKinds.has(id));
+        formation.toggleAttribute('data-static', !posed);
         const staticSprite = side === 'enemy' ? `enemy-${id}` : id;
-        if (detail.profile) {
+        if (!posed) {
           formation.style.setProperty('--unit-static', `url("./assets/${staticSprite}.png?v=coastal")`);
           formation.style.setProperty('--muzzle-x', `${detail.muzzle[0] * 100}%`);
           formation.style.setProperty('--muzzle-y', `${detail.muzzle[1] * 100 - 14}%`);
         } else {
           for (const property of ['--unit-static', '--muzzle-x', '--muzzle-y']) formation.style.removeProperty(property);
         }
-        const art = window.UnitArt;
         const team = side === 'enemy' ? 'enemy' : 'friendly';
-        formation.toggleAttribute('data-art', Boolean(art && !detail.profile));
+        formation.toggleAttribute('data-art', Boolean(art && posed));
         if (art) {
           const [muzzleX, muzzleY] = art.muzzle(id);
           formation.style.setProperty('--muzzle-x', `${muzzleX * 100}%`);
           formation.style.setProperty('--muzzle-y', `${muzzleY * 100 - 14}%`);
-          if (detail.profile) formation.style.setProperty('--unit-static', `url("${art.still(id, team)}")`);
+          if (!posed) formation.style.setProperty('--unit-static', `url("${art.still(id, team)}")`);
           else formation.style.setProperty('--unit-atlas', `url("${art.atlas(id, team)}")`);
         } else {
           formation.style.removeProperty('--unit-atlas');

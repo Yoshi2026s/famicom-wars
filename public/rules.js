@@ -304,7 +304,7 @@ class BattleMap {
       Object.assign(site, {owner, production});
     });
     if (!game.scenario) game.cities.forEach((city, index) => { city.owner = cityOwners[index]; });
-    if (nextEnemy !== null) game.enemyTurn = {nextIndex: nextEnemy, action: null};
+    if (nextEnemy !== null) game.enemyTurn = {nextIndex: 0, action: null};
     game.surrendered = saved.surrendered === true;
     return game;
   }
@@ -417,7 +417,8 @@ class BattleMap {
 
   produce(typeId, factory) {
     const type = this.productionChoices(factory).find(type => type.id === typeId);
-    if (!type || this.productionStatus(factory) !== 'ready') return null;
+    // A staged move must be confirmed or cancelled first, so its origin tile cannot be built on.
+    if (!type || this.#staged || this.productionStatus(factory) !== 'ready') return null;
     return this.#deployReinforcement(factory, type);
   }
 
@@ -762,9 +763,12 @@ class BattleMap {
   }
 
   #nextEnemyIndex(after) {
+    // Units already recorded this turn never act again, even if a save from an older build
+    // counted its position in roster order.
+    const acted = new Set(this.enemyActions.map(action => action.enemy));
     return this.#enemyOrder().findIndex((unitIndex, index) => {
       const unit = this.enemyUnits[unitIndex];
-      return index >= after && unit.hp > 0 && unit.readyTurn <= this.turn;
+      return index >= after && unit.hp > 0 && unit.readyTurn <= this.turn && !acted.has(unit.name);
     });
   }
 
