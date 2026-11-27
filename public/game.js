@@ -897,7 +897,7 @@ function previewAction(cell, opener) {
     verb = '攻撃';
     actionSummary.textContent = `${unit.name} → 敵${enemy.name}`;
     const reply = counter ? `反撃で味方 HP ${unit.hp} → ${counter.playerHP}` : '反撃なし';
-    actionDetail.textContent = `敵 HP ${enemy.hp} → ${hit.enemyHP} ／ ${reply}`;
+    actionDetail.textContent = `戦力 ${Math.round(unit.hp / game.maxHP * 100)}% ／ 敵 HP ${enemy.hp} → ${hit.enemyHP} ／ ${reply}`;
   } else {
     const route = game.movementTargets().get(`${x},${y}`);
     if (!route) return false;

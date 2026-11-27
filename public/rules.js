@@ -663,15 +663,23 @@ class BattleMap {
     const terrain = this.terrainAt(defender.x, defender.y);
     const baseStrength = attackingUnit.hp >= 8 ? 3 : attackingUnit.hp >= 4 ? 2 : 1;
     const {type} = attackingUnit;
-    const strength = this.scenario
-      ? Math.max(1, Math.ceil(type.firepower * attackingUnit.hp / this.maxHP)
-        + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0))
-      : baseStrength + (type.attackBonus ?? 0);
     const cover = defender.type.domain && defender.type.domain !== land ? 0 : terrain.defense;
-    const protectedDamage = Math.max(1, strength - cover);
+    let strength;
+    let protectedDamage;
+    if (this.scenario) {
+      // Damage scales with the attacker's remaining strength (HP) after matchup and cover are applied,
+      // so a squad at half strength deals about half the damage.
+      const ratio = attackingUnit.hp / this.maxHP;
+      const full = Math.max(1, type.firepower + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0));
+      strength = Math.max(1, Math.round(full * ratio));
+      protectedDamage = Math.max(1, Math.round(Math.max(1, full - cover) * ratio));
+    } else {
+      strength = baseStrength + (type.attackBonus ?? 0);
+      protectedDamage = Math.max(1, strength - cover);
+    }
     const damage = Math.min(protectedDamage, defender.hp);
     defender.hp -= damage;
-    return {attacker, damage, terrain: terrain.name, mitigation: strength - protectedDamage,
+    return {attacker, damage, terrain: terrain.name, mitigation: Math.max(0, strength - protectedDamage),
       playerHP: friendly.hp, enemyHP: enemy.hp};
   }
 
