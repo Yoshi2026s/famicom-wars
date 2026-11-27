@@ -293,6 +293,18 @@ const combatScreen = (() => {
         } else {
           for (const property of ['--unit-static', '--muzzle-x', '--muzzle-y']) formation.style.removeProperty(property);
         }
+        const art = window.UnitArt;
+        const team = side === 'enemy' ? 'enemy' : 'friendly';
+        formation.toggleAttribute('data-art', Boolean(art && !detail.profile));
+        if (art) {
+          const [muzzleX, muzzleY] = art.muzzle(id);
+          formation.style.setProperty('--muzzle-x', `${muzzleX * 100}%`);
+          formation.style.setProperty('--muzzle-y', `${muzzleY * 100 - 14}%`);
+          if (detail.profile) formation.style.setProperty('--unit-static', `url("${art.still(id, team)}")`);
+          else formation.style.setProperty('--unit-atlas', `url("${art.atlas(id, team)}")`);
+        } else {
+          formation.style.removeProperty('--unit-atlas');
+        }
         const sprite = side === 'player' && id === 'support' ? 'friendly-support'
           : side === 'enemy' && (id === 'scout' || id === 'tank') ? `enemy-${id}` : id;
         formation.dataset.unit = sprite;
