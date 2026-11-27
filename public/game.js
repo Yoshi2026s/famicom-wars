@@ -1196,6 +1196,7 @@ function openProduction(event, cell) {
   positionProductionControls(true);
   renderProduction();
   productionDialog.showModal();
+  productionDialog.scrollTop = 0;
   return true;
 }
 
@@ -1234,6 +1235,7 @@ document.getElementById('help').addEventListener('click', () => {
   document.getElementById('play-coastal').hidden = Boolean(game.scenario);
   document.getElementById('play-legacy').hidden = !game.scenario || !openScenario('legacy').restored;
   guide.showModal();
+  guide.scrollTop = 0;
 });
 
 function switchScenario(id) {
