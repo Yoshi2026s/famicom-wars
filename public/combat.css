@@ -598,3 +598,8 @@ body:has(#combat-screen[open]) > :is(.masthead, main) { visibility: hidden; }
     linear-gradient(#2f4f86, #6f8fc0 45%, #e8b19a 85%, #f6cfa8);
   filter: blur(.5px);
 }
+
+/* Code-painted realistic panorama and cover (scene-art.js). */
+.scene-art .combat-backdrop img.is-ready { filter: saturate(1.04) contrast(1.03); transform: scale(1.02); }
+.scene-art .unit-art .combat-backdrop img.is-ready, .unit-art.scene-art .combat-backdrop img.is-ready { filter: blur(.6px) saturate(1.04) contrast(1.03); }
+.scene-art .formation::before { filter: brightness(.94) drop-shadow(0 5px 4px #140c0a80); image-rendering: auto; }

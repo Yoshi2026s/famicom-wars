@@ -44,6 +44,19 @@ const combatScreen = (() => {
     // Keep the painted fallback if the panorama fails to load.
   });
 
+  // Swap in the code-painted realistic panorama (scene-art.js) once the browser is idle.
+  function paintScenery() {
+    if (!window.SceneArt || document.documentElement.classList.contains('scene-art')) return;
+    try {
+      backdrop.src = window.SceneArt.backdrop();
+      document.documentElement.classList.add('scene-art');
+      backdrop.decode().then(() => backdrop.classList.add('is-ready')).catch(() => {});
+    } catch {
+      // Keep the original panorama.
+    }
+  }
+  if (window.SceneArt) (window.requestIdleCallback ?? (task => setTimeout(task, 1500)))(paintScenery, {timeout: 4000});
+
   function showForces({playerHP, enemyHP}, animateLoss = false) {
     for (const [side, hp] of [
       ['player', playerHP],
@@ -277,6 +290,12 @@ const combatScreen = (() => {
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
         document.getElementById('combat-' + side + '-terrain').textContent = terrain.name;
         formations[side].dataset.terrain = terrain.id;
+        paintScenery();
+        if (window.SceneArt && ['forest', 'mountain', 'marsh'].includes(terrain.id)) {
+          formations[side].style.setProperty('--cover-image', `url("${window.SceneArt.cover(terrain.id)}")`);
+        } else {
+          formations[side].style.removeProperty('--cover-image');
+        }
         const {id, domain = 'land'} = unit.type;
         const formation = formations[side];
         formation.replaceChildren();
