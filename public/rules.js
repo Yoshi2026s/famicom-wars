@@ -110,6 +110,7 @@ class BattleMap {
   enemyTurn = null;
   enemyActions = [];
   capturedBy = null;
+  surrendered = false;
   enemyProductions = [];
   friendlyCapture = null;
   facilityHealing = [];
@@ -121,6 +122,21 @@ class BattleMap {
   }
 
   static get difficulties() { return Object.keys(difficulties); }
+
+  /** A fresh copy of this match: same map and CPU strength, back to turn 1. */
+  restarted() {
+    const map = this.scenario?.map;
+    return new BattleMap(this.scenario?.id ?? 'legacy', {map, difficulty: this.difficulty});
+  }
+
+  /** The player gives up; the match ends as a defeat. */
+  surrender() {
+    if (this.result || this.enemyTurn) return false;
+    this.cancelMove();
+    this.selected = false;
+    this.surrendered = true;
+    return true;
+  }
 
   constructor(scenario = 'legacy', {map, difficulty = 'normal'} = {}) {
     this.difficulty = Object.hasOwn(difficulties, difficulty) ? difficulty : 'normal';
@@ -178,6 +194,7 @@ class BattleMap {
       enemyProductions: this.enemyProductions.slice(),
       friendlyCapture: this.friendlyCapture, facilityHealing: this.facilityHealing.slice(),
     };
+    if (this.surrendered) snapshot.surrendered = true;
     if (this.scenario) {
       snapshot.scenario = this.scenario.id;
       if (this.scenario.map) snapshot.map = this.scenario.map;
@@ -191,6 +208,7 @@ class BattleMap {
     if (saved.scenario !== undefined && saved.scenario !== fieldScenario.id) return null;
     if (saved.map !== undefined && (saved.scenario !== fieldScenario.id || !validSavedMap(saved.map))) return null;
     if (saved.difficulty !== undefined && !Object.hasOwn(difficulties, saved.difficulty)) return null;
+    if (saved.surrendered !== undefined && saved.surrendered !== true) return null;
     const game = new BattleMap(saved.scenario, {map: saved.map, difficulty: saved.difficulty});
     const {turn, selected, capturedBy, activeUnit, nextEnemy, funds, factories, cityOwners,
       enemyActions, enemyProductions, friendlyCapture, facilityHealing} = saved;
@@ -266,6 +284,7 @@ class BattleMap {
     });
     if (!game.scenario) game.cities.forEach((city, index) => { city.owner = cityOwners[index]; });
     if (nextEnemy !== null) game.enemyTurn = {nextIndex: nextEnemy, action: null};
+    game.surrendered = saved.surrendered === true;
     return game;
   }
 
@@ -294,6 +313,7 @@ class BattleMap {
   }
 
   get result() {
+    if (this.surrendered) return 'defeat';
     if (this.capturedBy === 'friendly') return 'victory';
     if (this.capturedBy === 'enemy') return 'defeat';
     // A side that has not fielded any unit yet (generated maps start empty) is not wiped out.

@@ -9,27 +9,30 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=random-map-offer">
-    <link rel="stylesheet" href="./combat.css?v=random-map-offer">
-    <link rel="stylesheet" href="./battlefield.css?v=random-map-offer">
+    <link rel="stylesheet" href="./style.css?v=title-menu">
+    <link rel="stylesheet" href="./combat.css?v=title-menu">
+    <link rel="stylesheet" href="./battlefield.css?v=title-menu">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=random-map-offer"></script>
-    <script defer src="./rules.js?v=random-map-offer"></script>
+    <script defer src="./map-generator.js?v=title-menu"></script>
+    <script defer src="./rules.js?v=title-menu"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=unit-combat"></script>
     <script defer src="./music.js?v=turn-score"></script>
-    <script defer src="./orientation.js?v=random-map-offer"></script>
-    <script defer src="./unit-art.js?v=random-map-offer"></script>
-    <script defer src="./scene-art.js?v=random-map-offer"></script>
-    <script defer src="./combat.js?v=random-map-offer"></script>
-    <script defer src="./map-art.js?v=random-map-offer"></script>
-    <script defer src="./game.js?v=random-map-offer"></script>
+    <script defer src="./orientation.js?v=title-menu"></script>
+    <script defer src="./unit-art.js?v=title-menu"></script>
+    <script defer src="./scene-art.js?v=title-menu"></script>
+    <script defer src="./combat.js?v=title-menu"></script>
+    <script defer src="./map-art.js?v=title-menu"></script>
+    <script defer src="./game.js?v=title-menu"></script>
   </head>
   <body>
     <header class="masthead">
       <div class="mast-inner">
         <div class="brand"><span class="brand-icon" aria-hidden="true">⚑</span>スマホウォーズ</div>
-        <button class="help" id="help" type="button"><span aria-hidden="true">?</span> 遊び方</button>
+        <div class="mast-actions">
+          <button class="help" id="help" type="button"><span aria-hidden="true">?</span> 遊び方</button>
+          <button class="help menu-open" id="menu-open" type="button" aria-haspopup="dialog" aria-controls="game-menu"><span aria-hidden="true">≡</span> メニュー</button>
+        </div>
       </div>
     </header>
     <main>
@@ -209,6 +212,37 @@
       <span class="portrait-phone" aria-hidden="true"></span>
       <h2 id="portrait-title" tabindex="-1" autofocus>端末を縦向きにしてください</h2>
       <p id="portrait-description">縦向きに戻すと、続きから遊べます。</p>
+    </dialog>
+    <dialog id="title-screen" class="title-screen" aria-labelledby="title-logo">
+      <div class="title-scene" aria-hidden="true">
+        <span class="title-sun"></span><span class="title-ridge back"></span><span class="title-ridge"></span><span class="title-sea"></span>
+      </div>
+      <div class="title-body">
+        <img class="title-emblem" src="./assets/home-icon-180.png" width="96" height="96" alt="">
+        <h2 class="title-logo" id="title-logo"><small>陸・空・海のターン制タクティクス</small>スマホウォーズ</h2>
+        <div class="title-actions">
+          <button type="button" class="title-button" id="title-resume"><b>中断から再開</b><small id="title-resume-detail"></small></button>
+          <button type="button" class="title-button" id="title-new"><b>新規ゲーム</b><small>毎回変わるランダムマップ。CPUの強さを選んで始めます</small></button>
+          <button type="button" class="title-button minor" id="title-help">遊び方</button>
+        </div>
+      </div>
+    </dialog>
+    <dialog id="game-menu" class="game-menu" aria-labelledby="game-menu-title">
+      <h2 id="game-menu-title">メニュー</h2>
+      <div class="menu-actions">
+        <button type="button" id="menu-suspend"><b>中断してタイトルへ</b><small>進行を保存します。タイトルの「中断から再開」で続けられます</small></button>
+        <button type="button" id="menu-restart"><b>最初から</b><small>同じマップ・同じCPUの強さで、ターン1からやり直します</small></button>
+        <button type="button" id="menu-surrender" class="danger"><b>降伏</b><small>この対戦を敗北で終えます</small></button>
+      </div>
+      <form method="dialog"><button class="replay" autofocus>閉じる</button></form>
+    </dialog>
+    <dialog id="menu-confirm" class="menu-confirm" aria-labelledby="menu-confirm-title" aria-describedby="menu-confirm-text">
+      <h2 id="menu-confirm-title"></h2>
+      <p id="menu-confirm-text"></p>
+      <div class="menu-confirm-buttons">
+        <button class="replay" id="menu-confirm-cancel" type="button" autofocus>キャンセル</button>
+        <button class="end danger" id="menu-confirm-ok" type="button"></button>
+      </div>
     </dialog>
     <dialog id="new-match-dialog" class="new-match-dialog" aria-labelledby="new-match-title">
       <h2 id="new-match-title">新しい対戦</h2>

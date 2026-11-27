@@ -108,6 +108,16 @@ let detailUnit = null;
 let shownDetail = null;
 const unitDetail = document.getElementById('unit-detail');
 const moveConfirm = document.getElementById('move-confirm');
+const titleScreen = document.getElementById('title-screen');
+const titleResume = document.getElementById('title-resume');
+const titleResumeDetail = document.getElementById('title-resume-detail');
+const titleNew = document.getElementById('title-new');
+const gameMenu = document.getElementById('game-menu');
+const menuSurrender = document.getElementById('menu-surrender');
+const menuConfirm = document.getElementById('menu-confirm');
+const menuConfirmTitle = document.getElementById('menu-confirm-title');
+const menuConfirmText = document.getElementById('menu-confirm-text');
+const menuConfirmOk = document.getElementById('menu-confirm-ok');
 const moveConfirmRoute = document.getElementById('move-confirm-route');
 const moveConfirmHint = document.getElementById('move-confirm-hint');
 const moveCommit = document.getElementById('move-commit');
@@ -232,7 +242,7 @@ function celebrateResult() {
   if (!game.result || celebratedResult === game.result) return;
   celebratedResult = game.result;
   const win = game.result === 'victory';
-  const reason = game.capturedBy ? (win ? '敵本拠地を占領' : '本拠地を占領された') : (win ? '敵部隊を全滅' : '味方部隊が全滅');
+  const reason = game.surrendered ? '降伏した' : game.capturedBy ? (win ? '敵本拠地を占領' : '本拠地を占領された') : (win ? '敵部隊を全滅' : '味方部隊が全滅');
   celebrate(win ? 'victory' : 'defeat', win ? '勝利' : '敗北', reason, 4200);
 }
 
@@ -793,7 +803,7 @@ function showMap() {
     mapSurround.scrollLeft = 0;
     mapSurround.scrollTop = 0;
     revealTile(friendlyTile(), mobileField);
-    if (game.enemyTurn) runEnemyTurn(false);
+    if (game.enemyTurn && !titleScreen.open) runEnemyTurn(false);
   });
 }
 
@@ -1734,44 +1744,23 @@ function renderLevel() {
   document.getElementById('level-label').textContent = levelNames[game.difficulty] ?? 'ふつう';
   document.getElementById('level-open').setAttribute('aria-label', `CPUの強さ ${levelNames[game.difficulty] ?? 'ふつう'}。新しい対戦を始める`);
 }
-const newMatchNote = document.getElementById('new-match-note');
-const newMatchCancel = document.getElementById('new-match-cancel');
-const newMatchNoteText = newMatchNote.textContent;
-// Saves from before random maps resume on the old fixed map; offer the new map once.
-const fixedMapNoticeKey = 'sumaho-wars:fixed-map-notice';
-let fixedMapNotice = false;
-function openNewMatch(fromFixedMap = false) {
-  if (portraitMode.blocked || combatScreen.active || game.enemyTurn || movingFriendly) return;
-  fixedMapNotice = fromFixedMap === true;
-  newMatchNote.textContent = fixedMapNotice
-    ? '以前の固定マップの対戦を再開しました。CPUの強さを選ぶと、毎回変わるランダムマップ（両軍とも部隊なし）で新しく始めます。今の対戦は上書きされます。'
-    : newMatchNoteText;
-  newMatchCancel.textContent = fixedMapNotice ? '今の対戦を続ける' : 'やめる';
+// From the title screen a saved enemy turn is not running yet, so a new match can replace it.
+const matchBusy = () => portraitMode.blocked || combatScreen.active
+  || (!titleScreen.open && (game.enemyTurn || movingFriendly));
+function openNewMatch() {
+  if (matchBusy()) return;
   for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     choice.setAttribute('aria-pressed', String(choice.dataset.level === game.difficulty));
   }
   newMatchDialog.showModal();
-}
-newMatchDialog.addEventListener('close', () => {
-  if (!fixedMapNotice) return;
-  fixedMapNotice = false;
-  try { window.localStorage.setItem(fixedMapNoticeKey, '1'); } catch { /* shown again next visit */ }
-});
-function offerRandomMap() {
-  if (game.scenario?.map || game.result) return;
-  try {
-    if (window.localStorage.getItem(fixedMapNoticeKey)) return;
-  } catch {
-    return;
-  }
-  openNewMatch(true);
 }
 document.getElementById('level-open').addEventListener('click', () => openNewMatch());
 for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
   choice.addEventListener('click', () => {
     const level = choice.dataset.level;
     newMatchDialog.close();
-    if (portraitMode.blocked || combatScreen.active || game.enemyTurn || movingFriendly) return;
+    if (matchBusy()) return;
+    if (titleScreen.open) titleScreen.close();
     try {
       window.localStorage.setItem(levelPreference, level);
     } catch {
@@ -1788,5 +1777,98 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     friendlyTile().focus({preventScroll: true});
   });
 }
-// Runs after the board is set up, so the fixed-map offer sits on top of the restored match.
-offerRandomMap();
+
+// Title screen: shown on every visit, on top of the restored (or new) match.
+function savedMatchExists() {
+  try {
+    return Boolean(window.localStorage.getItem(currentScenario === 'coastal' ? coastalSaveKey : crossingSaveKey));
+  } catch {
+    return false;
+  }
+}
+function showTitle() {
+  for (const dialog of [gameMenu, menuConfirm, guide, newMatchDialog]) if (dialog.open) dialog.close();
+  const resumable = savedMatchExists() && !game.result;
+  titleResume.disabled = !resumable;
+  titleResume.classList.toggle('primary', resumable);
+  titleNew.classList.toggle('primary', !resumable);
+  const fixedMap = !game.scenario?.map;
+  titleResumeDetail.textContent = resumable
+    ? `${game.name}${fixedMap ? '（以前の固定マップ）' : ''}・ターン${game.turn}・CPU ${levelNames[game.difficulty] ?? 'ふつう'}`
+    : '中断した対戦はありません';
+  titleScreen.showModal();
+  (resumable ? titleResume : titleNew).focus({preventScroll: true});
+}
+titleScreen.addEventListener('cancel', event => event.preventDefault());
+titleResume.addEventListener('click', () => {
+  if (titleResume.disabled) return;
+  titleScreen.close();
+  restoreBoardFocus();
+  if (game.enemyTurn && !game.result) runEnemyTurn(false);
+});
+titleNew.addEventListener('click', () => openNewMatch());
+document.getElementById('title-help').addEventListener('click', () => {
+  // Map switching stays in the in-game guide; from the title it only explains the rules.
+  document.getElementById('play-coastal').hidden = true;
+  document.getElementById('play-legacy').hidden = true;
+  guide.showModal();
+  guide.scrollTop = 0;
+});
+
+// In-game menu: suspend to the title, restart, or surrender (the last two are confirmed first).
+let menuConfirmAction = null;
+// Unlike orders, the menu stays available after a result and during a staged move.
+const menuBlocked = () => portraitMode.blocked || combatScreen.active || waitingForEnemy() || Boolean(movingFriendly);
+document.getElementById('menu-open').addEventListener('click', () => {
+  if (menuBlocked() || titleScreen.open) return;
+  menuSurrender.disabled = Boolean(game.result);
+  gameMenu.showModal();
+});
+function confirmMenu(title, text, label, action) {
+  gameMenu.close();
+  menuConfirmTitle.textContent = title;
+  menuConfirmText.textContent = text;
+  menuConfirmOk.textContent = label;
+  menuConfirmAction = action;
+  menuConfirm.showModal();
+}
+document.getElementById('menu-confirm-cancel').addEventListener('click', () => menuConfirm.close());
+menuConfirm.addEventListener('close', () => { menuConfirmAction = null; });
+menuConfirmOk.addEventListener('click', (event) => {
+  const action = menuConfirmAction;
+  if (event.detail > 1 || !action) return;
+  menuConfirm.close();
+  if (menuBlocked()) return;
+  action();
+});
+document.getElementById('menu-suspend').addEventListener('click', () => {
+  gameMenu.close();
+  if (menuBlocked()) return;
+  game.cancelMove();
+  saveProgress();
+  render();
+  showTitle();
+});
+document.getElementById('menu-restart').addEventListener('click', () => confirmMenu(
+  '最初からやり直しますか？',
+  '同じマップ・同じCPUの強さで、ターン1から始めます。今の対戦の進行は失われます。',
+  '最初からやり直す',
+  () => {
+    game = game.restarted();
+    saveProgress();
+    showMap();
+    friendlyTile().focus({preventScroll: true});
+  },
+));
+menuSurrender.addEventListener('click', () => {
+  if (menuSurrender.disabled) return;
+  confirmMenu('降伏しますか？', 'この対戦は敗北で終わります。降伏は取り消せません。', '降伏する', () => {
+    if (!game.surrender()) return;
+    saveProgress();
+    restoreBoardFocus();
+    celebrateResult();
+  });
+});
+
+// Runs after the board is set up, so the title sits on top of the restored match.
+showTitle();
