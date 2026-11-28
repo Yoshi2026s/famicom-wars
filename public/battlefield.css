@@ -30,6 +30,52 @@ html.orders-visible main[data-mobile-field] { padding-bottom: calc(var(--mobile-
   background: #222e3c;
 }
 [data-mobile-field] .map-surround .chart { min-width: calc(var(--columns) * 48px); }
+.map-viewport { position: relative; isolation: isolate; }
+[data-mobile-field] .map-viewport {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 118px;
+}
+.map-speech {
+  --speech-ink: #193e52;
+  --speech-edge: #78c9d5;
+  position: absolute;
+  z-index: 2;
+  inset: 10px auto auto 10px;
+  max-width: min(260px, calc(100% - 24px));
+  padding: 5px 10px 7px;
+  color: #25232d;
+  background: radial-gradient(#193e5219 1px, transparent 1px) top right / 5px 5px, #fff7e4;
+  border: 2px solid var(--speech-ink);
+  border-radius: 6px 15px 15px 15px;
+  box-shadow: 2px 3px 0 var(--speech-edge), 0 4px 14px #10162266;
+  pointer-events: none;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.map-speech[data-align="right"] { inset-inline: auto 10px; border-radius: 15px 6px 15px 15px; }
+.map-speech[data-side="enemy"] { --speech-ink: #652f24; --speech-edge: #e29168; }
+.map-speech::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -6px 15px;
+  width: 8px;
+  height: 8px;
+  rotate: 45deg;
+  background: #fff7e4;
+  border: solid var(--speech-ink);
+  border-width: 0 2px 2px 0;
+  box-shadow: 2px 2px 0 var(--speech-edge);
+}
+.map-speech[data-align="right"]::after { inset-inline: auto 15px; }
+.map-speech-name { display: block; color: var(--speech-ink); font-size: 11px; }
+.map-speech-quote { display: block; font-size: 14px; font-weight: 800; }
+body:has(dialog[open]) .map-speech { visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .map-speech:not([hidden]) { animation: map-speech-in .16s ease-out; }
+  @keyframes map-speech-in { from { opacity: 0; translate: 0 3px; } }
+}
 .field-tools {
   display: grid;
   grid-template-columns: repeat(4, minmax(48px, 1fr));

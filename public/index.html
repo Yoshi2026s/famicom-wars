@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="./style.css?v=fx1">
     <link rel="stylesheet" href="./combat.css?v=cinema-score">
     <link rel="stylesheet" href="./combat-fx.css?v=cut-in">
-    <link rel="stylesheet" href="./battlefield.css?v=content2">
+    <link rel="stylesheet" href="./battlefield.css?v=map-dialogue">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=reach3"></script>
     <script defer src="./rules.js?v=armor1"></script>
@@ -24,7 +24,8 @@
     <script defer src="./scene-art.js?v=content2"></script>
     <script defer src="./combat.js?v=cut-in"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
-    <script defer src="./game.js?v=playtest-menu"></script>
+    <script defer src="./map-dialogue.js?v=1"></script>
+    <script defer src="./game.js?v=map-dialogue"></script>
   </head>
   <body>
     <header class="masthead">
@@ -73,9 +74,15 @@
             <ul id="enemy-preview-choices" class="enemy-preview-choices" aria-label="敵の選択"></ul>
           </section>
           <p class="map-scroll-note" id="map-scroll-note" hidden>スクロールするか、「全体図」で表示位置を選べます。</p>
-          <div class="map-surround" id="map-surround">
-            <div class="chart">
-              <div class="board" id="board" role="group" aria-label="作戦マップ"></div>
+          <div class="map-viewport">
+            <div class="map-surround" id="map-surround">
+              <div class="chart">
+                <div class="board" id="board" role="group" aria-label="作戦マップ"></div>
+              </div>
+            </div>
+            <div class="map-speech" id="map-speech" aria-hidden="true" hidden>
+              <b class="map-speech-name"></b>
+              <span class="map-speech-quote"></span>
             </div>
           </div>
           <div class="field-status" id="field-status" hidden>
