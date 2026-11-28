@@ -118,3 +118,24 @@ test('直接再生できないときは取得済みの音源に切り替えて�
   assert.equal(page.player.paused, false);
   assert.equal(page.button.label.textContent, 'ON');
 });
+
+test('タイトル画面ではタイトル曲がループし、閉じるとマップ曲の続きに戻る', () => {
+  const page = audioPage();
+  const {music, player} = page;
+  page.unlock();
+  assert.equal(page.track(), 'map');
+  player.currentTime = 7;
+  music.setScene('title');
+  assert.equal(page.track(), 'title');
+  assert.equal(player.loop, true);
+  music.setScene('map');
+  assert.equal(page.track(), 'map');
+  assert.equal(player.currentTime, 7);
+});
+
+test('ファンファーレの間だけBGMの音量を下げる', () => {
+  const page = audioPage();
+  const before = page.player.volume;
+  page.music.duck(500);
+  assert.ok(page.player.volume < before);
+});

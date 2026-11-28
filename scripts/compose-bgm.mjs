@@ -10,6 +10,9 @@ const chords = {
   C: [36, 55, 60, 64, 67], Dm: [38, 53, 57, 60, 64], Bb: [34, 53, 57, 62, 65],
   Gm: [43, 55, 58, 62, 65], A7: [33, 55, 57, 61, 64], A7b9: [33, 55, 58, 61, 64],
   F: [41, 53, 57, 60, 64], Eb: [39, 55, 58, 62, 65], Dsus: [38, 55, 57, 62, 64],
+  // Plain triads for the marches: brighter and more martial than the sevenths of the field themes.
+  D3: [38, 50, 57, 62, 66], C3: [36, 48, 55, 60, 64], G3: [43, 55, 59, 62, 67], A3: [33, 45, 57, 61, 64],
+  Bb3: [34, 46, 53, 58, 62], Em3: [40, 52, 55, 59, 64],
 };
 
 const meadow = [
@@ -33,13 +36,43 @@ const valley = [
   [[0,.91,73],[1,.5,70],[1.75,.40,67],[2.5,1.16,64]],
 ];
 
+// Middle section of the field theme, sung lower by horn and cello.
+const ridge = [
+  [[0,1.5,74],[1.5,.5,73],[2,1,71],[3,1,66]], [[0,1.5,69],[1.5,.5,71],[2,2,73]],
+  [[0,1,74],[1,.5,76],[1.5,.5,74],[2,1,71],[3,1,67]], [[0,2.5,69],[2.5,.5,66],[3,.5,69],[3.5,.5,74]],
+  [[0,1.5,78],[1.5,.5,76],[2,1,74],[3,1,71]], [[0,1,79],[1,.5,78],[1.5,.5,76],[2,2,71]],
+  [[0,.75,74],[.75,.25,76],[1,1,79],[2,1,83],[3,1,81]], [[0,1,79],[1,1,76],[2,1.5,73],[3.5,.5,71]],
+];
+// Battle themes: short scenes, so the hook arrives in the first bar.
+const charge = [
+  [[0,.5,74],[.5,.25,74],[.75,.25,74],[1,.5,78],[1.5,.5,81],[2,1.5,86],[3.5,.5,85]],
+  [[0,.75,84],[.75,.25,83],[1,.5,81],[1.5,.5,79],[2,1.75,76]],
+  [[0,.5,79],[.5,.5,83],[1,.5,86],[1.5,.5,83],[2,.75,88],[2.75,.25,86],[3,1,83]],
+  [[0,1.5,81],[1.5,.5,85],[2,.5,88],[2.5,.5,85],[3,1,81]],
+  [[0,.5,86],[.5,.25,86],[.75,.25,86],[1,.5,90],[1.5,.5,88],[2,1.5,86],[3.5,.5,81]],
+  [[0,.5,84],[.5,.5,88],[1,1,91],[2,.5,88],[2.5,.5,84],[3,1,79]],
+  [[0,1,86],[1,.5,89],[1.5,.5,86],[2,1.5,82],[3.5,.5,81]],
+  [[0,.5,76],[.5,.5,81],[1,.5,85],[1.5,.5,88],[2,1.75,85],[3.75,.25,73]],
+];
+const assault = [
+  [[0,.25,74],[.25,.25,74],[.5,.5,77],[1,.25,76],[1.25,.25,74],[1.5,.5,73],[2,1.5,74],[3.5,.5,69]],
+  [[0,.5,70],[.5,.5,69],[1,.5,74],[1.5,.5,77],[2,1,81],[3,.5,80],[3.5,.5,77]],
+  [[0,1,82],[1,.5,81],[1.5,.5,77],[2,1.5,74],[3.5,.5,77]],
+  [[0,.5,76],[.5,.5,73],[1,.5,69],[1.5,.5,73],[2,1,76],[3,1,79]],
+  [[0,.25,81],[.25,.25,81],[.5,.5,84],[1,.25,82],[1.25,.25,81],[1.5,.5,80],[2,1.5,81],[3.5,.5,77]],
+  [[0,1,79],[1,.5,82],[1.5,.5,86],[2,1,82],[3,1,79]],
+  [[0,1.5,79],[1.5,.5,77],[2,1,75],[3,1,70]],
+  [[0,.5,69],[.5,.5,70],[1,.5,73],[1.5,.5,76],[2,1,79],[3,1,73]],
+];
+
 const friendlyPhrase = ['D','A','Bm','G','D','Em','G','A'];
 const enemyPhrase = ['Dm','Bb','Gm','A7','Dm','Bb','Gm','A7b9'];
 const scores = [
   {
-    name: 'bgm-map', bpm: 116, melody: meadow, reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    name: 'bgm-map', bpm: 116, melody: [...meadow, ...ridge, ...meadow], reply: [69, 73, 74, 71, 78, 76, 74, 73],
     harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A', ...friendlyPhrase],
-    lead: ['flute','harp','horn'], bass: [0,1.5,2,3.25], drums: [0,2.5], offbeats: [1,3], drive: .65,
+    lead: ['flute','horn','horn'], bass: [0,1.5,2,3.25], drums: [0,2.5], offbeats: [1,3], drive: .65,
+    bridgeLift: 0, quietOpening: true,
   },
   {
     name: 'bgm-enemy-map', bpm: 96, melody: valley, reply: [69, 65, 70, 61, 72, 69, 74, 67],
@@ -47,14 +80,21 @@ const scores = [
     lead: ['reed','cello','horn'], bass: [0,.75,1.5,2.5,3], drums: [0,1.5,2.5], offbeats: [1,3.5], drive: .85, enemy: true,
   },
   {
-    name: 'bgm-battle', bpm: 142, melody: meadow, reply: [69, 73, 74, 71, 78, 76, 74, 73],
-    harmony: ['D','A','Bm','G','Dsus','Em','G','A','D','A','Bm','G','D','C','G','A'],
-    lead: ['horn','flute','horn'], bass: [0,.75,1.5,2,2.75,3.5], drums: [0,1.5,2,3.25], offbeats: [1,3], drive: 1.05, battle: true,
+    name: 'bgm-battle', bpm: 144, melody: charge, reply: [69, 72, 74, 73, 78, 79, 77, 76],
+    harmony: ['D3','C3','G3','A3','D3','C3','Bb3','A3','D3','C3','G3','A3','D3','C3','Bb3','A3'],
+    lead: ['horn','horn','horn'], bass: [0,.5,1,1.5,2,2.5,3,3.5], drums: [0,1,2,3], offbeats: [1,3], drive: 1.05, battle: true,
+    bridgeLift: 0, double: -12, march: true,
   },
   {
-    name: 'bgm-enemy-battle', bpm: 151, melody: valley, reply: [69, 65, 70, 61, 72, 69, 74, 67],
-    harmony: [...enemyPhrase, 'F','Bb','Gm','A7','Dm','Eb','Gm','A7b9','Dm','Bb','Gm','A7b9'],
-    lead: ['cello','horn','reed'], bass: [0,.5,1.5,2,2.75,3.25,3.5], drums: [0,.75,2,2.75,3.5], offbeats: [1,3], drive: 1.23, enemy: true, battle: true,
+    name: 'bgm-enemy-battle', bpm: 152, melody: assault, reply: [69, 65, 70, 61, 72, 69, 74, 67],
+    harmony: ['Dm','Dm','Bb','A7','Dm','Gm','Eb','A7b9','Dm','Dm','Bb','A7','Dm','Gm','Eb','A7b9'],
+    lead: ['reed','horn','horn'], double: -12, march: true, bass: [0,.5,1.5,2,2.75,3.25,3.5], drums: [0,.75,2,2.75,3.5], offbeats: [1,3], drive: 1.23, enemy: true, battle: true,
+  },
+  {
+    // Title: the main theme as a slow, broad march.
+    name: 'bgm-title', bpm: 98, melody: [...meadow, ...ridge], reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A'],
+    lead: ['horn','strings','horn'], bass: [0,2], drums: [0], offbeats: [2], drive: .7, bridgeLift: 0, double: -12,
   },
 ];
 
@@ -71,8 +111,9 @@ const instruments = {
     .72*Math.sin(p*.999) + .28*Math.sin(p*1.002) + .30*Math.sin(2*p) + .22*Math.sin(3*p)*Math.exp(-.95*t) + .11*Math.sin(4*p)*Math.exp(-2.5*t)},
   reed: {attack:.032, release:.15, wave:(p,t) =>
     .79*Math.sin(p + .21*Math.sin(tau*4.1*t)) + .31*Math.sin(3*p) + .11*Math.sin(5*p) + .048*Math.sin(7*p)},
+  // Extra upper harmonics let the bass line come through on phone speakers.
   bass: {attack:.019, release:.11, wave:(p,t) =>
-    .69*Math.sin(p) + .38*Math.sin(2*p) + .13*Math.sin(3*p)*Math.exp(-3*t) + .10*Math.sin(4*p)*Math.exp(-4*t)},
+    Math.tanh(1.8 * (.62*Math.sin(p) + .42*Math.sin(2*p) + .22*Math.sin(3*p)*Math.exp(-2*t) + .14*Math.sin(4*p)*Math.exp(-3*t))) * .8},
   bell: {attack:.005, release:.27, wave:(p,t) =>
     (.61*Math.sin(p) + .24*Math.sin(2.004*p) + .13*Math.sin(2.76*p) + .12*Math.sin(4.1*p)*Math.exp(-5*t))*Math.exp(-5*t)},
 };
@@ -132,7 +173,7 @@ function synthesizer(bpm, beats, loop) {
 }
 
 function arrange(score) {
-  const {bpm, harmony, melody, reply, lead, bass, drums, offbeats, drive, battle, enemy} = score;
+  const {bpm, harmony, melody, reply, lead, bass, drums, offbeats, drive, battle, enemy, march, quietOpening} = score;
   const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4, true);
 
   for (const [bar, chord] of harmony.entries()) {
@@ -142,27 +183,30 @@ function arrange(score) {
     const bridge = bar >= 8 && bar < harmony.length - 4;
     const reprise = bar >= harmony.length - 4;
     const voice = lead[bridge ? 1 : reprise ? 2 : 0];
+    // The field theme opens lightly and builds, so the loop has some light and shade.
+    const quiet = quietOpening && bar < 8;
 
     for (const [i, pitch] of tones.entries()) {
       note(start, 3.85, pitch + (i === 3 ? 12 : 0), bridge ? .049 : .038, 'strings', (i - 1.5) * .39);
     }
     for (const [i, step] of bass.entries()) {
       const octave = i === bass.length - 1 && !enemy ? 12 : 0;
-      note(start + step, (bass[i + 1] ?? 4) - step - .12, root + octave, .115 * drive, 'bass');
+      note(start + step, (bass[i + 1] ?? 4) - step - .12, root + (march ? (i % 2 ? 12 : 0) : octave), .115 * drive, 'bass');
     }
     for (const [i, step] of [0,.5,1,1.5,2,2.5,3,3.5].entries()) {
       const pitch = tones[(enemy ? [0,2,1,2,0,3,1,2] : [0,1,3,2,1,2,3,1])[i]];
       const pan = i % 2 ? .56 : -.56;
+      if (quiet && i % 2) continue;
       note(start + step, .30, pitch + (enemy ? 0 : 12),
         (i % 2 ? .035 : .059) * (bridge ? 1.27 : 1), enemy ? 'cello' : 'harp', pan);
       if (i % 2 || battle) percussion(start + step, 'brush', (i % 2 ? .068 : .04) * drive, pan);
     }
 
-    for (const [offset, duration, pitch] of melody[phrase]) {
-      const lift = enemy ? (battle && reprise ? 12 : 0) : (bridge ? -12 : 0);
+    for (const [offset, duration, pitch] of melody[bar % melody.length]) {
+      const lift = score.bridgeLift !== undefined ? 0 : enemy ? (battle && reprise ? 12 : 0) : (bridge ? -12 : 0);
       note(start + offset, duration, pitch + lift, voice === 'harp' ? .205 : .176, voice, -.17);
       if (battle || reprise || (bar % 4 === 0 && offset < 2.05)) {
-        note(start + offset + .014, duration * .82, pitch + lift + (enemy ? 12 : -12), .055,
+        note(start + offset + .014, duration * .82, pitch + lift + (score.double ?? (enemy ? 12 : -12)), .055,
           enemy ? 'reed' : 'horn', .38);
       }
     }
@@ -171,7 +215,9 @@ function arrange(score) {
       note(start + 2.75, .73, tones[2] + (enemy ? 0 : 12), .049, enemy ? 'horn' : 'bell', .45);
     }
 
-    for (const step of drums) percussion(start + step, 'kick', (bridge ? .153 : .202) * drive);
+    if (!quiet) for (const step of drums) percussion(start + step, 'kick', (bridge ? .153 : .202) * drive);
+    // Marching snare: a roll into every second bar.
+    if (march && phrase % 2) for (const step of [3, 3.25, 3.5, 3.75]) percussion(start + step, 'snare', .07 * drive, .2);
     for (const step of offbeats) percussion(start + step, 'snare', (battle || enemy ? .159 : .094) * drive, -.25);
     if (phrase % 4 === 3 || (enemy && phrase === 0)) {
       for (const [step, pan] of [[.02,-.17],[.76,.26],[1.50,.48]]) {
@@ -201,7 +247,7 @@ function arrangeFinale({bpm, beats, melody, harmony, accents, lead, reply}) {
   return channels;
 }
 
-function encode([left, right], loop) {
+function encode([left, right], loop, bitrate = 112) {
   const room = [[.031,.11],[.061,.088],[.104,.062],[.157,.038],[.214,.024]]
     .map(([delay, gain]) => [Math.round(delay * sampleRate), gain]);
   let power = 0;
@@ -211,7 +257,7 @@ function encode([left, right], loop) {
     peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
   }
   const rms = Math.sqrt(power / (2 * left.length));
-  const level = Math.min(.135 / rms, .91 / peak, 2.4);
+  const level = Math.min(.15 / rms, .91 / peak, 2.4);
   const fadeLength = Math.round(.010 * sampleRate);
   function master(dry, other) {
     return Int16Array.from(dry, (sample, i) => {
@@ -221,13 +267,14 @@ function encode([left, right], loop) {
         if (j >= 0) wet += gain * other[j];
         else if (loop) wet += gain * other[j + dry.length];
       }
-      const fade = Math.min(1, i / fadeLength, (dry.length - 1 - i) / fadeLength);
+      // Loops wrap seamlessly, so only the one-shot finales fade at their edges.
+      const fade = loop ? 1 : Math.min(1, i / fadeLength, (dry.length - 1 - i) / fadeLength);
       return Math.round(Math.tanh((sample + wet) * level) * fade * 30100);
     });
   }
   const pcmLeft = master(left, right);
   const pcmRight = master(right, left);
-  const encoder = new Mp3Encoder(2, sampleRate, 112);
+  const encoder = new Mp3Encoder(2, sampleRate, bitrate);
   const frames = [];
   for (let i = 0; i < left.length; i += 1152) {
     frames.push(Buffer.from(encoder.encodeBuffer(pcmLeft.subarray(i, i + 1152), pcmRight.subarray(i, i + 1152))));
@@ -237,7 +284,7 @@ function encode([left, right], loop) {
 }
 
 for (const score of scores) {
-  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(arrange(score), true));
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(arrange(score), true, score.bitrate ?? 96));
 }
 
 const victory = {

@@ -228,6 +228,7 @@ const captureBenefit = {city: '収入が増えます', oilfield: '収入が大�
 function celebrateCapture(step, side) {
   if (!step?.site) return;
   if (!step.completed) {
+    combatAudio.cue('capture-step');
     flashMapTile(step.site, 'capture', `残り${step.points}`);
     return;
   }
@@ -236,6 +237,8 @@ function celebrateCapture(step, side) {
     return;
   }
   const name = facilityNames[step.site.kind];
+  combatAudio.cue(`capture-${side}`);
+  music.duck(1300);
   celebrate(side === 'friendly' ? 'capture' : 'lost', side === 'friendly' ? `${name}占領！` : `${name}を奪われた`,
     side === 'friendly' ? captureBenefit[step.site.kind] ?? '生産・補給に使えます' : '取り返しましょう', 1700);
 }
@@ -312,6 +315,7 @@ function extendRoster(container, entries, units, interactive) {
 function selectFriendlyUnit(unit) {
   if (inputBlocked() || !unit.hp) return;
   inspectedCell = null;
+  combatAudio.cue('select');
   if (!mobileField || game.activeUnit !== unit || !game.selected) game.choose(unit.x, unit.y);
   saveProgress();
   const tile = friendlyTile();
@@ -438,7 +442,11 @@ function buildFactories() {
       if (inputBlocked() || repeatedTap(event, productionOrigin?.event)) return;
       const site = selectedFactory;
       const unit = game.produce(type.id, site);
-      if (!unit) return;
+      if (!unit) {
+        combatAudio.cue('error');
+        return;
+      }
+      combatAudio.cue('produce');
       // From the picker, move on to the next site that can still produce this turn.
       if (!productionOrigin?.cell) {
         const owned = game.productionSites.filter(other => other.owner === 'friendly');
@@ -951,9 +959,11 @@ board.addEventListener('click', (event) => {
     inspectedCell = cell;
     // Tapping an enemy shows its details and where it can move and strike next.
     detailUnit = game.enemyAt(x, y) ?? null;
+    combatAudio.cue('inspect');
     render();
     return;
   }
+  combatAudio.cue('select');
   game.choose(x, y);
   // An open detail panel follows the selected friendly unit.
   if (detailUnit) detailUnit = game.activeUnit;
@@ -1140,6 +1150,7 @@ function previewCaptureHere(cell, opener) {
   pendingAction = {cell, unit, enemy: null, opener, captureHere: true};
   highlightFriendlyRoute([]);
   cell.button.classList.add('action-pending');
+  combatAudio.cue('open');
   actionDialog.showModal();
   return true;
 }
@@ -1167,6 +1178,7 @@ function previewAction(cell, opener) {
   pendingAction = {cell, unit, enemy: strikes.length ? enemy : null, opener};
   highlightFriendlyRoute(path);
   cell.button.classList.add('action-pending');
+  combatAudio.cue('open');
   actionDialog.showModal();
   return true;
 }
@@ -1221,6 +1233,7 @@ function stageFriendlyMove(cell) {
   const route = game.movementTargets().get(`${cell.x},${cell.y}`);
   const from = {x: unit.x, y: unit.y};
   if (!route || !game.stageMove(cell.x, cell.y)) return false;
+  combatAudio.playMove(unit.type);
   detailUnit = null;
   inspectedCell = null;
   animateFriendlyMove(unit, from, routeSteps(route), () => {
@@ -1288,6 +1301,7 @@ function renderMoveConfirm(waiting) {
 moveCommit.addEventListener('click', () => {
   if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
   const moved = commitStagedMove();
+  if (!moved.step) combatAudio.cue('confirm');
   restoreBoardFocus();
   if (moved.captured) flashMapTile(moved.cell, 'capture');
   if (moved.step) celebrateCapture(moved.step, 'friendly');
@@ -1295,6 +1309,7 @@ moveCommit.addEventListener('click', () => {
 
 function cancelStagedMove() {
   if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
+  combatAudio.cue('cancel');
   game.cancelMove();
   restoreBoardFocus();
 }
@@ -1392,6 +1407,7 @@ function playEnemyAction(action, restoreFocus) {
 
   function advance(index, previous = from) {
     const step = steps[index];
+    if (index === 1 && step?.id === 'move') combatAudio.playMove(enemy.type);
     if (step) {
       movingEnemy = {unit: enemy, position: step.position};
       showEnemyChoice(step.id, step.id, commandDetail[step.id]);
@@ -1412,7 +1428,10 @@ function playEnemyAction(action, restoreFocus) {
     game.resolveEnemyAction(action);
     saveProgress();
     const resolved = game.enemyActions.at(-1);
-    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured || resolved?.facility) flashMapTile(to, 'capture');
+    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured || resolved?.facility) {
+      flashMapTile(to, 'capture');
+      if (!game.scenario) combatAudio.cue(resolved.captured || resolved.cityCaptured || resolved.factoryCaptured ? 'capture-enemy' : 'capture-step');
+    }
     if (game.scenario && (resolved?.captured || resolved?.facility)) {
       celebrateCapture({site: game.facilityAt(to.x, to.y), points: 0, completed: true}, 'enemy');
     }
@@ -1441,6 +1460,7 @@ function playEnemyProduction(order, restoreFocus) {
       showEnemyChoice('deploy', type.id, `${unit.name}が出撃`);
       render();
       tileAt(factory).classList.add('enemy-spawned');
+      combatAudio.cue('produce', .4);
       flashMapTile(factory, 'deploy');
       portraitMode.schedule(() => runEnemyTurn(restoreFocus), 320);
     }, 240);
@@ -1469,6 +1489,7 @@ function runEnemyTurn(restoreFocus = true) {
   playerScrollTop = null;
   restoreBoardFocus(restoreFocus);
   if (!game.result) announceTurn('friendly', () => {
+    if (game.facilityHealing.length) combatAudio.cue('heal');
     for (const {side, unit, amount} of game.facilityHealing) {
       const units = side === 'friendly' ? game.friendlyUnits : game.enemyUnits;
       const healed = units.find(candidate => candidate.name === unit);
@@ -1553,6 +1574,7 @@ function openProduction(event, cell) {
   productionOrigin = {event, cell};
   positionProductionControls(true);
   renderProduction();
+  combatAudio.cue('open');
   productionDialog.showModal();
   productionDialog.scrollTop = 0;
   return true;
@@ -1814,6 +1836,7 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
       try { window.localStorage.setItem(scenarioPreference, 'coastal'); } catch { /* not stored */ }
     }
     game = BattleMap.newMatch(currentScenario, undefined, {difficulty: level});
+    combatAudio.cue('start');
     // Choosing a new match on purpose replaces a save that could not be read.
     crossingSave.discardUnreadable();
     saveProgress();
@@ -1879,11 +1902,14 @@ function showTitle() {
     ? `${game.name}${fixedMap ? '（以前の固定マップ）' : ''}・ターン${game.turn}・CPU ${levelNames[game.difficulty] ?? 'ふつう'}`
     : '中断した対戦はありません';
   titleScreen.showModal();
+  music.setScene('title');
   (resumable ? titleResume : titleNew).focus({preventScroll: true});
 }
+titleScreen.addEventListener('close', () => music.setScene(game.result ?? 'map'));
 titleScreen.addEventListener('cancel', event => event.preventDefault());
 titleResume.addEventListener('click', () => {
   if (titleResume.disabled) return;
+  combatAudio.cue('start');
   titleScreen.close();
   restoreBoardFocus();
   if (game.enemyTurn && !game.result) runEnemyTurn(false);
@@ -1904,6 +1930,7 @@ const menuBlocked = () => portraitMode.blocked || combatScreen.active || waiting
 document.getElementById('menu-open').addEventListener('click', () => {
   if (menuBlocked() || titleScreen.open) return;
   menuSurrender.disabled = Boolean(game.result);
+  combatAudio.cue('open');
   gameMenu.showModal();
 });
 function confirmMenu(title, text, label, action) {

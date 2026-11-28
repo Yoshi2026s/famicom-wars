@@ -3,10 +3,11 @@ const music = (() => {
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
   const tracks = {
-    map: './assets/bgm-map.mp3?v=turn-score', battle: './assets/bgm-battle.mp3?v=turn-score',
-    'enemy-map': './assets/bgm-enemy-map.mp3?v=turn-score',
-    'enemy-battle': './assets/bgm-enemy-battle.mp3?v=turn-score',
-    victory: './assets/bgm-victory.mp3?v=turn-score', defeat: './assets/bgm-defeat.mp3?v=turn-score',
+    map: './assets/bgm-map.mp3?v=themes', battle: './assets/bgm-battle.mp3?v=themes',
+    'enemy-map': './assets/bgm-enemy-map.mp3?v=themes',
+    'enemy-battle': './assets/bgm-enemy-battle.mp3?v=themes',
+    title: './assets/bgm-title.mp3?v=themes',
+    victory: './assets/bgm-victory.mp3?v=themes', defeat: './assets/bgm-defeat.mp3?v=themes',
   };
   const sources = {...tracks};
   const downloads = new Map();
@@ -18,7 +19,9 @@ const music = (() => {
   let turn = 'friendly';
   let scene = 'map';
   let loadedTrack;
-  player.volume = .45;
+  let duckTimer;
+  const volume = .45;
+  player.volume = volume;
   try {
     enabled = localStorage.getItem(setting) !== 'off';
   } catch {
@@ -41,7 +44,7 @@ const music = (() => {
     }
     const track = turn === 'enemy' && (scene === 'map' || scene === 'battle') ? `enemy-${scene}` : scene;
     if (loadedTrack !== track) {
-      player.loop = scene === 'map' || scene === 'battle';
+      player.loop = scene === 'map' || scene === 'battle' || scene === 'title';
       player.src = sources[track];
       if (scene === 'map' && mapPosition > 0) player.currentTime = mapPosition;
       loadedTrack = track;
@@ -127,6 +130,15 @@ const music = (() => {
   });
   updateButtons();
   return {
+    /** Lowers the music briefly so a fanfare effect stands out. */
+    duck(duration = 900) {
+      player.volume = volume * .45;
+      if (duckTimer) globalThis.clearTimeout?.(duckTimer);
+      duckTimer = globalThis.setTimeout?.(() => {
+        duckTimer = undefined;
+        player.volume = volume;
+      }, duration);
+    },
     setOrientationBlocked(blocked) {
       orientationBlocked = blocked;
       updatePlayback();

@@ -192,7 +192,7 @@ const combatScreen = (() => {
     dialog.dataset.phase = 'attack';
     const team = teamNames[dialog.dataset.attacker];
     status.textContent = `${team}が${attack}！`;
-    if (motion.matches) combatAudio.play(`shot-${dialog.dataset.attackProfile}`, fromPlayer ? -.62 : .62);
+    if (motion.matches) combatAudio.play(`shot-${dialog.dataset.armament}`, fromPlayer ? -.62 : .62);
     scene.timer = portraitMode.schedule(showImpact, motion.matches ? 160 : lastShot + flight + 35);
   }
 
@@ -218,7 +218,7 @@ const combatScreen = (() => {
     status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.lethal = String(remaining === 0);
     dialog.dataset.phase = 'impact';
-    combatAudio.play(`${remaining ? 'impact' : 'defeat'}-${dialog.dataset.defenseProfile}`, hit.attacker === 'player' ? .55 : -.55);
+    combatAudio.play(`${remaining ? 'impact' : 'defeat'}-${dialog.dataset.defender}:${dialog.dataset.defenseDomain}`, hit.attacker === 'player' ? .55 : -.55);
     const next = scene.strikes[scene.nextStrike];
     scene.timer = portraitMode.schedule(() => {
       if (next) beginStrike(next.attacker);
@@ -297,7 +297,7 @@ const combatScreen = (() => {
   volley.addEventListener('animationstart', (event) => {
     if (scene && !portraitMode.blocked && dialog.dataset.phase === 'attack'
       && (event.animationName === 'shot-trail' || event.animationName === 'rocket-trail')) {
-      combatAudio.play(`shot-${dialog.dataset.attackProfile}`, dialog.dataset.attacker === 'player' ? -.62 : .62);
+      combatAudio.play(`shot-${dialog.dataset.armament}`, dialog.dataset.attacker === 'player' ? -.62 : .62);
     }
   });
 
@@ -363,6 +363,8 @@ const combatScreen = (() => {
       showForces({playerHP: friendly.hp, enemyHP: enemy.hp});
       delete dialog.dataset.outcome;
       finale.hidden = true;
+      combatAudio.prepare(Object.values(formations).flatMap(({dataset: {kind, domain}}) =>
+        [`shot-${kind}`, `impact-${kind}:${domain}`, `defeat-${kind}:${domain}`]));
       stageAttack(attacker);
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';
