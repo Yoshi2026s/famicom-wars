@@ -72,12 +72,12 @@ const enemyPhrase = ['Dm','Bb','Gm','A7','Dm','Bb','Gm','A7b9'];
 const scores = [
   {
     // Field theme as a full symphonic arrangement (see arrangeEpic).
-    name: 'bgm-map', bpm: 104, melody: [...meadow, ...ridge, ...meadow], epic: true,
+    name: 'bgm-map', bpm: 126, melody: [...meadow, ...ridge, ...meadow], epic: true,
     harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A', ...friendlyPhrase],
   },
   {
     // Tense but easy to listen to: chords follow the tune (no clashing ninths), and no choir.
-    name: 'bgm-enemy-map', bpm: 100, melody: valley, epic: true, enemy: true,
+    name: 'bgm-enemy-map', bpm: 116, melody: valley, epic: true, enemy: true,
     harmony: ['Dm','Bb','Gm6','A7s','Dm','Bb','Gm','A7', 'F','Bb','Gm6','A7s','Dm','Bb','Gm','A7', 'Dm','Bb','Gm6','A7'],
   },
   {
@@ -93,17 +93,11 @@ const scores = [
   },
   {
     // Title: the main theme as a slow, broad march.
-    name: 'bgm-title', bpm: 98, melody: [...meadow, ...ridge], reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    name: 'bgm-title', bpm: 112, melody: [...meadow, ...ridge], reply: [69, 73, 74, 71, 78, 76, 74, 73],
     harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A'],
     lead: ['horn','strings','horn'], bass: [0,2], drums: [0], offbeats: [2], drive: .7, bridgeLift: 0, double: -12,
   },
 ];
-
-// Vibrato as bounded phase modulation. (Scaling the phase p = ωt by (1 + depth·sin) would make the pitch
-// swing grow with the note's length, which warbles audibly on long notes.)
-function vibrato(p, t, depth, rate, offset = 0) {
-  return t > 0 ? p + (p / t) * depth / (tau * rate) * Math.sin(tau * rate * t + offset) : p;
-}
 
 const instruments = {
   harp: {attack:.006, release:.22, wave:(p,t) =>
@@ -124,29 +118,30 @@ const instruments = {
   // Symphonic section voices for the field themes.
   ensemble: {attack:.16, release:.45, wave:(p,t) => {
     let sum = 0;
-    for (const detune of [.994, 1, 1.006]) {
-      const q = vibrato(p*detune, t, .004, 5.3);
+    // Steady pitch and only a slight spread: wider detuning or vibrato warbles on phone speakers.
+    for (const detune of [.9985, 1, 1.0015]) {
+      const q = p*detune;
       sum += .5*Math.sin(q) + .27*Math.sin(2*q) + .17*Math.sin(3*q) + .1*Math.sin(4*q) + .06*Math.sin(5*q) + .035*Math.sin(6*q);
     }
     return sum * .42;
   }},
   choir: {attack:.22, release:.5, wave:(p,t) => {
     let sum = 0;
-    for (const detune of [.996, 1.004]) {
-      const q = vibrato(p*detune, t, .005, 4.8, 1);
+    for (const detune of [.999, 1.001]) {
+      const q = p*detune;
       sum += .55*Math.sin(q) + .22*Math.sin(2*q) + .3*Math.sin(3*q) + .2*Math.sin(4*q) + .06*Math.sin(6*q);
     }
     return sum * .5;
   }},
   trumpet: {attack:.03, release:.16, wave:(p,t) => {
     const bright = Math.min(1, t / .09);
-    const q = vibrato(p, t, Math.min(1, Math.max(0, (t - .2) / .3)) * .004, 5.6);
+    const q = p;
     return Math.tanh(1.2*(.68*Math.sin(q) + .46*Math.sin(2*q) + .3*bright*Math.sin(3*q) + .17*bright*Math.sin(4*q)
       + .09*bright*Math.sin(5*q) + .04*bright*Math.sin(6*q))) * .74;
   }},
   brass: {attack:.06, release:.25, wave:(p,t) => {
     let sum = 0;
-    for (const detune of [.997, 1.003]) {
+    for (const detune of [.999, 1.001]) {
       const q = p*detune;
       sum += .7*Math.sin(q) + .36*Math.sin(2*q) + .24*Math.sin(3*q) + .12*Math.sin(4*q) + .05*Math.sin(5*q);
     }
@@ -522,7 +517,7 @@ function encode([left, right], loop, bitrate = 112, ceiling = .91) {
 
 for (const score of scores) {
   const mix = score.epic ? hall(arrangeEpic(score), true) : arrange(score);
-  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(mix, true, score.bitrate ?? 96, score.epic ? 1.1 : .91));
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(mix, true, score.bitrate ?? 128, score.epic ? 1.1 : .91));
 }
 
 const victory = {
