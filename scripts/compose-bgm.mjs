@@ -159,6 +159,8 @@ function arrange(piece) {
     const next = sections.find(([at]) => at > index)?.[0] ?? bars.length;
     const sectionStart = index === first;
     const sectionEnd = index === next - 1;
+    // Energy of the section that follows (the loop wraps to the first one).
+    const upcoming = sectionAt(next % bars.length)[1];
     const held = melody.filter(([, beats]) => beats >= .5).map(([, , pitch]) => pitch);
     const pad = voicing(tones, held);
     const bassRoot = 36 + root; // C2..B2
@@ -175,10 +177,18 @@ function arrange(piece) {
       for (const step of [1, 3]) drum(start + step, 'snare', .5, -.1);
       for (let step = 0; step < 8; step++) drum(start + step / 2, step % 2 ? 'hat' : 'hat', step % 2 ? .07 : .045, .35);
       if (energy === 2) drum(start + 3.5, 'open', .05, .35);
+      // Double-kick burst into the next bar when the full band is playing.
+      if (energy === 2 && groove === 'drive') for (const step of [3.25, 3.75]) drum(start + step, 'kick', .48);
       if (groove === 'march') for (const step of [3.25, 3.75]) drum(start + step, 'snare', .2, -.1);
     }
-    if (sectionStart && energy > 0) drum(start, 'crash', .14, .4);
-    if (sectionEnd && energy > 0) {
+    if (sectionStart && energy > 0) drum(start, 'crash', energy === 2 ? .19 : .14, .4);
+    if (sectionStart && energy === 2) drum(start, 'crash', .12, -.4);
+    if (sectionEnd && upcoming === 2 && energy < 2) {
+      // Snare build-up: sixteenths swelling over the last two beats, into the climax.
+      for (let i = 0; i < 8; i++) drum(start + 2 + i / 4, 'snare', .14 + i * .045, -.1);
+      note(start + 3, 1, 41 + ((root + 7) % 12), .16, 'timpani', -.2);
+      note(start + 3.5, .5, 41 + ((root + 7) % 12), .2, 'timpani', -.2);
+    } else if (sectionEnd && energy > 0) {
       [[2, 0], [2.5, .3], [3, .6], [3.5, .9]].forEach(([step, rise], i) => drum(start + step, 'tom', .4, -.4 + rise));
     }
 
@@ -190,20 +200,32 @@ function arrange(piece) {
       const steps = groove === 'drive' ? 16 : 8;
       for (let i = 0; i < steps; i++) {
         const length = 4 / steps;
+        // Root and octave, with the fifth leading into the next bar.
         const octave = groove === 'drive' ? (i % 4 === 2 ? 12 : 0) : (i % 2 ? 12 : 0);
-        note(start + i * length, length * .8, bassRoot + octave, (i % 2 ? .14 : .19), 'bass');
+        const lift = i === steps - 1 ? 7 : octave;
+        note(start + i * length, length * .8, bassRoot + lift, (i % 2 ? .14 : .19), 'bass');
       }
     }
 
     // Power chords: palm-muted eighths, with a ringing chord at each section start.
     if (energy > 0) {
       const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
-      for (let i = 0; i < 8; i++) {
-        const accent = i === 0 || i === 3 || i === 6;
+      // Climax: a galloping eighth-and-two-sixteenths rhythm; otherwise steady eighths.
+      const hits = energy === 2
+        ? [0, .5, .75, 1, 1.5, 1.75, 2, 2.5, 2.75, 3, 3.5, 3.75]
+        : [0, .5, 1, 1.5, 2, 2.5, 3, 3.5];
+      for (const at of hits) {
+        const accent = at === 0 || at === 1.5 || at === 3;
+        const length = accent ? .42 : at % .5 ? .14 : .22;
         for (const [interval, level] of [[0, 1], [7, .8], [12, .55]]) {
-          note(start + i * .5, accent ? .42 : .22, low + interval, (accent ? .05 : .032) * level, 'drive', interval ? -.55 : .55);
+          note(start + at, length, low + interval, (accent ? .05 : .03) * level, 'drive', interval ? -.55 : .55);
         }
       }
+    }
+    // Orchestral hit opening the climax: brass chord, timpani and low strings together.
+    if (sectionStart && energy === 2) {
+      pad.forEach((pitch, i) => note(start, .75, pitch + 12, .06, 'brass', (i - 1.5) * .4));
+      note(start, 1.5, bassRoot, .06, 'strings', 0);
     }
 
     // Strings: sustained pad, plus a quick arpeggio figure when the band is driving.
@@ -224,10 +246,24 @@ function arrange(piece) {
       const at = start + offset;
       note(at, beats, pitch, .16, lead, -.08);
       if (energy >= 1) note(at + .01, beats, pitch - 12, .07, 'horn', .3);
+      if (energy === 2) note(at + .02, beats, pitch - 12, .045, 'strings', -.35);
       if (energy === 2 && beats >= .5) {
         const second = harmonyBelow(pitch, tones);
         if (second !== null) note(at + .015, beats, second, .07, 'brass', .4);
       }
+      // While the tune holds a long note, the brass section answers with short chord stabs.
+      if (energy >= 1 && beats >= 2) {
+        for (const stab of [1.5, 2]) {
+          if (stab + .5 > beats) continue;
+          voicing(tones, [pitch], 55, 3).forEach((tone, i) => note(at + stab, .3, tone, .045, 'brass', (i - 1) * .5));
+        }
+      }
+    }
+    // Answer phrase in the rest at the end of a bar.
+    const [lastAt, lastBeats] = melody.at(-1) ?? [0, 0];
+    if (energy >= 1 && 4 - (lastAt + lastBeats) >= 1) {
+      const [low3, mid3, high3] = voicing(tones, [], 60, 3);
+      [[3, low3], [3.25, mid3], [3.5, high3]].forEach(([step, tone]) => note(start + step, .4, tone, .07, 'brass', .25));
     }
     if (energy === 2 && !dark && index % 2 === 0) note(start + 2, .5, pad[pad.length - 1] + 24, .03, 'bell', .5);
   }
@@ -235,7 +271,7 @@ function arrange(piece) {
 }
 
 /** Short fanfares for victory and defeat: tune over held chords with timpani. */
-function arrangeFinale({bpm, beats, tune, chords, lead}) {
+function arrangeFinale({bpm, beats, tune, chords, lead, fanfare = false}) {
   const {channels, note, drum} = synthesizer(bpm, beats, false);
   const melody = line(tune);
   for (const [start, length, symbol] of chords) {
@@ -250,6 +286,13 @@ function arrangeFinale({bpm, beats, tune, chords, lead}) {
     note(start + .01, length, pitch - 12, .08, 'horn', .3);
   }
   drum(0, 'crash', .1, .4);
+  if (fanfare) {
+    for (let i = 0; i < 12; i++) drum(i / 4, 'snare', .1 + i * .02, -.1);
+    for (const [start] of chords) drum(start, 'kick', .55);
+    const last = chords.at(-1)[0];
+    drum(last, 'crash', .18, .4);
+    drum(last, 'crash', .12, -.4);
+  }
   return channels;
 }
 
@@ -462,7 +505,7 @@ const pieces = [
     A  | C#5:.5 D5:.5 E5:.5 A5:.5 C#6:2`)},
 ];
 const finales = [
-  {name: 'bgm-victory', bpm: 132, beats: 12, lead: 'brass',
+  {name: 'bgm-victory', bpm: 132, beats: 12, lead: 'brass', fanfare: true,
     tune: 'D5:.333 D5:.333 D5:.334 G5:1 B5:1 C6:1 A5:.5 B5:.25 C6:.25 D6:4 r:3',
     chords: [[0, 3, 'G'], [3, 1, 'C'], [4, 1, 'D'], [5, 7, 'G']]},
   {name: 'bgm-defeat', bpm: 84, beats: 12, lead: 'horn',
