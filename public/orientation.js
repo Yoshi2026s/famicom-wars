@@ -4,12 +4,14 @@ const portraitMode = (() => {
     : '(orientation: landscape) and (max-height: 600px) and (hover: none) and (pointer: coarse)');
   const notice = document.getElementById('portrait-notice');
   const timers = new Set();
+  // Timed scenes also hold while the page is hidden (another app or tab), so nothing plays out unseen.
+  const held = () => landscapePhone.matches || document.hidden;
 
   function start(timer) {
     timer.deadline = performance.now() + timer.remaining;
     timer.id = setTimeout(() => {
       timer.id = null;
-      if (landscapePhone.matches) {
+      if (held()) {
         timer.remaining = 0;
         return;
       }
@@ -20,7 +22,8 @@ const portraitMode = (() => {
 
   function sync() {
     const blocked = landscapePhone.matches;
-    if (blocked) {
+    const holding = held();
+    if (holding) {
       const now = performance.now();
       for (const timer of timers) {
         if (timer.id === null) continue;
@@ -29,11 +32,16 @@ const portraitMode = (() => {
         timer.remaining = Math.max(0, timer.deadline - now);
       }
       combatAudio.stop();
+    }
+    if (blocked) {
       if (!notice.open) notice.showModal();
       document.documentElement.classList.add('portrait-blocked');
     } else {
       if (notice.open) notice.close();
       document.documentElement.classList.remove('portrait-blocked');
+    }
+    document.documentElement.classList.toggle('timers-held', holding);
+    if (!holding) {
       for (const timer of timers) {
         if (timer.id === null) start(timer);
       }
@@ -43,6 +51,7 @@ const portraitMode = (() => {
 
   notice.addEventListener('cancel', event => event.preventDefault());
   landscapePhone.addEventListener('change', sync);
+  document.addEventListener('visibilitychange', sync);
   sync();
 
   return {
@@ -51,7 +60,7 @@ const portraitMode = (() => {
     schedule(run, delay) {
       const timer = {run, remaining: delay, id: null};
       timers.add(timer);
-      if (!landscapePhone.matches) start(timer);
+      if (!held()) start(timer);
       return timer;
     },
     cancel(timer) {

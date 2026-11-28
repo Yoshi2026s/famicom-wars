@@ -9,19 +9,20 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=debug2b">
-    <link rel="stylesheet" href="./combat.css?v=armor1">
+    <link rel="stylesheet" href="./style.css?v=fx1">
+    <link rel="stylesheet" href="./combat.css?v=fx1">
+    <link rel="stylesheet" href="./combat-fx.css?v=fx1">
     <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=balance2"></script>
     <script defer src="./rules.js?v=armor1"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
-    <script defer src="./combat-audio.js?v=soft"></script>
+    <script defer src="./combat-audio.js?v=fx1"></script>
     <script defer src="./music.js?v=anthem2"></script>
-    <script defer src="./orientation.js?v=content2"></script>
+    <script defer src="./orientation.js?v=fx1"></script>
     <script defer src="./unit-art.js?v=content2"></script>
     <script defer src="./scene-art.js?v=content2"></script>
-    <script defer src="./combat.js?v=armor1"></script>
+    <script defer src="./combat.js?v=fx1"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
     <script defer src="./game.js?v=armor1"></script>
   </head>
@@ -302,18 +303,23 @@
             <div class="combat-backdrop">
               <img src="./assets/highland-dusk.webp" alt="" decoding="async" fetchpriority="low">
             </div>
+            <div class="combat-warfront"><i></i><i></i><i></i></div>
             <div class="combat-clouds"><i></i><i></i><i></i></div>
             <div class="combat-atmosphere"></div>
+            <div class="combat-embers"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="formation ally"></div><div class="formation foe"></div>
-            <div class="combat-volley"><i></i><i></i><i></i></div>
+            <div class="combat-volley"><i></i><i></i><i></i><b></b><b></b><b></b></div>
             <div class="combat-hit">
               <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i><i class="combat-wreck"></i>
               <i class="combat-blast"></i><i class="combat-ring"></i>
               <span class="combat-debris"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="combat-terrain"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <i class="combat-dust"></i><i class="combat-pillar"></i><i class="combat-chain"></i><i class="combat-lines"></i><i class="combat-ricochet"></i>
               <div class="combat-damage"><b id="combat-damage"></b><small id="combat-cover"></small></div>
             </div>
           </div>
           <span class="combat-stage" id="combat-stage" aria-hidden="true"></span>
+          <i class="combat-swap" aria-hidden="true"></i>
           <i class="combat-flash" aria-hidden="true"></i><i class="combat-letterbox" aria-hidden="true"></i>
           <div class="combat-versus" aria-hidden="true"><b class="versus-ally"></b><span>VS</span><b class="versus-foe"></b></div>
           <div class="combat-outcome" id="combat-outcome" hidden>

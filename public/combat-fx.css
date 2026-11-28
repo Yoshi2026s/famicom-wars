@@ -1,0 +1,666 @@
+/*
+ * Battle-scene showpieces layered over combat.css (loaded after it, so equal selectors here win).
+ * Everything moves only transform/translate/scale/opacity, starts hidden (opacity 0) and plays once
+ * per phase, so "reduce motion" (bottom of this file) simply leaves it out.
+ */
+
+/* ---- Opening: the bars close in, the camera pulls back and VS lands with a flash ---- */
+[data-phase="entry"] .combat-letterbox::before,
+[data-phase="entry"] .combat-letterbox::after { animation: letterbox-entry 1.05s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes letterbox-entry { from { scale: 1 0; } 22%, 70% { scale: 1 2.3; } to { scale: 1 1; } }
+[data-phase="entry"] .combat-camera {
+  animation: entry-push 1.05s cubic-bezier(.16,.82,.35,1) both, camera-shake .3s .34s linear both;
+}
+@keyframes entry-push { from { transform: scale(1.14) translateX(calc(var(--pan) * -3%)); } to { transform: none; } }
+[data-phase="entry"] .combat-flash { animation: entry-flash .4s .32s ease-out; }
+@keyframes entry-flash { from { opacity: 0; } 10% { opacity: .42; } to { opacity: 0; } }
+
+.combat-versus::before, .combat-versus::after { content: ""; position: absolute; left: -10%; right: -10%; pointer-events: none; }
+.combat-versus::before { top: 36%; bottom: 36%; z-index: -1; background: #0b0e17c4; transform: skewY(-4deg); scale: 0 1; }
+.combat-versus::after { top: 30%; bottom: 30%; background: linear-gradient(100deg, transparent 42%, #fff6dcb0 50%, transparent 58%); opacity: 0; }
+[data-phase="entry"] .combat-versus::before { animation: versus-band .5s cubic-bezier(.2,.8,.3,1) both; }
+[data-phase="entry"] .combat-versus::after { animation: versus-sweep .45s .3s ease-out; }
+@keyframes versus-band { from { scale: 0 1; } to { scale: 1 1; } }
+@keyframes versus-sweep { from { opacity: 1; translate: -55% 0; } to { opacity: 0; translate: 55% 0; } }
+.combat-versus span { position: relative; }
+.combat-versus span::after { content: ""; position: absolute; inset: -35%; border: 2px solid #ffe08f; border-radius: 50%; opacity: 0; }
+[data-phase="entry"] .combat-versus span::after { animation: versus-ring .45s .34s ease-out; }
+@keyframes versus-ring { from { opacity: .95; scale: .35; } to { opacity: 0; scale: 1.9; } }
+.combat-versus b::after {
+  content: attr(data-detail); display: block; margin-top: 2px; font-size: clamp(10px, 2.8vw, 13px);
+  font-weight: 800; letter-spacing: .1em; opacity: .88; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Units march, roll, swoop or glide in from their own side, rank by rank. */
+[data-phase="entry"] .fighter {
+  animation: take-position .5s steps(6, end) both;
+  animation-delay: calc(var(--column) * 28ms + var(--rank) * 70ms);
+}
+@keyframes take-position { from { opacity: 0; transform: translateX(-110%); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+[data-phase="entry"] .formation[data-domain="land"]:not([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter {
+  animation: roll-in .55s cubic-bezier(.2,.9,.3,1.15) both;
+}
+@keyframes roll-in { from { opacity: 0; transform: translateX(-140%); } 25% { opacity: 1; } to { opacity: 1; transform: none; } }
+[data-phase="entry"] .formation[data-domain="air"] .fighter { animation: swoop-in .6s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes swoop-in { from { opacity: 0; transform: translate(-120%, -90%) rotate(-10deg); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+[data-phase="entry"] .formation[data-domain="sea"] .fighter { animation: glide-in .7s cubic-bezier(.16,.82,.35,1) both; }
+@keyframes glide-in { from { opacity: 0; transform: translateX(-90%); } 35% { opacity: 1; } to { opacity: 1; transform: none; } }
+
+/* ---- Distant war front and drifting embers ---- */
+.combat-warfront { position: absolute; inset: 0; z-index: -2; pointer-events: none; --horizon: 47%; }
+[data-coastal] .combat-warfront { --horizon: 42%; }
+.unit-art [data-coastal] .combat-warfront { --horizon: 46.5%; }
+[data-skies] .combat-warfront { display: none; }
+[data-outcome="defeat"] .combat-warfront, [data-defense-domain="sea"] .combat-warfront { opacity: .45; }
+.combat-warfront i {
+  position: absolute; left: var(--fx); bottom: calc(100% - var(--horizon)); width: var(--fw, clamp(26px, 10%, 56px)); aspect-ratio: 1 / 2.6;
+  translate: -50% 0; transform-origin: 50% 100%; opacity: var(--fo, .8);
+  background: radial-gradient(ellipse 50% 20% at 60% 16%, #6a5c5c99, transparent 72%),
+    radial-gradient(ellipse 40% 18% at 46% 36%, #54474aa8, transparent 72%),
+    radial-gradient(ellipse 28% 16% at 52% 58%, #3d3436b8, transparent 72%),
+    linear-gradient(to top, #2b2324cc, #3f35388a 30%, transparent 70%) 50% 100% / 26% 100% no-repeat;
+}
+.combat-warfront i::before {
+  content: ""; position: absolute; left: 50%; bottom: 0; width: 150%; aspect-ratio: 2.4 / 1; translate: -50% 50%;
+  background: radial-gradient(ellipse at 50% 60%, #fff3c0 0 8%, #ffa04ae6 22%, #e2502c66 46%, transparent 70%);
+}
+.combat-warfront i:nth-child(1) { --fx: 13%; --fo: .75; --ft: 5.6s; --fd: -2s; }
+.combat-warfront i:nth-child(2) { --fx: 41%; --fw: clamp(16px, 6%, 34px); --fo: .5; --ft: 4.4s; }
+.combat-warfront i:nth-child(3) { --fx: 84%; --fo: .85; --ft: 6.4s; --fd: -3.5s; }
+#combat-screen:not([data-phase="result"]) .combat-warfront i { animation: plume-sway var(--ft) var(--fd, 0s) ease-in-out infinite alternate; }
+#combat-screen:not([data-phase="result"]) .combat-warfront i::before { animation: fire-flicker 1.1s var(--fd, 0s) steps(3, jump-none) infinite alternate; }
+#combat-screen[data-phase="impact"][data-lethal="true"] .combat-warfront i::before { animation: far-flare .9s ease-out both; }
+@keyframes plume-sway { from { transform: skewX(-3deg) scaleY(.92); } to { transform: skewX(-11deg) scaleY(1.06); } }
+@keyframes fire-flicker { from { opacity: .55; } to { opacity: 1; } }
+@keyframes far-flare { 30% { opacity: 1; scale: 1.8; } to { opacity: .8; scale: 1; } }
+
+.combat-embers { position: absolute; inset: 28% 0 6%; z-index: 3; pointer-events: none; overflow: hidden; opacity: 0; transition: opacity .3s; }
+:is([data-phase="aim"], [data-phase="attack"], [data-phase="impact"]) .combat-embers { opacity: 1; }
+[data-skies] .combat-embers { inset: 0; }
+.combat-embers i {
+  position: absolute; left: var(--ex); bottom: 0; width: 3px; aspect-ratio: 1; border-radius: 50%; opacity: 0;
+  background: #ffb35a; box-shadow: 0 0 4px 1px #ff7a2e99; --ey: -150px; --edx: 22px;
+}
+.combat-embers i:nth-child(even) { width: 5px; background: #cdb89a99; box-shadow: none; --ey: -28px; --edx: 74px; }
+[data-coastal] .combat-embers i:nth-child(even) { background: #eef7ffa6; }
+[data-skies] .combat-embers i:nth-child(even) { display: none; }
+[data-phase="impact"][data-lethal="true"] .combat-embers i:nth-child(even) { background: #ff9a48; box-shadow: 0 0 4px #ff6a2a; }
+.combat-embers i:nth-child(1) { --ex: 7%; --et: 3.1s; --ed: -.3s; }
+.combat-embers i:nth-child(2) { --ex: 12%; --et: 4.4s; --ed: -2.2s; bottom: 6%; }
+.combat-embers i:nth-child(3) { --ex: 31%; --et: 2.7s; --ed: -1.4s; }
+.combat-embers i:nth-child(4) { --ex: 40%; --et: 5s; --ed: -.9s; bottom: 14%; }
+.combat-embers i:nth-child(5) { --ex: 58%; --et: 3.5s; --ed: -2.6s; }
+.combat-embers i:nth-child(6) { --ex: 66%; --et: 4.1s; --ed: -3.3s; bottom: 3%; }
+.combat-embers i:nth-child(7) { --ex: 79%; --et: 2.9s; --ed: -.7s; }
+.combat-embers i:nth-child(8) { --ex: 90%; --et: 4.7s; --ed: -1.8s; bottom: 10%; }
+:is([data-phase="aim"], [data-phase="attack"], [data-phase="impact"]) .combat-embers i { animation: ember-drift var(--et) var(--ed) linear infinite; }
+@keyframes ember-drift {
+  from { opacity: 0; translate: 0 0; } 15% { opacity: .9; } 70% { opacity: .75; }
+  to { opacity: 0; translate: calc(var(--pan) * var(--edx)) var(--ey); }
+}
+
+/* ---- Taking aim: a stage vignette closes in, units hold the aim pose until their own turn to fire ---- */
+.combat-field::before {
+  content: ""; position: absolute; inset: 0; z-index: 10; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse 78% 72% at 50% 56%, transparent 52%, #05070dd9); transition: opacity .3s ease-out;
+}
+:is([data-phase="aim"], [data-phase="attack"]) .combat-field::before { opacity: .78; }
+[data-phase="impact"] .combat-field::before { opacity: .3; transition-duration: .06s; }
+[data-phase="impact"][data-lethal="true"] .combat-field::before { opacity: .92; transition: opacity .45s .3s ease-in; }
+
+[data-phase="aim"] .formation[data-role="attacking"] .fighter {
+  animation: raise-sights .25s min(var(--fire-delay) * .4, 170ms) steps(1, end) both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-phase="aim"][data-strike="counter"] .formation[data-role="attacking"] .fighter {
+    animation: raise-sights .25s steps(1, end) both,
+      counter-brace .6s calc(var(--column, 0) * 24ms) cubic-bezier(.3,0,.2,1) both;
+  }
+}
+[data-phase="attack"] .formation[data-role="attacking"] .fighter {
+  background-position-y: var(--pose-aim);
+  animation: var(--fire-motion) var(--fire-time) var(--fire-delay) steps(1, end) forwards;
+}
+[data-phase="attack"] .formation[data-role="attacking"] .fighter::after { animation: muzzle .105s var(--fire-delay) ease-out forwards; }
+[data-phase="attack"] .formation[data-role="attacking"][data-profile="scout"] .fighter::after { animation: muzzle 82ms var(--fire-delay) ease-out 3 forwards; }
+[data-phase="attack"] .formation[data-role="attacking"][data-profile="support"] .fighter::after {
+  animation: muzzle 120ms var(--fire-delay) ease-out 2 forwards; background: radial-gradient(circle at 24% 62%, #fffbd5 20%, #ff9a65 49%, transparent 76%);
+}
+/* Big guns flare twice as large; missiles leave a white exhaust flash. */
+[data-round="shell"][data-phase="attack"] .formation[data-role="attacking"] .fighter::after {
+  animation: muzzle-heavy .26s var(--fire-delay) ease-out forwards; transform-origin: 0 50%;
+}
+[data-round="missile"][data-phase="attack"] .formation[data-role="attacking"] .fighter::after {
+  animation: muzzle .16s var(--fire-delay) ease-out forwards;
+  background: radial-gradient(circle at 30% 55%, #ffffff 18%, #ffe3b0 40%, #d9d4cc88 62%, transparent 78%);
+}
+@keyframes muzzle-heavy {
+  from { opacity: 1; transform: scale(.5); } 18% { opacity: 1; transform: scale(1.7) rotate(-4deg); }
+  45% { opacity: .75; transform: scale(1.95) rotate(3deg); } to { opacity: 0; transform: scale(2.3); }
+}
+
+/* Muzzle light and the glow of the blast, cast over units and ground. */
+.combat-camera::before, .combat-camera::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+}
+.combat-camera::before { background: radial-gradient(circle at var(--flare-x, 20%) var(--flare-y, 60%), #ffe6b0, #ffb86a99 8%, #ff8a3a2e 20%, transparent 36%); }
+.combat-camera::after { background: radial-gradient(ellipse 58% 50% at var(--glow-x, 75%) var(--glow-y, 60%), #fff1c8, #ffad5ccc 13%, #ff6a2a55 32%, transparent 62%); }
+[data-phase="attack"] .combat-camera::before { animation: muzzle-light .2s var(--flare-delay, 0ms) ease-out both; }
+[data-attack-profile="scout"][data-phase="attack"] .combat-camera::before { animation: muzzle-light 90ms var(--flare-delay, 0ms) ease-out 3; }
+[data-attack-profile="tank"][data-phase="attack"] .combat-camera::before { animation-duration: .3s; }
+[data-phase="impact"] .combat-camera::after { animation: blast-light .6s ease-out both; }
+[data-phase="impact"][data-critical] .combat-camera::after { animation-duration: .85s; }
+[data-phase="impact"][data-lethal="true"] .combat-camera::after { animation: blast-light 1.05s ease-out both; }
+[data-phase="impact"][data-deflected] .combat-camera::after { animation: none; }
+@keyframes muzzle-light { from { opacity: .85; } to { opacity: 0; } }
+@keyframes blast-light { 0% { opacity: 0; } 7% { opacity: 1; } 30% { opacity: .72; } to { opacity: 0; } }
+
+/* ---- Rounds: missiles, shells, bombs and torpedoes look and fly differently ---- */
+:is([data-round="missile"], [data-round="rocket"]) .combat-volley i { width: clamp(34px, 14%, 96px); height: 4px; }
+:is([data-round="missile"], [data-round="rocket"]) .combat-volley i::before {
+  background: linear-gradient(90deg, #eef1f400, #dfe2e699 40%, #fff4d6 74%, #ffb35a 88%, #fff);
+  box-shadow: 0 0 7px #ffb35a80; border-radius: 3px 1px 1px 3px;
+}
+:is([data-round="missile"], [data-round="rocket"]) .combat-volley i::after {
+  right: -4px; top: -4px; width: 12px; height: 12px; background: radial-gradient(circle, #fff 18%, #ffd98e 40%, transparent 70%);
+}
+[data-round="shell"] .combat-volley i::after { right: -6px; top: -5px; width: 14px; height: 14px; background: radial-gradient(circle, #fff 15%, #ffc46b 38%, #ff7a3a99 55%, transparent 72%); }
+[data-armament="battleship"] .combat-volley i { height: 7px; width: clamp(30px, 13%, 96px); }
+[data-armament="mortar"][data-phase="attack"] .combat-volley i { animation-name: rocket-trail; }
+[data-round="torpedo"][data-phase="attack"] .combat-volley i { animation-name: shot-trail; animation-timing-function: ease-in; }
+[data-round="torpedo"] .combat-volley i { height: 5px; width: clamp(30px, 13%, 90px); }
+[data-round="torpedo"] .combat-volley i::before {
+  background: radial-gradient(circle, #e8fbffcc 0 1.5px, transparent 2px) 0 50% / 7px 100% repeat-x, linear-gradient(90deg, transparent, #9fe3ff66 60%, #dfffff);
+  box-shadow: none;
+}
+[data-round="torpedo"] .combat-volley i::after { background: radial-gradient(ellipse, #fff 12%, #6fd2ff 38%, transparent 70%); }
+[data-round="bomb"] .combat-volley i { width: 8px; height: 6px; }
+[data-round="bomb"] .combat-volley i::before { display: none; }
+[data-round="bomb"] .combat-volley i::after {
+  right: -6px; top: 0; width: 13px; height: 6px; border-radius: 50% 35% 35% 50%;
+  background: linear-gradient(#6a6970, #222228); box-shadow: 0 0 3px #fff6;
+}
+[data-round="bomb"][data-phase="attack"] .combat-volley i { animation-name: bomb-drop; }
+@keyframes bomb-drop {
+  from { opacity: 0; transform: scale(var(--pan), 1) rotate(.15rad) translateX(-100%); }
+  10%, 92% { opacity: 1; }
+  45% {
+    left: calc(var(--from-x) + (var(--to-x) - var(--from-x)) * .62);
+    top: calc(var(--from-y) + (var(--to-y) - var(--from-y)) * .22);
+    transform: scale(var(--pan), 1) rotate(.6rad) translateX(-100%);
+  }
+  to { left: var(--to-x); top: var(--to-y); opacity: 0; transform: scale(var(--pan), 1) rotate(1.35rad) translateX(-100%); }
+}
+/* Launch smoke left behind by guns and missiles. */
+.combat-volley b {
+  position: absolute; left: var(--from-x); top: var(--from-y); width: clamp(14px, 6%, 40px); aspect-ratio: 1; opacity: 0;
+  translate: -50% -50%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 45% 55%, #f4efe6d0 0 30%, #b9b2aa80 55%, transparent 70%);
+}
+[data-round="shell"] .combat-volley b { width: clamp(20px, 9%, 56px); }
+[data-phase="attack"]:is([data-round="shell"], [data-round="missile"], [data-round="rocket"]) .combat-volley b {
+  animation: launch-smoke .7s var(--shot-delay) ease-out both;
+}
+@keyframes launch-smoke { from { opacity: .9; transform: scale(.35); } to { opacity: 0; transform: translate(calc(var(--pan) * -12px), -14px) scale(1.9); } }
+
+/* ---- Impact: camera shake by weight, hit-stop and punch-in on a critical ---- */
+.combat-camera { --shake: 1; }
+[data-hit-tier="none"] .combat-camera { --shake: .35; }
+[data-hit-tier="light"] .combat-camera { --shake: .75; }
+[data-hit-tier="heavy"] .combat-camera { --shake: 1.15; }
+[data-lethal="true"] .combat-camera { --shake: 1.5; }
+[data-critical] .combat-camera { --shake: 1.8; }
+[data-phase="impact"] .combat-camera { animation: camera-shake .42s linear both; }
+[data-phase="impact"][data-hit-tier="none"] .combat-camera { animation-duration: .24s; }
+[data-phase="impact"][data-lethal="true"] .combat-camera { animation: camera-shake .6s linear both; }
+[data-phase="impact"][data-critical] .combat-camera {
+  animation: camera-shake .62s linear .12s both, crit-punch .78s cubic-bezier(.15,.9,.25,1) both;
+}
+@keyframes camera-shake {
+  8%  { translate: calc(var(--pan) * var(--shake) * 7px) calc(var(--shake) * 3px); }
+  22% { translate: calc(var(--pan) * var(--shake) * -5px) calc(var(--shake) * -4px); }
+  38% { translate: calc(var(--pan) * var(--shake) * 4px) calc(var(--shake) * 2px); }
+  58% { translate: calc(var(--pan) * var(--shake) * -2px) calc(var(--shake) * -1px); }
+  80% { translate: calc(var(--pan) * var(--shake) * 1px) 0; }
+  to  { translate: 0 0; }
+}
+@keyframes crit-punch { from { scale: 1; rotate: 0deg; } 9%, 24% { scale: 1.12; rotate: calc(var(--pan) * -1.6deg); } to { scale: 1; rotate: 0deg; } }
+/* Critical hit-stop: the blast holds its first frame for a beat. */
+#combat-screen[data-critical][data-phase="impact"] :is(.combat-impact, .combat-smoke, .combat-sparks, .combat-wreck,
+  .combat-blast, .combat-ring, .combat-debris i, .formation[data-role="defending"] .fighter) { animation-delay: 140ms; }
+
+/* Flash centred on the blast: a critical flashes twice, a kill whites out. */
+.combat-flash {
+  background: radial-gradient(circle at var(--glow-x, 70%) var(--glow-y, 55%), #fffdf4, #fff6dc 28%, #ffe2a8d9 60%, #ffcf8aa6);
+}
+[data-attack-profile="tank"][data-phase="attack"] .combat-flash { animation: fire-flash .14s var(--flare-delay, 0ms) ease-out both; }
+[data-phase="impact"][data-critical] .combat-flash { animation: critical-flash .44s linear both; }
+[data-phase="impact"][data-lethal="true"] .combat-flash { animation: lethal-flash .75s ease-out both; }
+@keyframes fire-flash { from { opacity: .16; } to { opacity: 0; } }
+@keyframes critical-flash { 0% { opacity: .62; } 20% { opacity: .04; } 32% { opacity: .56; } to { opacity: 0; } }
+@keyframes lethal-flash { 0% { opacity: .82; } 14% { opacity: .7; } 40% { opacity: .3; } to { opacity: 0; } }
+
+/* ---- Explosions on the ground: twin fireball lobes, ground-hugging dust, a smoke column on a kill ---- */
+.combat-blast::before, .combat-blast::after {
+  content: ""; position: absolute; width: 58%; aspect-ratio: 1; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #fff4c8 0 18%, #ffb347 40%, #e2552d99 62%, transparent 72%);
+}
+.combat-blast::before { left: -12%; top: 8%; }
+.combat-blast::after { right: -14%; top: -6%; width: 50%; }
+[data-phase="impact"][data-defense-domain="land"] .combat-blast::before { animation: blast-lobe .5s .07s ease-out both; }
+[data-phase="impact"][data-defense-domain="land"] .combat-blast::after { animation: blast-lobe .48s .13s ease-out both; }
+@keyframes blast-lobe { from { opacity: 1; scale: .2; } 40% { opacity: 1; scale: 1.1; } to { opacity: 0; scale: 1.4; translate: 0 -18%; } }
+.combat-dust, .combat-pillar, .combat-chain, .combat-lines, .combat-ricochet {
+  position: absolute; left: var(--hit-x); top: var(--hit-y); opacity: 0; pointer-events: none;
+}
+.combat-dust {
+  width: clamp(70px, 30%, 180px); height: clamp(14px, 5%, 34px); translate: -50% 120%; border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 60%, #c9a27a 0 30%, #a9805f99 55%, transparent 72%);
+}
+[data-phase="impact"][data-defense-domain="land"]:not([data-deflected]) .combat-dust { animation: dust-skirt .8s ease-out both; }
+@keyframes dust-skirt { from { opacity: .95; scale: .25 .6; } 30% { opacity: .9; } to { opacity: 0; scale: 1.5 1.1; } }
+.combat-pillar {
+  z-index: -1; width: clamp(30px, 11%, 70px); aspect-ratio: 1 / 1.6; translate: -50% -78%; border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(ellipse at 50% 35%, #4a3f45 0 35%, #2e2a33b3 55%, transparent 72%);
+}
+[data-phase="impact"][data-lethal="true"][data-defense-domain="land"] .combat-pillar { animation: smoke-column 1s .18s ease-out both; }
+@keyframes smoke-column { from { opacity: 0; scale: .3; } 25% { opacity: .85; } to { opacity: 0; scale: 1.6 2; translate: -50% -125%; } }
+/* A wipe-out sets off a chain of secondary blasts around the impact. */
+.combat-chain {
+  width: clamp(90px, 34%, 210px); aspect-ratio: 1; translate: -50% -60%;
+  background: radial-gradient(circle at 22% 62%, #ffd36b 0 7%, #ff7a2e99 12%, transparent 18%),
+    radial-gradient(circle at 78% 55%, #fff1c0 0 6%, #ff8a3d99 11%, transparent 17%),
+    radial-gradient(circle at 50% 20%, #ffcf6e 0 6%, #e8522b99 11%, transparent 17%);
+}
+[data-phase="impact"][data-lethal="true"]:not([data-defense-domain="sea"]) .combat-chain { animation: chain-blast .55s .5s ease-out both; }
+@keyframes chain-blast { from { opacity: 1; transform: scale(.45); } 40% { opacity: 1; } to { opacity: 0; transform: scale(1.3); } }
+[data-phase="impact"][data-lethal="true"][data-defense-profile="infantry"] .combat-wreck { animation: support-wreck .9s ease-out both; }
+
+/* Debris arcs up and falls under gravity: clods of earth, metal shards off vehicles, a scorch mark. */
+.combat-debris i:nth-child(odd) { width: 7px; height: 4px; }
+.combat-debris i:nth-child(3n) { width: 3px; height: 3px; }
+.combat-debris i:nth-child(2) { --dd: .03s; --spin: -420deg; } .combat-debris i:nth-child(4) { --dd: .06s; }
+.combat-debris i:nth-child(5) { --dd: .02s; --spin: 720deg; } .combat-debris i:nth-child(7) { --dd: .08s; --spin: -600deg; }
+[data-defense-domain="land"] .combat-debris i { border-radius: 2px 1px 3px 1px; }
+[data-defense-domain="land"] .combat-debris i:nth-child(odd) { background: #6b4a33; }
+[data-defense-profile="tank"] .combat-debris i:nth-child(3n) { background: #8c8f96; box-shadow: 0 0 0 1px #ffe0a388; }
+[data-phase="impact"][data-defense-domain="land"] .combat-debris i { animation: debris-arc .78s var(--dd, 0s) cubic-bezier(.25,.6,.45,1) both; }
+[data-lethal="true"] .combat-debris { scale: 1.35; }
+@keyframes debris-arc {
+  from { translate: 0 0; rotate: 0deg; opacity: 1; }
+  30% { translate: calc(var(--dx) * .45) calc(var(--dy) * .85); }
+  55% { translate: calc(var(--dx) * .75) var(--dy); opacity: 1; }
+  80% { translate: calc(var(--dx) * .92) calc(var(--dy) * .35); }
+  to { translate: var(--dx) calc(var(--dy) * -.3); rotate: var(--spin, 540deg); opacity: 0; }
+}
+.combat-debris::before {
+  content: ""; position: absolute; width: 64px; height: 14px; translate: -50% 160%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(ellipse, #1d1714cc 0 35%, transparent 70%);
+}
+[data-phase="impact"][data-defense-domain="land"]:not([data-deflected]) .combat-debris::before { animation: scorch .86s ease-out both; }
+@keyframes scorch { from { opacity: 0; scale: .3; } 20% { opacity: .8; scale: 1; } 75% { opacity: .6; } to { opacity: 0; } }
+/* Blast size follows the weight of the hit. */
+[data-hit-tier="light"] .combat-blast { width: clamp(40px, 15%, 92px); }
+[data-hit-tier="light"] .combat-debris i:nth-child(n+5) { display: none; }
+[data-hit-tier="heavy"] .combat-blast { width: clamp(64px, 27%, 160px); }
+[data-hit-tier="heavy"] .combat-ring { border-width: 4px; }
+
+/* ---- Terrain answers the hit: leaves, rock chips, mud, concrete; cover sways ---- */
+.combat-terrain { position: absolute; left: var(--hit-x); top: var(--hit-y); opacity: 0; pointer-events: none; }
+.combat-terrain i { position: absolute; width: 6px; height: 4px; background: var(--bit, #7c8a5a); opacity: 0; }
+.combat-terrain i:nth-child(1) { --dx: 30px; --dy: -38px; --r: 200deg; --n: 0; }
+.combat-terrain i:nth-child(2) { --dx: 14px; --dy: -52px; --r: -160deg; --n: 1; }
+.combat-terrain i:nth-child(3) { --dx: 42px; --dy: -20px; --r: 260deg; --n: 2; }
+.combat-terrain i:nth-child(4) { --dx: -12px; --dy: -44px; --r: -220deg; --n: 1; }
+.combat-terrain i:nth-child(5) { --dx: 24px; --dy: -64px; --r: 140deg; --n: 3; }
+.combat-terrain i:nth-child(6) { --dx: -22px; --dy: -26px; --r: 300deg; --n: 2; }
+[data-defense-terrain="forest"] .combat-terrain i { --bit: #5f8f3a; --fall: 58px; --t: 1.05s; border-radius: 0 6px; }
+[data-defense-terrain="forest"] .combat-terrain i:nth-child(even) { --bit: #a6c25a; }
+[data-defense-terrain="mountain"] .combat-terrain i { --bit: #8b8377; --fall: 74px; --t: .7s; width: 7px; height: 6px; clip-path: polygon(0 30%, 45% 0, 100% 25%, 80% 100%, 15% 85%); }
+[data-defense-terrain="mountain"] .combat-terrain i:nth-child(odd) { --bit: #6d665e; }
+[data-defense-terrain="marsh"] .combat-terrain i { --bit: #5b4a2d; --fall: 28px; --t: .6s; border-radius: 50%; width: 5px; height: 5px; }
+[data-defense-terrain="fortress"] .combat-terrain i { --bit: #c8bea7; --fall: 66px; --t: .75s; }
+[data-phase="impact"][data-defense-domain="land"]:is([data-defense-terrain="forest"], [data-defense-terrain="mountain"], [data-defense-terrain="marsh"], [data-defense-terrain="fortress"]) .combat-terrain { opacity: 1; }
+[data-phase="impact"] .combat-terrain i { animation: terrain-bit var(--t, .8s) calc(var(--n) * 28ms) cubic-bezier(.2,.7,.4,1) both; }
+@keyframes terrain-bit {
+  from { opacity: 1; transform: translate(0, 0) rotate(0) scale(.5); }
+  40% { opacity: 1; transform: translate(calc(var(--pan) * var(--dx)), var(--dy)) rotate(var(--r)) scale(1); }
+  to { opacity: 0; transform: translate(calc(var(--pan) * var(--dx) * 1.35), calc(var(--dy) + var(--fall))) rotate(calc(var(--r) * 2)) scale(.8); }
+}
+.combat-terrain::before { content: ""; position: absolute; left: -16px; top: -4px; width: 32px; height: 10px; border: 3px solid #6a5634; border-bottom: 0; border-radius: 50% 50% 0 0; opacity: 0; transform-origin: 50% 100%; }
+[data-phase="impact"][data-defense-terrain="marsh"] .combat-terrain::before { animation: mud-crown .5s ease-out both; }
+@keyframes mud-crown { from { opacity: .9; transform: scale(.3, .2); } 45% { opacity: .9; transform: scale(1, 1.6); } to { opacity: 0; transform: scale(1.4, .4); } }
+.formation::before { transform-origin: 30% 100%; }
+[data-phase="impact"] .formation[data-role="defending"][data-terrain="forest"]::before { animation: cover-sway .7s ease-out both; }
+[data-phase="impact"] .formation[data-role="defending"][data-terrain="mountain"]::before { animation: cover-quake .4s steps(6, end) both; }
+[data-phase="impact"] .formation[data-role="defending"][data-terrain="marsh"]::before { animation: cover-squelch .55s ease-out both; }
+@keyframes cover-sway { 20% { transform: rotate(-4deg) skewX(-5deg); } 45% { transform: rotate(2.5deg) skewX(3deg); } 70% { transform: rotate(-1deg); } to { transform: none; } }
+@keyframes cover-quake { 17% { transform: translate(-2px, 1px); } 34% { transform: translate(2px, -1px); } 50% { transform: translate(-1px, 0); } 67% { transform: translate(1px, 1px); } to { transform: none; } }
+@keyframes cover-squelch { 25% { transform: scale(1.04, .93); } 55% { transform: scale(.98, 1.04); } to { transform: none; } }
+/* Cover that soaked up part of the hit glows as a shield arc in the terrain's colour. */
+#combat-screen { --guard: #a7bda6; }
+[data-defense-terrain="forest"] { --guard: #8fcf6a; }
+[data-defense-terrain="mountain"] { --guard: #d2c6ae; }
+[data-defense-terrain="marsh"] { --guard: #b99a62; }
+[data-defense-terrain="fortress"] { --guard: #9fd3ff; }
+.combat-terrain::after {
+  content: ""; position: absolute; left: calc(var(--pan) * -26px - 14px); top: -26px; width: 28px; height: 52px;
+  border: 3px solid var(--guard); border-radius: 50%; clip-path: inset(0 50% 0 0); opacity: 0;
+  box-shadow: 0 0 10px var(--guard); transform: scaleX(var(--pan));
+}
+[data-phase="impact"][data-guarded] .combat-terrain { opacity: 1; }
+[data-phase="impact"][data-guarded] .combat-terrain::after { animation: guard-arc .45s ease-out both; }
+@keyframes guard-arc { from { opacity: 0; transform: scaleX(var(--pan)) scale(.5); } 30% { opacity: 1; transform: scaleX(var(--pan)) scale(1.05); } to { opacity: 0; transform: scaleX(var(--pan)) scale(1.3); } }
+#combat-screen[data-guarded] .combat-damage small { border-color: var(--guard); border-left-width: 4px; color: #fff7dc; }
+[data-phase="impact"][data-guarded] .combat-damage small { animation: guard-badge .5s .12s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes guard-badge { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+/* A fortress shows a crenellated stone wall in front of its garrison. */
+.formation[data-fortress]::before {
+  bottom: 24%; width: 60%; height: 20%;
+  background: repeating-linear-gradient(90deg, #0000 0 20px, #4f4a42 20px 22px),
+    repeating-linear-gradient(0deg, #8c8474 0 9px, #6d665a 9px 11px);
+  clip-path: polygon(0 100%, 0 22%, 10% 22%, 10% 0, 22% 0, 22% 22%, 36% 22%, 36% 0, 48% 0, 48% 22%, 62% 22%, 62% 0, 74% 0, 74% 22%, 88% 22%, 88% 0, 100% 0, 100% 100%);
+}
+[data-phase="impact"] .formation[data-role="defending"][data-fortress]::before { animation: cover-quake .4s steps(6, end) both; }
+[data-skies] .formation[data-fortress]::before { display: none; }
+
+/* ---- Sea: white water columns and a ring on the waterline ---- */
+[data-defense-domain="sea"] .combat-hit::before,
+[data-defense-domain="sea"] .combat-hit::after {
+  content: ""; position: absolute; left: var(--hit-x); top: calc(var(--hit-y) + clamp(10px, 4.5%, 30px));
+  width: clamp(18px, 7%, 52px); height: clamp(48px, 17%, 130px); opacity: 0; scale: 1 0;
+  translate: -50% -100%; transform-origin: 50% 100%;
+  background: linear-gradient(90deg, #ffffff00, #eef9ffe6 28% 60%, #b9dcebd0 82%, #ffffff00);
+  clip-path: polygon(32% 100%, 20% 42%, 4% 15%, 22% 0, 40% 10%, 56% 0, 78% 7%, 96% 19%, 80% 45%, 68% 100%);
+}
+[data-defense-domain="sea"] .combat-hit::after { left: calc(var(--hit-x) + var(--pan) * 6%); width: clamp(12px, 4.5%, 34px); height: clamp(30px, 11%, 84px); }
+[data-lethal="true"][data-defense-domain="sea"] .combat-hit::before { width: clamp(26px, 10%, 72px); height: clamp(70px, 26%, 190px); }
+[data-phase="impact"][data-defense-domain="sea"] .combat-hit::before { animation: water-column .9s cubic-bezier(.2,.75,.35,1) both; }
+[data-phase="impact"][data-defense-domain="sea"] .combat-hit::after { animation: water-column .75s .12s cubic-bezier(.2,.75,.35,1) both; }
+@keyframes water-column { from { opacity: .95; scale: .5 0; } 30% { opacity: 1; scale: 1 1; } 62% { opacity: .85; scale: 1.35 .92; } to { opacity: 0; scale: 1.9 .5; } }
+[data-defense-domain="sea"] .combat-ring { top: calc(var(--hit-y) + clamp(10px, 4.5%, 30px)); aspect-ratio: 3 / 1; border-color: #e8f8ff; }
+/* Ships push a wake as they come in and foam at the bow when they fire. */
+.formation[data-domain="sea"] .fighter::before {
+  inset: 68% 1% 15% -26%; border-radius: 50% 40% 40% 50%; transform-origin: 100% 50%; filter: none;
+  background:
+    radial-gradient(ellipse 22% 60% at 96% 50%, #f2fbffd0, transparent 70%),
+    linear-gradient(90deg, transparent, #e4f6fc8c 22%, #e4f6fc33 55%, transparent 80%) left center / 100% 34% no-repeat,
+    repeating-linear-gradient(175deg, #d8f1f9a0 0 2px, transparent 2px 7px) right / 80% 100% no-repeat;
+}
+[data-phase="entry"] .formation[data-domain="sea"] .fighter::before { animation: wake-surge .7s ease-out both; }
+[data-phase="attack"] .formation[data-domain="sea"][data-role="attacking"] .fighter::before { animation: hull-foam .5s var(--fire-delay) ease-out both; }
+@keyframes wake-surge { from { opacity: 0; scale: .35 1; } 45% { opacity: 1; scale: 1.12 1.25; } to { opacity: 1; scale: 1 1; } }
+@keyframes hull-foam { 30% { scale: 1.18 1.6; } to { scale: 1 1; } }
+
+/* ---- Air: flak bursts, a fireball on a kill, falling wreckage, contrails and rushing sky ---- */
+[data-defense-domain="air"] .combat-smoke {
+  translate: -50% -50%; width: clamp(30px, 12%, 84px); height: auto; aspect-ratio: 1; filter: none; box-shadow: none; border-radius: 0;
+  background:
+    radial-gradient(circle at 50% 50%, #3e383c 0 22%, transparent 34%),
+    radial-gradient(circle at 26% 62%, #575056d9 0 18%, transparent 30%),
+    radial-gradient(circle at 74% 36%, #5d5560cc 0 16%, transparent 28%),
+    radial-gradient(circle at 60% 78%, #6c646acc 0 14%, transparent 26%);
+}
+[data-phase="impact"][data-defense-domain="air"] .combat-smoke { animation: air-burst-smoke .9s ease-out both; }
+@keyframes air-burst-smoke { from { opacity: 0; transform: scale(.3); } 18% { opacity: .95; transform: scale(1); } to { opacity: 0; transform: translate(calc(var(--pan) * 22px), -8px) scale(1.9); } }
+[data-defense-domain="air"] .combat-wreck {
+  translate: -50% -50%; width: clamp(44px, 18%, 120px);
+  background: radial-gradient(circle, #fffbe0 0 10%, #ffcf5c 22%, #ff7a2e 38%, #b8321f 52%, #2a2224cc 64%, transparent 72%);
+}
+[data-defense-domain="air"] .combat-wreck::before { display: none; }
+[data-phase="impact"][data-lethal="true"][data-defense-domain="air"] .combat-wreck { animation: air-fireball 1s ease-out both; }
+@keyframes air-fireball { from { opacity: 1; transform: scale(.2); } 22% { transform: scale(1.15); } 55% { opacity: .9; transform: scale(1.3); } to { opacity: 0; transform: translateY(-10px) scale(1.7); } }
+[data-phase="impact"][data-defense-domain="air"] .combat-debris i { animation-name: air-debris-fall; animation-duration: .9s; }
+@keyframes air-debris-fall { from { translate: 0 0; rotate: 0deg; opacity: 1; } 30% { translate: calc(var(--dx) * .6) calc(var(--dy) * .35); opacity: 1; } to { translate: var(--dx) calc(var(--dy) * -1.5); rotate: 720deg; opacity: 0; } }
+#combat-screen[data-skies] .combat-clouds { transition: translate 1.6s ease-in-out; }
+#combat-screen[data-skies]:is([data-phase="aim"], [data-phase="attack"], [data-phase="impact"]) .combat-clouds { translate: calc(var(--pan) * -9%) 0; transition-duration: .9s; }
+#combat-screen[data-skies] .combat-clouds::before {
+  content: ""; position: absolute; left: 50%; top: 32%; width: 46px; height: 1px; opacity: 0; background: #ffffffa0;
+  box-shadow: -120px -70px #fff6, 90px -40px #fff5, -40px 30px #fff7, 150px 60px #fff5, -170px 90px #fff4, 40px 120px #fff6;
+}
+#combat-screen[data-skies]:is([data-phase="aim"], [data-phase="attack"]) .combat-clouds::before { animation: sky-rush .42s linear infinite; }
+@keyframes sky-rush { from { opacity: 0; transform: translateX(calc(var(--pan) * 220px)); } 20%, 80% { opacity: .9; } to { opacity: 0; transform: translateX(calc(var(--pan) * -220px)); } }
+.formation[data-domain="air"][data-role="attacking"] .fighter-sprite::before {
+  content: ""; position: absolute; right: 84%; top: 46%; width: 140%; height: 5%; opacity: 0;
+  transform-origin: 100% 50%; border-radius: 2px; background: linear-gradient(90deg, transparent, #ffffffb8);
+}
+[data-phase="attack"] .formation[data-domain="air"][data-role="attacking"] .fighter-sprite::before { animation: contrail .8s var(--fire-delay, 0s) ease-out both; }
+@keyframes contrail { from { opacity: .9; transform: scaleX(0); } 40% { opacity: .85; transform: scaleX(1); } to { opacity: 0; transform: scaleX(1.15); } }
+
+/* ---- Units under fire: the flinch ripples back through the ranks, harder on a critical, barely on armor ---- */
+#combat-screen { --kick: 1; }
+#combat-screen[data-critical] { --kick: 1.8; }
+#combat-screen[data-glance] { --kick: .3; }
+.platoon .formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter { transform-origin: 42% 96%; }
+[data-phase="impact"] .formation[data-role="defending"] .fighter:not(.retreating) {
+  animation: var(--hit-motion) .55s ease-out forwards, var(--hit-frames) .55s steps(1, end) forwards;
+  animation-delay: calc(var(--column) * 28ms + var(--rank) * 40ms);
+}
+[data-phase="impact"] .formation[data-role="defending"]:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter:not(.retreating) { background-position-y: var(--pose-duck); }
+@keyframes infantry-hit {
+  from { transform: translate(calc(-11% * var(--kick)), -3%) rotate(calc(-8deg * var(--kick))); }
+  30% { transform: translate(calc(-5% * var(--kick)), 0) rotate(calc(-3deg * var(--kick))); }
+  74%, to { transform: none; }
+}
+@keyframes scout-hit { from { transform: translateX(calc(-17% * var(--kick))) rotate(calc(8deg * var(--kick))); } 56% { transform: translateX(calc(-9% * var(--kick))) rotate(-3deg); } to { transform: none; } }
+@keyframes support-hit { from { transform: translate(calc(-6% * var(--kick)), -5%) rotate(calc(-5deg * var(--kick))); } 47% { transform: translateY(5%) rotate(3deg); } to { transform: none; } }
+@keyframes tank-hit {
+  from { transform: translateX(calc(-7% * var(--kick))) rotate(calc(2.5deg * var(--kick))); }
+  18% { transform: translateX(calc(-9% * var(--kick))) rotate(calc(-1deg * var(--kick))); }
+  43% { transform: translateX(-2%); } to { transform: none; }
+}
+[data-phase="impact"][data-deflected] .formation[data-role="defending"] .fighter:not(.retreating) { animation: deflect-nudge .35s ease-out both; }
+@keyframes deflect-nudge { 25% { translate: calc(var(--pan) * 2%) 0; } to { translate: 0 0; } }
+
+/* ---- Losses: each lost unit blows up in turn and trails smoke ---- */
+[data-phase="impact"] .fighter.retreating {
+  animation: var(--loss-motion) .89s var(--loss-delay, 0s) ease-out both, defeated-frames .89s var(--loss-delay, 0s) steps(1, end) both;
+}
+[data-phase="impact"] .fighter.retreating::after {
+  left: 50%; top: 48%; width: 74%; translate: -50% -50%; clip-path: none; border-radius: 50%; z-index: 3;
+  background: radial-gradient(circle, #fffbe0 0 12%, #ffcf5e 26%, #ff7a2e 46%, #b8321e99 62%, transparent 72%);
+  animation: unit-blast .6s var(--loss-delay, 0s) ease-out both;
+}
+[data-phase="impact"] .fighter.retreating::before {
+  display: block; inset: -10% 22% 42%; z-index: 2; filter: none; border-radius: 50%;
+  background: radial-gradient(circle at 50% 62%, #2e262bdd 0 32%, #4f4247a0 52%, transparent 72%);
+  animation: unit-smoke 1s calc(var(--loss-delay, 0s) + .16s) ease-out both;
+}
+.formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter.retreating::after {
+  width: 52%; background: radial-gradient(circle, #fff2c8 0 10%, #f0b070 30%, #a08a7a88 55%, transparent 70%);
+}
+.formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter.retreating::before {
+  background: radial-gradient(circle at 50% 62%, #b49c86c0 0 30%, #8c7a6a70 52%, transparent 72%);
+}
+@keyframes unit-blast { from { opacity: 1; transform: scale(.2); } 28% { opacity: 1; transform: scale(1.15); } to { opacity: 0; transform: scale(1.5); } }
+@keyframes unit-smoke { from { opacity: 0; transform: scale(.4); } 25% { opacity: .9; } to { opacity: 0; transform: translateY(-70%) scale(1.9); } }
+/* Downed aircraft nose over and trail black smoke and flame. */
+.formation.ally { --fall-dir: 1; } .formation.foe { --fall-dir: -1; }
+@keyframes air-down {
+  from { transform: translate(calc(var(--fall-dir, 1) * -5%), -3%) rotate(calc(var(--fall-dir, 1) * -8deg)); }
+  30% { transform: translate(calc(var(--fall-dir, 1) * 4%), 10%) rotate(calc(var(--fall-dir, 1) * 16deg)); }
+  80% { opacity: 1; }
+  to { opacity: 0; transform: translate(calc(var(--fall-dir, 1) * 16%), 78%) rotate(calc(var(--fall-dir, 1) * 48deg)); }
+}
+.formation[data-domain="air"] .fighter.retreating .fighter-sprite::before,
+.formation[data-domain="air"] .fighter.retreating .fighter-sprite::after { content: ""; position: absolute; pointer-events: none; }
+.formation[data-domain="air"] .fighter.retreating .fighter-sprite::before {
+  right: 76%; top: 32%; width: 120%; height: 34%; transform-origin: 100% 50%;
+  background:
+    radial-gradient(ellipse 12% 40% at 90% 50%, #2a2426 55%, transparent 100%),
+    radial-gradient(ellipse 15% 46% at 66% 44%, #3a3336e0 50%, transparent 100%),
+    radial-gradient(ellipse 18% 50% at 40% 56%, #4d4649a8 45%, transparent 100%),
+    radial-gradient(ellipse 20% 50% at 14% 42%, #625b5e66 40%, transparent 100%);
+  animation: downed-smoke .89s var(--loss-delay, 0s) ease-out both;
+}
+.formation[data-domain="air"] .fighter.retreating .fighter-sprite::after {
+  left: 16%; top: 34%; width: 24%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, #fff3c4 0 16%, #ffb347 36%, #e2482b 60%, transparent 72%);
+  animation: downed-flame .14s linear infinite alternate;
+}
+@keyframes downed-smoke { from { opacity: 0; transform: scaleX(.1); } 25% { opacity: .95; } to { opacity: .9; transform: scale(1, 1.4); } }
+@keyframes downed-flame { from { opacity: .75; transform: scale(.8); } to { opacity: 1; transform: scale(1.2, .9); } }
+/* Sunk ships list, raise the bow and slip under the waterline, leaving bubbles. */
+.formation[data-static][data-domain="sea"] { --loss-motion: sea-founder; }
+.formation[data-domain="sea"] .fighter.retreating { clip-path: inset(-90% -40% 15% -40%); }
+.formation[data-domain="sea"] .fighter.retreating .fighter-sprite { animation: ship-sink .89s var(--loss-delay, 0s) cubic-bezier(.45,0,.75,.6) both; }
+[data-phase="impact"] .formation[data-domain="sea"] .fighter.retreating::before {
+  z-index: 1; inset: 62% 4% 12%; border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 38%, #f4fcff 0 3px, transparent 4px),
+    radial-gradient(circle at 50% 22%, #e6f7ff 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 42%, #f4fcff 0 4px, transparent 5px),
+    radial-gradient(circle at 84% 28%, #e6f7ff 0 2px, transparent 3px),
+    radial-gradient(ellipse at 55% 62%, #f0faffcc, #cfeaf466 45%, transparent 70%);
+  animation: sink-bubbles .89s var(--loss-delay, 0s) ease-out both;
+}
+@keyframes sea-founder { 0%, 74% { opacity: 1; } to { opacity: 0; } }
+@keyframes ship-sink { from { translate: 0 0; rotate: 0deg; } 22% { translate: 0 6%; rotate: 6deg; } to { translate: -6% 62%; rotate: -16deg; opacity: .7; } }
+@keyframes sink-bubbles { from { opacity: 0; scale: .6; } 35% { opacity: 1; } to { opacity: 0; scale: 1.45 1.2; translate: 0 -30%; } }
+/* Fade the wrecks with opacity instead of animating filter (cheaper, and keeps their drop shadow). */
+@keyframes scout-down { from { transform: translateX(-6%); } 30% { transform: translateX(-32%) rotate(15deg); } to { transform: translateX(-38%) rotate(7deg); opacity: .72; } }
+@keyframes support-down { from { transform: translateY(-5%); } 25% { transform: translate(-9%, -9%) rotate(-9deg); } to { transform: translate(-10%, 4%) rotate(4deg); opacity: .72; } }
+@keyframes tank-down { from { transform: translateX(-8%); } 19% { transform: translateX(-6%) rotate(-3deg); } to { transform: translate(-7%, 5%); opacity: .66; } }
+@keyframes reveal-field { from { transform: scale(1.075); } to { transform: none; } }
+
+/* ---- Damage numbers: pop by weight, a CRITICAL slam, a metal "弾かれた！" when armor holds ---- */
+[data-phase="impact"] .combat-damage { opacity: 1; animation: damage-pop .8s cubic-bezier(.2,.9,.3,1.15) both; }
+[data-phase="impact"] .combat-damage small { animation: cover-tag .4s .2s ease-out both; }
+[data-hit-tier="heavy"] .combat-damage b { color: #ffb15a; font-size: clamp(34px, 8.4vw, 70px); }
+[data-hit-tier="light"] .combat-damage b { color: #e9e3cf; font-size: clamp(24px, 5.6vw, 48px); }
+@keyframes damage-pop {
+  from { opacity: 0; transform: translateY(14px) scale(.4); } 18% { opacity: 1; transform: translateY(-20px) scale(1.25); }
+  32% { transform: translateY(-8px) scale(.94); } 44% { transform: translateY(-12px) scale(1); } to { opacity: 1; transform: translateY(-16px); }
+}
+@keyframes cover-tag { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.combat-lines {
+  width: 150%; aspect-ratio: 1; translate: -50% -50%;
+  background: repeating-conic-gradient(#fff6d2 0 1.6deg, transparent 1.6deg 10deg);
+  -webkit-mask: radial-gradient(circle, transparent 13%, #000 27%, transparent 68%);
+  mask: radial-gradient(circle, transparent 13%, #000 27%, transparent 68%);
+}
+#combat-screen[data-critical][data-phase="impact"] .combat-lines { animation: critical-lines .56s ease-out both; }
+#combat-screen[data-critical][data-phase="impact"] .combat-damage { animation: critical-slam .9s cubic-bezier(.2,.9,.3,1) 140ms both; }
+#combat-screen[data-critical] .combat-damage b { color: #ffd84a; font-size: clamp(36px, 9vw, 76px); text-shadow: -2px -1px #3a0d08, 2px 2px #3a0d08, -1px 2px #3a0d08, 1px -1px #3a0d08, 0 0 14px #ff7a1f; }
+#combat-screen[data-critical][data-phase="impact"] .combat-damage::before {
+  content: "CRITICAL!"; padding: 1px 8px 2px; color: #fff8e0; background: linear-gradient(90deg, #b3121b, #e8541d);
+  font: italic 900 clamp(13px, 3.6vw, 20px)/1.15 Georgia, serif; letter-spacing: .08em; transform: skewX(-12deg);
+  box-shadow: 0 0 0 2px #ffd84a, 0 3px 0 #3a0d08; animation: critical-label .5s ease-out both;
+}
+@keyframes critical-lines { from { opacity: .95; transform: scale(.72); } 45% { opacity: .7; } to { opacity: 0; transform: scale(1.18) rotate(5deg); } }
+@keyframes critical-slam {
+  from { opacity: 0; transform: scale(2.6); } 18% { opacity: 1; transform: scale(.86); }
+  30% { transform: scale(1.14); } 42%, to { opacity: 1; transform: translateY(-12px) scale(1); }
+}
+@keyframes critical-label { from { opacity: 0; transform: skewX(-12deg) scale(2.2); } 35% { opacity: 1; transform: skewX(-12deg) scale(.94); } to { opacity: 1; transform: skewX(-12deg) scale(1); } }
+
+#combat-screen[data-deflected] .combat-damage b {
+  font: 900 clamp(22px, 6.4vw, 46px)/1 system-ui, sans-serif; letter-spacing: .04em; color: transparent; text-shadow: none;
+  background: linear-gradient(100deg, #7f8b9a 20%, #eef4ff 42%, #fff 50%, #a9b5c3 60%, #6c7887 85%) 100% 0 / 250% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(2px 2px 0 #1c222b) drop-shadow(-1px -1px 0 #1c222b);
+}
+[data-phase="impact"][data-deflected] .combat-damage { animation: deflect-pop .7s cubic-bezier(.2,1.6,.4,1) both; }
+[data-phase="impact"][data-deflected] .combat-damage b { animation: metal-sweep .6s .15s ease-out both; }
+[data-phase="impact"][data-deflected] :is(.combat-blast, .combat-debris, .combat-wreck, .combat-smoke) { animation: none; opacity: 0; }
+[data-phase="impact"][data-deflected] .combat-impact {
+  --impact-size: clamp(14px, 5%, 36px); border-color: #dfeaff; box-shadow: 0 0 12px #bfe0ff99;
+  background: radial-gradient(circle, #ffffffee, #bcdcff66 55%, transparent 71%);
+  animation: burst .26s ease-out both;
+}
+[data-phase="impact"][data-deflected] .combat-flash { background: #e8f2ff; animation: impact-flash .12s ease-out both; }
+@keyframes deflect-pop { from { opacity: 0; transform: scale(1.8) rotate(-8deg); } 30% { opacity: 1; transform: scale(.94) rotate(2deg); } 45%, to { opacity: 1; transform: translateY(-8px) rotate(-3deg); } }
+@keyframes metal-sweep { to { background-position: 0 0; } }
+/* Ricochet streaks fly back toward the attacker, sparks turn blue-white and a metal arc flashes. */
+.combat-ricochet { width: 0; height: 0; opacity: 1; }
+.combat-ricochet::before, .combat-ricochet::after {
+  content: ""; position: absolute; left: 0; top: 0; width: 38px; height: 2px; opacity: 0;
+  border-radius: 2px; background: linear-gradient(90deg, #fff, #cfe8ff 60%, transparent); transform-origin: 0 50%; scale: var(--pan) 1;
+}
+[data-phase="impact"][data-deflected] .combat-ricochet::before { --ang: -152deg; animation: ricochet .36s ease-out both; }
+[data-phase="impact"][data-deflected] .combat-ricochet::after { --ang: -118deg; animation: ricochet .42s 45ms ease-out both; }
+@keyframes ricochet {
+  from { opacity: 1; transform: rotate(var(--ang)) scaleX(.15); }
+  40% { opacity: 1; transform: rotate(var(--ang)) translateX(12px) scaleX(1); }
+  to { opacity: 0; transform: rotate(var(--ang)) translateX(54px) scaleX(.4); }
+}
+[data-phase="impact"][data-deflected] .combat-sparks { background: #fff; color: #bfe0ff; animation: ricochet-sparks .4s ease-out both; }
+@keyframes ricochet-sparks { from { opacity: 1; transform: scale(.7); } to { opacity: 0; transform: translate(calc(var(--pan) * -26px), -30px) scale(2.4, 1.3) rotate(-24deg); } }
+[data-phase="impact"][data-deflected] .combat-ring {
+  border-color: transparent; border-left-color: #eef5ff; box-shadow: -3px 0 0 -1px #9fc6ff88;
+  rotate: calc(90deg - var(--pan) * 90deg); animation: deflect-arc .34s ease-out both;
+}
+@keyframes deflect-arc { from { opacity: 1; scale: .5; } 45% { opacity: 1; scale: 1; } to { opacity: 0; scale: 1.25; } }
+[data-armored] .combat-damage small { color: #f1f6ff; border-color: #d9e4ef; background: linear-gradient(#66727f, #2b333d); }
+
+/* ---- Result: a banner for every fight, the winners cheer, the name plates show who won ---- */
+[data-phase="result"]:not([data-outcome]) .combat-stage {
+  top: 50%; left: 50%; right: auto; translate: -50% -50%; padding: .16em 1.1em;
+  border: 0; border-block: 2px solid var(--result-rim, #e8c27a); border-radius: 0; box-shadow: none;
+  background: linear-gradient(90deg, transparent, #141c2ef0 16% 84%, transparent);
+  color: var(--result-ink, #ffe9b0); font-size: clamp(26px, 9vw, 48px); letter-spacing: .2em; text-indent: .2em;
+  white-space: nowrap; text-shadow: 0 2px 0 #0b0f19, 0 0 14px #ffb45a88;
+  animation: result-slam .5s cubic-bezier(.2,.9,.3,1.25) both;
+}
+[data-phase="result"]:not([data-outcome]) .combat-stage::after { content: none; }
+[data-phase="result"][data-winner="enemy"] .combat-stage { --result-rim: #8ea5c1; --result-ink: #dfeaff; text-shadow: 0 2px 0 #0b0f19; }
+[data-phase="result"]:not([data-winner]) .combat-stage { --result-rim: #a7bda6; --result-ink: #f3f0e4; font-size: clamp(20px, 6.5vw, 34px); }
+@keyframes result-slam { from { opacity: 0; scale: 1.9; } 60% { opacity: 1; scale: .96; } to { scale: 1; } }
+[data-phase="result"][data-winner="player"] .formation.ally .fighter,
+[data-phase="result"][data-winner="enemy"] .formation.foe .fighter {
+  animation: victory-hop .34s calc(var(--column, 0) * 55ms + 140ms) ease-out 2 both;
+}
+[data-phase="result"][data-winner] .formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter { background-position-y: var(--pose-aim); }
+@keyframes victory-hop { 40% { translate: 0 -9%; } }
+[data-phase="result"][data-winner="player"] .combat-team.ally,
+[data-phase="result"][data-winner="enemy"] .combat-team.foe { animation: plate-win .9s ease-out both; }
+[data-phase="result"][data-winner="enemy"] .combat-team.ally,
+[data-phase="result"][data-winner="player"] .combat-team.foe { opacity: .5; transition: opacity .5s ease-out; }
+@keyframes plate-win {
+  40% { box-shadow: inset 0 0 0 2px var(--side), 0 0 16px var(--side); }
+  to { box-shadow: inset 0 0 0 1px var(--side), inset 0 11px 22px -17px var(--side); }
+}
+/* The map-deciding finale: light rays and a stamped title for victory, a falling flag and closing dark for defeat. */
+.combat-outcome h3 { position: relative; overflow: hidden; }
+.combat-outcome h3::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; opacity: 0; translate: -120% 0;
+  background: linear-gradient(100deg, transparent, #fff6d8a8 50%, transparent);
+}
+[data-outcome="victory"] .combat-outcome::before {
+  content: ""; position: absolute; left: 50%; top: 40%; width: 220%; aspect-ratio: 1; z-index: -2; pointer-events: none;
+  translate: -50% -50%; border-radius: 50%; opacity: .75;
+  background: repeating-conic-gradient(#ffd98a30 0 6deg, transparent 6deg 18deg);
+  -webkit-mask: radial-gradient(closest-side, #000 8%, transparent 70%); mask: radial-gradient(closest-side, #000 8%, transparent 70%);
+  animation: verdict-rays 2.4s ease-out both;
+}
+[data-outcome="victory"] .combat-outcome h3 { animation: verdict-stamp .62s .18s cubic-bezier(.2,.9,.3,1.3) both; }
+[data-outcome="victory"] .combat-outcome h3::after { animation: verdict-sheen .9s .85s ease-in-out both; }
+@keyframes verdict-rays { from { opacity: 0; rotate: -25deg; scale: .4; } 30% { opacity: 1; } to { opacity: .75; rotate: 0deg; scale: 1; } }
+@keyframes verdict-stamp { from { opacity: 0; scale: 2.2; } 55% { opacity: 1; scale: .94; } to { scale: 1; } }
+@keyframes verdict-sheen { from { opacity: 1; translate: -120% 0; } to { opacity: 1; translate: 260% 0; } }
+[data-outcome="defeat"] .combat-outcome::before {
+  content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  box-shadow: inset 0 0 90px 30px #050a14; animation: outcome-arrive 1.6s ease-in both;
+}
+[data-outcome="defeat"] .combat-outcome h3 { animation: verdict-sink 1.1s .3s cubic-bezier(.3,.6,.3,1) both; }
+@keyframes verdict-sink { from { opacity: 0; translate: 0 -18px; } to { opacity: 1; translate: 0 0; } }
+
+/* ---- Pause everything that keeps moving once the result is up, to spend the budget on the finale ---- */
+[data-phase="result"] :is(.combat-atmosphere, .combat-clouds i, .fighter-sprite, .combat-backdrop::after) { animation-play-state: paused; }
+
+/* ---- Portrait phones: the taller field gets bigger damage numbers ---- */
+@media (max-width: 550px) and (min-height: 500px) {
+  .combat-damage b { font-size: clamp(34px, 10vw, 52px); }
+  [data-hit-tier="light"] .combat-damage b { font-size: clamp(28px, 8vw, 42px); }
+  [data-hit-tier="heavy"] .combat-damage b { font-size: clamp(38px, 11.5vw, 58px); }
+  #combat-screen[data-critical] .combat-damage b { font-size: clamp(40px, 12.5vw, 62px); }
+}
+
+/* ---- Reduce motion: no new movement; hide the one-off layers, keep text and still states ---- */
+@media (prefers-reduced-motion: reduce) {
+  #combat-screen, #combat-screen *, #combat-screen *::before, #combat-screen *::after { animation: none !important; transition: none !important; }
+  :is(.combat-terrain, .combat-dust, .combat-pillar, .combat-chain, .combat-lines, .combat-ricochet, .combat-embers),
+  .combat-camera::before, .combat-camera::after, .combat-volley b { opacity: 0 !important; }
+  #combat-screen[data-skies] .combat-clouds { translate: none !important; }
+  [data-defense-domain="sea"] .combat-hit::before, [data-defense-domain="sea"] .combat-hit::after { opacity: 0 !important; }
+}
