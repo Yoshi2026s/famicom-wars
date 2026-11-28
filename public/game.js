@@ -113,6 +113,7 @@ const titleResume = document.getElementById('title-resume');
 const titleResumeDetail = document.getElementById('title-resume-detail');
 const titleNew = document.getElementById('title-new');
 const gameMenu = document.getElementById('game-menu');
+const suspendError = document.getElementById('suspend-error');
 const menuSurrender = document.getElementById('menu-surrender');
 const menuConfirm = document.getElementById('menu-confirm');
 const menuConfirmTitle = document.getElementById('menu-confirm-title');
@@ -173,8 +174,9 @@ function renderSaveStatus() {
 }
 
 function saveProgress() {
-  crossingSave.write(game.crossingSnapshot());
+  const saved = crossingSave.write(game.crossingSnapshot());
   renderSaveStatus();
+  return saved;
 }
 
 // Places are described by facility or terrain instead of grid coordinates.
@@ -336,7 +338,8 @@ function canAct(unit) {
 function nextFriendlyUnit() {
   const units = game.friendlyUnits;
   const current = units.indexOf(game.activeUnit);
-  return units.slice(current + 1).concat(units.slice(0, current)).find(canAct);
+  const other = units.slice(current + 1).concat(units.slice(0, current)).find(canAct);
+  return other ?? (!game.selected && game.canMove ? game.activeUnit : null);
 }
 
 function friendlyAction(unit) {
@@ -738,7 +741,7 @@ function render() {
   const inspection = inspectedCell && !waiting && !game.result ? `マス情報：${inspectedCell.info.join(' · ')}` : '';
   if (inspection) message.textContent = inspection;
   if (mobileField) {
-    let summary = inspection || (noUnit ? state.textContent : `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`);
+    let summary = inspection || (noUnit ? '「ユニット生産」で最初の部隊を選べます' : `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`);
     if (waiting) summary = actingEnemy ? `敵${actingEnemy.name}が行動中` : state.textContent;
     if (game.result) summary = state.textContent;
     if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
@@ -1335,10 +1338,10 @@ actionDialog.addEventListener('close', () => {
 endTurn.addEventListener('click', (event) => {
   if (event.detail > 1 || inputBlocked()) return;
   const ready = game.friendlyUnits.filter(unit => ['ready', 'attack'].includes(friendlyAction(unit))).length;
+  const note = !game.friendlyUnits.length ? '味方部隊をまだ生産していません。生産せずに敵の手番へ進みます。'
+    : ready ? `まだ行動できる部隊が${ready}部隊あります。終了すると敵の手番になります。` : '終了すると敵の手番になります。';
   combatAudio.cue('open');
-  confirmMenu('ターンを終了しますか？',
-    ready ? `まだ行動できる部隊が${ready}部隊あります。終了すると敵の手番になります。` : '終了すると敵の手番になります。',
-    'ターン終了', finishTurn, false);
+  confirmMenu(endTurn, 'ターンを終了しますか？', note, 'ターン終了', finishTurn, false);
 });
 function finishTurn() {
   if (inputBlocked() || !game.beginEnemyTurn()) return;
@@ -1942,36 +1945,48 @@ const menuBlocked = () => portraitMode.blocked || combatScreen.active || waiting
 document.getElementById('menu-open').addEventListener('click', () => {
   if (menuBlocked() || titleScreen.open) return;
   menuSurrender.disabled = Boolean(game.result);
+  suspendError.hidden = true;
   combatAudio.cue('open');
   gameMenu.showModal();
 });
-function confirmMenu(title, text, label, action, danger = true) {
-  if (gameMenu.open) gameMenu.close();
+function confirmMenu(opener, title, text, label, action, danger = true) {
   menuConfirmTitle.textContent = title;
   menuConfirmText.textContent = text;
   menuConfirmOk.textContent = label;
   menuConfirmOk.classList.toggle('danger', danger);
   menuConfirmAction = action;
+  // Touching a button in Safari may leave focus on its dialog. Give Escape a precise return target.
+  opener.focus({preventScroll: true});
   menuConfirm.showModal();
 }
 document.getElementById('menu-confirm-cancel').addEventListener('click', () => menuConfirm.close());
-menuConfirm.addEventListener('close', () => { menuConfirmAction = null; });
+menuConfirm.addEventListener('close', () => {
+  if (!menuConfirm.open) menuConfirmAction = null;
+});
 menuConfirmOk.addEventListener('click', (event) => {
   const action = menuConfirmAction;
   if (event.detail > 1 || !action) return;
+  menuConfirmAction = null;
   menuConfirm.close();
   if (menuBlocked()) return;
+  if (gameMenu.open) gameMenu.close();
   action();
 });
 document.getElementById('menu-suspend').addEventListener('click', () => {
-  gameMenu.close();
   if (menuBlocked()) return;
+  // A staged move's snapshot already describes its origin. Keep it on screen until the write succeeds.
+  if (!saveProgress()) {
+    suspendError.textContent = saveStatus.textContent;
+    suspendError.hidden = false;
+    return;
+  }
   game.cancelMove();
-  saveProgress();
+  gameMenu.close();
   render();
   showTitle();
 });
-document.getElementById('menu-restart').addEventListener('click', () => confirmMenu(
+document.getElementById('menu-restart').addEventListener('click', event => confirmMenu(
+  event.currentTarget,
   '最初からやり直しますか？',
   '同じマップ・同じCPUの強さで、ターン1から始めます。今の対戦の進行は失われます。',
   '最初からやり直す',
@@ -1984,7 +1999,7 @@ document.getElementById('menu-restart').addEventListener('click', () => confirmM
 ));
 menuSurrender.addEventListener('click', () => {
   if (menuSurrender.disabled) return;
-  confirmMenu('降伏しますか？', 'この対戦は敗北で終わります。降伏は取り消せません。', '降伏する', () => {
+  confirmMenu(menuSurrender, '降伏しますか？', 'この対戦は敗北で終わります。降伏は取り消せません。', '降伏する', () => {
     if (!game.surrender()) return;
     saveProgress();
     music.setScene(game.result);

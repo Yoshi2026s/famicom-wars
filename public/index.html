@@ -24,7 +24,7 @@
     <script defer src="./scene-art.js?v=content2"></script>
     <script defer src="./combat.js?v=cinema-score"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
-    <script defer src="./game.js?v=endconfirm1"></script>
+    <script defer src="./game.js?v=playtest-menu"></script>
   </head>
   <body>
     <header class="masthead">
@@ -231,6 +231,7 @@
     </dialog>
     <dialog id="game-menu" class="game-menu" aria-labelledby="game-menu-title">
       <h2 id="game-menu-title">メニュー</h2>
+      <p id="suspend-error" role="alert" hidden></p>
       <div class="menu-actions">
         <button type="button" id="menu-suspend"><b>中断してタイトルへ</b><small>進行を保存します。タイトルの「中断から再開」で続けられます</small></button>
         <button type="button" id="menu-restart"><b>最初から</b><small>同じマップ・同じCPUの強さで、ターン1からやり直します</small></button>
