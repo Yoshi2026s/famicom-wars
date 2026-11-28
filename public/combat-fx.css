@@ -738,6 +738,10 @@
 :is([data-panorama="forest"], [data-panorama="ruins"]) .combat-backdrop img { object-position: center 65%; }
 [data-panorama="forest"] .combat-embers { opacity: .25; }
 :is([data-panorama="forest"], [data-panorama="ruins"]) .combat-warfront { opacity: .34; }
+[data-panorama="forest"] .formation[data-terrain="forest"]::before {
+  opacity: .48;
+  filter: brightness(.68) saturate(.48);
+}
 
 .combat-launch-wake {
   position: absolute;
