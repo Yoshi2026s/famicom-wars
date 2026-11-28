@@ -22,7 +22,7 @@
   }
   function metal(ctx, y0, y1, p, tone = 'base') {
     const base = tone === 'camo' ? p.camo : p.base;
-    return vgrad(ctx, y0, y1, [[0, p.light], [.22, base], [.75, base], [1, p.dark]]);
+    return vgrad(ctx, y0, y1, [[0, p.light], [.12, p.light], [.22, base], [.57, base], [.86, p.dark], [1, base]]);
   }
   function poly(ctx, points) {
     ctx.beginPath();
@@ -35,6 +35,23 @@
     ctx.fill();
     if (outline) { ctx.strokeStyle = outline; ctx.lineWidth = width; ctx.stroke(); }
   }
+  function strokeLine(ctx, points, color, width = 1) {
+    ctx.beginPath();
+    for (const [i, point] of points.entries()) {
+      if (i === 0) ctx.moveTo(...point);
+      else ctx.lineTo(...point);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+  function vents(ctx, x, y, width, rows) {
+    ctx.fillStyle = '#1c2a32';
+    ctx.fillRect(x, y, width, rows * 3 + 1);
+    for (let row = 0; row < rows; row++) {
+      strokeLine(ctx, [[x + 1, y + row * 3 + 1], [x + width - 2, y + row * 3 + 1]], '#879292');
+    }
+  }
   function camo(ctx, points, p, seed, alpha = .55) {
     ctx.save();
     poly(ctx, points);
@@ -43,10 +60,14 @@
     const xs = points.map(q => q[0]), ys = points.map(q => q[1]);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
     ctx.globalAlpha = alpha;
-    for (let i = 0; i < 14; i++) {
+    // Broad, angular paint masks follow the length of a panel. Small dots turn
+    // into visual noise when the same artwork is used on the board.
+    for (let i = 0; i < 8; i++) {
       ctx.fillStyle = i % 3 ? p.camo : p.camo2;
-      ctx.beginPath();
-      ctx.ellipse(x0 + r() * (x1 - x0), y0 + r() * (y1 - y0), 6 + r() * 16, 3 + r() * 7, r() * 3, 0, Math.PI * 2);
+      const x = x0 + r() * (x1 - x0), y = y0 + r() * (y1 - y0);
+      const w = (x1 - x0) * (.12 + r() * .17), h = (y1 - y0) * (.12 + r() * .18);
+      poly(ctx, [[x-w,y], [x-w*.5,y-h], [x+w*.1,y-h*.7], [x+w,y-h*1.4],
+        [x+w*.58,y+h*.22], [x+w*.14,y+h], [x-w*.34,y+h*.7]]);
       ctx.fill();
     }
     ctx.restore();
@@ -55,23 +76,32 @@
     ctx.save();
     poly(ctx, points);
     ctx.clip();
-    const ys = points.map(q => q[1]);
-    const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
-    g.addColorStop(0, `rgba(255,255,255,${strength})`);
-    g.addColorStop(.18, 'rgba(255,255,255,0)');
+    const xs = points.map(q => q[0]), ys = points.map(q => q[1]);
+    const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+    const g = ctx.createLinearGradient(left, top, left + (right-left)*.22, bottom);
+    g.addColorStop(0, `rgba(255,226,186,${strength})`);
+    g.addColorStop(.36, 'rgba(255,238,217,0)');
+    g.addColorStop(.77, 'rgba(25,40,59,.10)');
+    g.addColorStop(1, 'rgba(12,25,44,.34)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(left, top, right-left, bottom-top);
+    // Grazing light catches the exposed upper edges of the plate.
+    for (const [i, a] of points.entries()) {
+      const b = points[(i+1) % points.length];
+      if (b[0] > a[0] && a[1] <= (top+bottom)*.5) strokeLine(ctx, [a,b], 'rgba(255,226,188,.68)', 2.8);
+    }
     ctx.restore();
   }
   function groundShadow(ctx, cx, w, y = GROUND + 4, alpha = .4) {
-    const g = ctx.createRadialGradient(cx, y, 2, cx, y, w);
+    ctx.save();
+    ctx.translate(cx, y);
+    ctx.scale(1, .13);
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, w);
     g.addColorStop(0, `rgba(10,14,10,${alpha})`);
     g.addColorStop(1, 'rgba(10,14,10,0)');
     ctx.fillStyle = g;
-    ctx.save();
-    ctx.scale(1, .22);
     ctx.beginPath();
-    ctx.arc(cx, y / .22, w, 0, Math.PI * 2);
+    ctx.arc(0, 0, w, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -86,6 +116,13 @@
     ctx.beginPath(); ctx.arc(x, y, r * .45, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#2a2e31';
     ctx.beginPath(); ctx.arc(x, y, r * .14, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#777b77'; ctx.lineWidth = Math.max(1,r*.08);
+    ctx.beginPath(); ctx.arc(x,y,r*.8,Math.PI*1.07,Math.PI*1.76); ctx.stroke();
+    ctx.fillStyle = '#c4bba7';
+    for (let i=0; i<5; i++) {
+      const a = i*Math.PI*2/5;
+      ctx.fillRect(x+Math.cos(a)*r*.3-1, y+Math.sin(a)*r*.3-1, 1.8, 1.8);
+    }
   }
   function track(ctx, x0, x1, y, h, count) {
     const r = h / 2;
@@ -114,6 +151,11 @@
     ctx.strokeStyle = 'rgba(12,16,20,.85)'; ctx.lineWidth = 1.8; ctx.strokeRect(0, -thick / 2, length, thick);
     ctx.fillStyle = p.dark;
     ctx.fillRect(length - thick * 1.6, -thick * .7, thick * 1.6, thick * 1.4);
+    const end = length < 0 ? length : length - thick * 1.6;
+    ctx.fillStyle = p.light;
+    ctx.fillRect(end, -thick*.62, thick*1.5, Math.max(1,thick*.18));
+    ctx.fillStyle = 'rgba(246,226,190,.75)';
+    ctx.fillRect(length*.22, -thick*.36, length*.35, Math.max(1,thick*.13));
     ctx.restore();
     return [x + Math.cos(angle) * length, y - Math.sin(angle) * length];
   }
@@ -159,9 +201,15 @@
   }
   function glass(ctx, points) {
     poly(ctx, points);
-    const ys = points.map(q => q[1]);
-    ctx.fillStyle = vgrad(ctx, Math.min(...ys), Math.max(...ys), [[0, '#d9f3ff'], [.35, '#6fa9c8'], [1, '#1c3446']]);
+    const xs = points.map(q => q[0]), ys = points.map(q => q[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const w = x1-x0, h = y1-y0;
+    ctx.fillStyle = vgrad(ctx, y0, y1, [[0, '#d9f4ed'], [.32, '#8db9bd'], [.56, '#658eac'], [.6, '#324a60'], [1, '#1c3446']]);
     ctx.fill();
+    ctx.save(); ctx.clip();
+    fillShape(ctx, [[x0+w*.32,y0],[x0+w*.55,y0],[x0+w*.25,y1],[x0+w*.07,y1]], 'rgba(255,244,214,.42)', null);
+    ctx.restore();
+    poly(ctx, points);
     ctx.strokeStyle = 'rgba(12,16,20,.9)'; ctx.lineWidth = 1.8; ctx.stroke();
   }
 
@@ -184,12 +232,21 @@
     }
     // Backpack.
     fillShape(ctx, [[84, 92], [104, 88], [106, 134], [86, 138]], vgrad(ctx, 88, 138, [[0, '#8a7a55'], [1, '#4c422d']]));
+    fillShape(ctx, [[80,96],[88,90],[101,90],[100,99],[87,104],[80,102]],
+      vgrad(ctx,90,104,[[0,'#c1ae76'],[1,'#655f43']]), '#393b30', 1.4);
+    strokeLine(ctx, [[88,102],[92,102],[94,132]], '#b5a47e', 2);
+    strokeLine(ctx, crouch ? [[131,147],[141,148],[147,161],[138,160]] : [[134,156],[145,154],[151,167],[138,170]], p.camo2, 3);
+    strokeLine(ctx, crouch ? [[91,167],[96,172]] : [[99,198],[119,197]], '#99876c', 2);
     // Torso with vest.
     const torso = [[100, 86], [148, 86], [152, hip + 18], [104, hip + 18]];
     fillShape(ctx, torso, vgrad(ctx, 86, hip + 18, [[0, p.light], [.3, p.cloth], [1, p.dark]]));
     camo(ctx, torso, p, 11, .45);
     fillShape(ctx, [[106, 98], [144, 98], [146, 132], [108, 132]], vgrad(ctx, 98, 132, [[0, '#6b6a55'], [1, '#3b3a2e']]), 'rgba(12,16,20,.6)', 1.4);
-    for (const x of [112, 124, 136]) fillShape(ctx, [[x, 112], [x + 9, 112], [x + 9, 126], [x, 126]], '#4f4d3e', 'rgba(0,0,0,.5)', 1);
+    for (const x of [112, 124, 136]) {
+      fillShape(ctx, [[x,112],[x+9,112],[x+10,125],[x+2,127]], vgrad(ctx,112,127,[[0,'#8f9270'],[.38,'#64674d'],[1,'#434b3c']]), 'rgba(0,0,0,.6)', 1);
+      strokeLine(ctx, [[x+1,116],[x+8,115]], '#c3ba91', 1.3);
+    }
+    strokeLine(ctx, [[109,89],[116,102],[136,109]], '#c6b78e', 3);
     stripe(ctx, 100, 90, 10, 8, p);
     // Head and helmet.
     const face = ctx.createRadialGradient(140, 70, 2, 136, 74, 18);
@@ -197,14 +254,18 @@
     ctx.fillStyle = face;
     ctx.beginPath(); ctx.ellipse(136, 74, 15, 17, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(12,16,20,.8)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#2a201a'; ctx.fillRect(140, 70, 5, 3);
+    fillShape(ctx, [[137,68],[152,69],[151,76],[146,77],[138,75]], '#273945', '#222c30', 1.3);
+    strokeLine(ctx, [[140,70],[149,70]], '#b7d9d3', 1.8);
+    strokeLine(ctx, [[125,71],[128,82],[139,88],[146,85]], '#6d614e', 2.6);
     const helmet = [[114, 66], [118, 48], [134, 40], [152, 46], [160, 62], [162, 68]];
     ctx.beginPath(); ctx.moveTo(112, 68); ctx.quadraticCurveTo(118, 38, 140, 40); ctx.quadraticCurveTo(162, 42, 164, 68); ctx.closePath();
     ctx.fillStyle = metal(ctx, 40, 68, p); ctx.fill();
     ctx.strokeStyle = 'rgba(12,16,20,.9)'; ctx.lineWidth = 2.2; ctx.stroke();
     camo(ctx, helmet, p, 5, .5);
     ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(130, 47, 10, 3.5, -.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = p.mark; ctx.fillRect(118, 60, 40, 5);
+    fillShape(ctx, [[115,60],[141,59],[160,62],[161,66],[141,64],[115,65]], p.mark, null);
+    strokeLine(ctx, [[117,58],[123,49],[133,45]], '#e7d7b3', 2);
+    ctx.fillStyle = '#a9a58c'; ctx.fillRect(118,63,5,5);
   }
 
   function drawInfantry(ctx, p, pose) {
@@ -251,6 +312,10 @@
     fillShape(ctx, [[100, 104], [146, 104], [152, 122], [96, 122]], metal(ctx, 104, 122, p));
     const [mx, my] = barrel(ctx, 146, 110, 52, 5, 0, p);
     stripe(ctx, 60, 150, 140, 6, p);
+    vents(ctx,64,136,22,3);
+    strokeLine(ctx, [[134,132],[154,130],[165,141],[163,165],[134,167],[134,132]], 'rgba(20,35,43,.58)', 1.8);
+    ctx.fillStyle = '#e8d4a4'; ctx.fillRect(213,153,7,4);
+    strokeLine(ctx, [[77,123],[73,87],[71,78]], '#4b5553', 1.8);
     insignia(ctx, 120, 160, 9, p);
     for (const x of [74, 120, 180]) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x, 186, 21, Math.PI, 0); ctx.fill(); wheel(ctx, x, 186, 18); }
     return {muzzle: [mx, my], angle: 0};
@@ -270,6 +335,8 @@
     fillShape(ctx, [[66, 150], [126, 150], [118, 134], [74, 134]], metal(ctx, 134, 150, p, 'camo'));
     const [mx, my] = barrel(ctx, 96, 138, 74, 14, .75, p);
     stripe(ctx, 40, 160, 128, 5, p);
+    for (const x of [52,84,116,149]) strokeLine(ctx, [[x,153],[x-1,176]], 'rgba(25,39,44,.65)', 2);
+    ctx.fillStyle = '#ede3b0'; ctx.fillRect(222,154,5,5);
     insignia(ctx, 200, 168, 9, p);
     for (const x of [64, 112, 200]) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x, 188, 20, Math.PI, 0); ctx.fill(); wheel(ctx, x, 188, 17); }
     return {muzzle: [mx, my], angle: .75};
@@ -291,6 +358,9 @@
     fillShape(ctx, [[108, 110], [126, 108], [128, 100], [110, 100]], metal(ctx, 100, 110, p));
     const [mx, my] = barrel(ctx, 182, 126, 66, 9, 0, p);
     stripe(ctx, 84, 128, 30, 6, p);
+    vents(ctx,43,152,26,3);
+    glass(ctx, [[112,102],[122,102],[123,106],[112,106]]);
+    strokeLine(ctx, [[78,118],[77,104],[76,82]], '#434e52', 1.6);
     insignia(ctx, 150, 132, 9, p);
     return {muzzle: [mx, my], angle: 0};
   }
@@ -307,6 +377,8 @@
     specular(ctx, turret);
     const [mx, my] = barrel(ctx, 138, 118, 96, 10, .42, p);
     stripe(ctx, 56, 132, 70, 6, p);
+    vents(ctx,57,115,20,3);
+    strokeLine(ctx, [[96,113],[122,112],[128,128],[101,129],[96,113]], 'rgba(20,35,43,.65)', 1.5);
     insignia(ctx, 176, 160, 8, p);
     return {muzzle: [mx, my], angle: .42};
   }
@@ -326,10 +398,13 @@
     const pod = [[0, -30], [112, -30], [112, 4], [0, 4]];
     fillShape(ctx, pod, metal(ctx, -30, 4, p, 'camo'));
     camo(ctx, pod, p, 63);
-    for (let j = 0; j < 2; j++) for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = '#1b1d1f'; ctx.beginPath(); ctx.arc(112, -22 + j * 15 + (i % 2) * 0, 5, 0, Math.PI * 2); ctx.fill();
+    fillShape(ctx, [[106,-29],[117,-25],[117,7],[106,3]], metal(ctx,-29,7,p), '#29343b', 1.4);
+    for (let row=0; row<3; row++) for (let column=0; column<2; column++) {
+      const x=109+column*5, y=-23+row*10+column*2;
+      ctx.fillStyle = '#192429'; ctx.beginPath(); ctx.ellipse(x,y,2.6,4,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c58e76'; ctx.fillRect(x-1,y-2,1.5,2);
     }
-    for (let i = 0; i < 4; i++) { ctx.fillStyle = '#d24c2c'; ctx.beginPath(); ctx.arc(113, -24 + i * 8, 3.2, 0, Math.PI * 2); ctx.fill(); }
+    strokeLine(ctx, [[6,-25],[97,-25]], p.light, 1.5);
     stripe(ctx, 10, -12, 60, 5, p);
     ctx.restore();
     insignia(ctx, 200, 170, 9, p);
@@ -354,6 +429,7 @@
     ctx.save(); ctx.translate(96, 84); ctx.rotate(-.3);
     ctx.fillStyle = vgrad(ctx, -18, 4, [[0, '#e4e8ea'], [1, '#7c8588']]);
     ctx.beginPath(); ctx.ellipse(0, 0, 22, 8, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.stroke();
+    strokeLine(ctx, [[-16,-4],[2,-14],[8,-4]], '#555d60', 1.5);
     ctx.restore();
     stripe(ctx, 90, 132, 50, 6, p);
     insignia(ctx, 190, 160, 8, p);
@@ -378,6 +454,7 @@
     fillShape(ctx, [[126, 128], [168, 128], [172, 140], [124, 140]], vgrad(ctx, 128, 140, [[0, '#6b7074'], [1, '#2a2d30']]));
     const [mx, my] = barrel(ctx, 204, 138, 26, 4, -.1, {light: '#8a8f93', base: '#4a4f52', dark: '#1d2022'});
     stripe(ctx, 104, 112, 40, 5, p);
+    vents(ctx,110,99,19,3);
     insignia(ctx, 76, 108, 7, p);
     // Skids.
     ctx.strokeStyle = '#25282a'; ctx.lineWidth = 4;
@@ -387,9 +464,17 @@
     const blur = ctx.createLinearGradient(30, 0, 250, 0);
     blur.addColorStop(0, 'rgba(30,34,38,0)'); blur.addColorStop(.5, 'rgba(30,34,38,.55)'); blur.addColorStop(1, 'rgba(30,34,38,0)');
     ctx.fillStyle = blur; ctx.beginPath(); ctx.ellipse(156, 68, 112, 6, 0, 0, Math.PI * 2); ctx.fill();
+    strokeLine(ctx, [[48,70],[154,68],[244,65]], '#485557', 1.5);
+    strokeLine(ctx, [[55,69],[91,68]], '#d4cbb2', 1.2);
+    fillShape(ctx, [[148,71],[155,65],[163,68],[166,72]], metal(ctx,65,72,p), '#323d43', 1);
     return {muzzle: [mx, my], angle: -.1};
   }
 
+  function jetIntake(ctx, x, y, p) {
+    fillShape(ctx, [[x,y],[x+24,y-3],[x+31,y],[x+24,y+8],[x+2,y+9]], metal(ctx,y-3,y+9,p), '#35444a', 1.6);
+    fillShape(ctx, [[x+19,y],[x+28,y],[x+23,y+5],[x+16,y+6]], '#1a2831', null);
+    strokeLine(ctx, [[x+3,y+1],[x+18,y-1],[x+25,y-1]], p.light, 1.4);
+  }
   function drawFighter(ctx, p) {
     groundShadow(ctx, 128, 70, GROUND + 4, .18);
     // Far wing.
@@ -405,6 +490,8 @@
     // Near wing.
     fillShape(ctx, [[96, 126], [162, 126], [110, 166], [90, 166]], metal(ctx, 126, 166, p));
     insignia(ctx, 112, 148, 9, p);
+    strokeLine(ctx, [[96,160],[106,160],[135,139]], p.dark, 1.5);
+    jetIntake(ctx,134,120,p);
     // Afterburner.
     const flame = ctx.createRadialGradient(16, 121, 1, 16, 121, 22);
     flame.addColorStop(0, 'rgba(255,245,210,.95)'); flame.addColorStop(.4, 'rgba(255,160,60,.75)'); flame.addColorStop(1, 'rgba(255,90,30,0)');
@@ -428,6 +515,8 @@
     for (const [x, y] of [[118, 150], [96, 170]]) {
       fillShape(ctx, [[x - 4, y - 7], [x + 36, y - 7], [x + 42, y], [x + 36, y + 7], [x - 4, y + 7]], vgrad(ctx, y - 7, y + 7, [[0, '#9aa1a5'], [1, '#2d3134']]));
       ctx.fillStyle = 'rgba(30,34,38,.5)'; ctx.beginPath(); ctx.ellipse(x + 44, y, 2, 14, 0, 0, Math.PI * 2); ctx.fill();
+      strokeLine(ctx, [[x,y-5],[x+29,y-5]], '#d5d3be', 1.6);
+      ctx.fillStyle = '#222f35'; ctx.fillRect(x+28,y-4,2,9);
     }
     insignia(ctx, 140, 122, 9, p);
     return {muzzle: [150, 150], angle: -1.2};
@@ -435,20 +524,36 @@
 
   function wake(ctx, x0, x1, y) {
     const g = ctx.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.75)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.ellipse((x0 + x1) / 2, y, (x1 - x0) / 2, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(40,110,150,.45)';
-    ctx.beginPath(); ctx.ellipse((x0 + x1) / 2 + 20, y + 4, (x1 - x0) / 2 + 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+    g.addColorStop(0,'rgba(140,194,190,0)'); g.addColorStop(.2,'rgba(140,194,190,.40)');
+    g.addColorStop(.8,'rgba(202,228,211,.64)'); g.addColorStop(1,'rgba(248,242,209,.82)');
+    for (let i=0; i<3; i++) {
+      const base=y+2+i*2.5;
+      ctx.beginPath(); ctx.moveTo(x0-i*5,base+i);
+      ctx.bezierCurveTo(x0+38,base-4,x1-32,base+3,x1-i*9,base-5);
+      ctx.strokeStyle=g; ctx.lineWidth=3-i*.6; ctx.stroke();
+    }
   }
   function hull(ctx, x0, x1, top, bottom, p, seed) {
-    const shape = [[x0, top], [x1, top - 6], [x1 - 26, bottom], [x0 + 10, bottom]];
+    const mid=(x0+x1)/2;
+    const shape = [[x0,top],[mid,top-1],[x1-14,top-5],[x1,top-9],
+      [x1-7,top+5],[x1-20,bottom-4],[x1-34,bottom],[mid,bottom+1],[x0+15,bottom],[x0+4,bottom-7]];
     fillShape(ctx, shape, metal(ctx, top - 6, bottom, p));
     camo(ctx, shape, p, seed, .35);
     specular(ctx, shape, .3);
-    ctx.fillStyle = 'rgba(20,24,28,.6)'; ctx.fillRect(x0 + 6, bottom - 7, x1 - x0 - 30, 4);
-    ctx.fillStyle = vgrad(ctx, top - 4, top + 2, [[0, '#b8b0a0'], [1, '#6c6458']]);
-    ctx.fillRect(x0 + 2, top - 3, x1 - x0 - 6, 4);
+    ctx.save(); poly(ctx,shape); ctx.clip();
+    fillShape(ctx, [[x0,bottom-7],[mid,bottom-4],[x1,bottom-12],[x1,bottom+3],[x0,bottom+3]],
+      vgrad(ctx,bottom-10,bottom+1,[[0,'#8c6657'],[.4,'#684f47'],[1,'#343e45']]), null);
+    for (let x=x0+20; x<x1-20; x+=17) {
+      ctx.fillStyle='#29383e'; ctx.fillRect(x,top+4,3.8,2.6);
+      ctx.fillStyle='#bba995'; ctx.fillRect(x,top+6.7,3,1);
+    }
+    ctx.restore();
+    // Reflected sky marks the waterline even in the dark foreground of the bay.
+    strokeLine(ctx, [[x0+15,bottom],[mid,bottom+1],[x1-34,bottom],[x1-20,bottom-4]], '#9aaba6', 2.2);
+    strokeLine(ctx, [[x0+1,top],[mid,top-1],[x1-14,top-5],[x1-2,top-8]], '#c8b9a1', 2.3);
+    // A short railing at the stern leaves the front turrets easy to read.
+    for (let x=x0+4; x<x0+29; x+=8) strokeLine(ctx,[[x,top],[x,top-6]],'#6d7778',1.4);
+    strokeLine(ctx,[[x0+4,top-6],[x0+28,top-6]],'#c1c3b6',1.2);
   }
 
   function drawPatrol(ctx, p) {
@@ -471,6 +576,7 @@
     fillShape(ctx, [[70, 150], [76, 118], [156, 118], [164, 150]], metal(ctx, 118, 150, p));
     fillShape(ctx, [[110, 118], [114, 92], [140, 92], [146, 118]], metal(ctx, 92, 118, p));
     glass(ctx, [[118, 98], [140, 98], [142, 108], [116, 108]]);
+    vents(ctx,87,126,23,3);
     ctx.fillStyle = '#2d3134'; ctx.fillRect(126, 60, 4, 32); ctx.fillRect(114, 68, 28, 3);
     fillShape(ctx, [[86, 118], [100, 118], [98, 100], [88, 100]], vgrad(ctx, 100, 118, [[0, '#4c5256'], [1, '#22262a']]));
     fillShape(ctx, [[188, 150], [212, 150], [210, 138], [192, 138]], metal(ctx, 138, 150, p));
@@ -487,6 +593,8 @@
     fillShape(ctx, [[70, 146], [78, 106], [170, 106], [178, 146]], metal(ctx, 106, 146, p));
     fillShape(ctx, [[104, 106], [110, 70], [146, 70], [152, 106]], metal(ctx, 70, 106, p));
     glass(ctx, [[114, 76], [144, 76], [146, 86], [112, 86]]);
+    for (const x of [117,127,137]) strokeLine(ctx,[[x,78],[x-2,86]],p.dark,1.4);
+    vents(ctx,92,115,22,3);
     ctx.fillStyle = '#2d3134'; ctx.fillRect(126, 34, 5, 36); ctx.fillRect(110, 44, 36, 3);
     for (const x of [86, 156]) fillShape(ctx, [[x, 106], [x + 14, 106], [x + 12, 82], [x + 2, 82]], vgrad(ctx, 82, 106, [[0, '#4c5256'], [1, '#22262a']]));
     let muzzle = [0, 0];
@@ -623,6 +731,7 @@
     const wing = [[112, 120], [146, 120], [112, 186], [90, 186]];
     fillShape(ctx, wing, metal(ctx, 120, 186, p));
     specular(ctx, wing, .3);
+    strokeLine(ctx, [[98,180],[107,178],[127,139]], p.dark, 1.6);
     insignia(ctx, 116, 164, 8, p);
     let muzzle = [0, 0];
     for (const [x, y] of [[132, 142], [118, 172]]) {
@@ -654,6 +763,10 @@
     camo(ctx, sail, p, 171, .18);
     specular(ctx, sail, .4);
     stripe(ctx, 117, 131, 52, 5, p);
+    for (const x of [127,136,145,154]) {
+      ctx.fillStyle='#15212a'; ctx.fillRect(x,127,5,2.8);
+    }
+    strokeLine(ctx, [[174,171],[198,171],[213,173]], 'rgba(225,219,192,.60)', 1.7);
     insignia(ctx, 140, 148, 8, p);
     fillShape(ctx, [[150, 158], [194, 160], [192, 165], [150, 165]], metal(ctx, 158, 165, dark), 'rgba(12,16,20,.85)', 1.6);
     // Water line over the submerged hull, with bow foam.
@@ -720,6 +833,8 @@
     ctx.fillStyle = '#3a3e41'; ctx.fillRect(196, 106, 4, 20);
     ctx.fillStyle = vgrad(ctx, 94, 110, [[0, '#e4e8ea'], [1, '#7c8588']]);
     ctx.fillRect(184, 96, 28, 12); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1.4; ctx.strokeRect(184, 96, 28, 12);
+    for (const x of [190,197,204]) strokeLine(ctx,[[x,97],[x,107]], '#78868b');
+    strokeLine(ctx, [[185,102],[211,102]], '#78868b');
     insignia(ctx, 204, 170, 9, p);
     for (const x of [56, 104, 150, 206]) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x, 188, 18, Math.PI, 0); ctx.fill(); wheel(ctx, x, 188, 15); }
     const c = Math.cos(.55), sn = Math.sin(.55);
@@ -733,6 +848,8 @@
     camo(ctx, [[60, 150], [66, 112], [170, 112], [178, 150]], p, 173, .3);
     fillShape(ctx, [[100, 112], [106, 82], [146, 82], [152, 112]], metal(ctx, 82, 112, p));
     glass(ctx, [[110, 88], [142, 88], [144, 98], [108, 98]]);
+    for (const x of [117,127,137]) strokeLine(ctx,[[x,89],[x-1,97]],p.dark,1.4);
+    vents(ctx,76,120,24,3);
     // Lattice mast with radar arrays.
     ctx.fillStyle = '#2d3134'; ctx.fillRect(124, 40, 4, 42); ctx.fillRect(110, 52, 32, 3);
     ctx.fillStyle = vgrad(ctx, 58, 74, [[0, '#d8dde0'], [1, '#6f787c']]);
@@ -768,6 +885,7 @@
       fillShape(ctx, [[x - 14, y], [x + 16, y], [x + 22, y + 5], [x + 16, y + 10], [x - 14, y + 10]], vgrad(ctx, y, y + 10, [[0, '#7c8a6a'], [1, '#2c331a']]), 'rgba(0,0,0,.8)', 1.2);
     }
     insignia(ctx, 116, 132, 8, p);
+    jetIntake(ctx,138,120,p);
     const flame = ctx.createRadialGradient(16, 124, 1, 16, 124, 18);
     flame.addColorStop(0, 'rgba(255,245,210,.9)'); flame.addColorStop(.4, 'rgba(255,160,60,.65)'); flame.addColorStop(1, 'rgba(255,90,30,0)');
     ctx.fillStyle = flame; ctx.beginPath(); ctx.ellipse(12, 124, 18, 7, 0, 0, Math.PI * 2); ctx.fill();
@@ -869,7 +987,8 @@
       const {data} = source.getContext('2d').getImageData(0, 0, W, H);
       let x0 = W, y0 = H, x1 = 0, y1 = 0;
       for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
-        if (data[(y * W + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        // A hovering aircraft's translucent ground shadow must not shrink its board icon.
+        if (data[(y * W + x) * 4 + 3] > 110) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       }
       if (x1 < x0) return still(id, team, facing);
       const pad = 4, w = x1 - x0 + 1 + pad * 2, h = y1 - y0 + 1 + pad * 2;

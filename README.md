@@ -99,17 +99,9 @@ node dev-server.mjs
 
 - 盤面・補助背景・部隊やホーム画面アイコンのドット絵の編集元は `scripts/draw-assets.mjs` です。`node scripts/draw-assets.mjs` でPNGを再生成できます。歩兵・偵察車・支援車・戦車の戦闘用画像は待機・構え・発射・反動・被弾・防御・撃破の7コマを1ファイルに格納しています。
 - 部隊の絵（マップ・戦闘画面・部隊一覧）は `public/unit-art.js` がブラウザー上で陰影・金属の質感・迷彩を付けて描くオリジナルの3D風イラストです。戦闘用の7コマ（待機・構え・発射・反動・被弾・伏せ・撃破）も同じファイルで描きます。描けない環境では従来のドット絵を使います。
-- 戦闘画面の山と草原の背景と、森・山・湿地の遮蔽物は `public/scene-art.js` がブラウザー上で描きます（山は陰影・雪・かすみ、草原は遠近のある草と花）。読み込み後に1回だけ、対応ブラウザーでは `public/scene-worker.js`（別スレッド）で描いて画面を止めないようにし、描けない環境では `highland-dusk.webp` と従来の遮蔽物を使います。
+- 戦闘背景は地上・空対地が夕方の高原、艦艇のいる戦闘が湾、航空部隊同士が雲海です。森・山・湿地の遮蔽物は `public/scene-art.js` が描きます。背景画像が届くまで地形に応じた代替背景を表示します。原画とWebPへの変換手順は[戦闘背景の素材](art/battle/README.md)にあります。
 - 作戦マップの地形（道路・川のつながり、海岸線、水深、森、山）と施設の絵は `public/map-art.js` がブラウザー上で描きます。マップごとに1枚のキャンバスへ描くため追加の画像ファイルはありません。描画は `public/map-worker.js`（Web Worker と OffscreenCanvas）が別スレッドで行い、対応していないブラウザーでは最初の表示のあとページ内で少しずつ描きます。描けない環境では従来のドット絵（`scripts/draw-assets.mjs` 製）で表示します。地形の凡例と全体図は従来の素材を使います。
-- 戦闘背景 `public/assets/highland-dusk.webp` は組み込みの画像生成で制作し、WebPに変換した素材です。
 - BGMの曲データとMP3生成は `scripts/compose-bgm.mjs` にあります。`pnpm install --frozen-lockfile` で生成用の依存関係を取得し、`node scripts/compose-bgm.mjs` でオリジナルの7曲を再生成できます。効果音はファイルを使わず、`public/combat-audio.js` が再生時に合成します。
-
-<details>
-<summary>戦闘背景の生成プロンプト</summary>
-
-> Create an original environment background for a retro browser tactical videogame battle. Landscape 3:2, edge to edge. Exceptional hand-crafted 32-bit pixel art with a perceptible pixel grid, nuanced clusters of color and selective dithering, elegant atmosphere. A luminous evening sun behind distant indigo mountain peaks over a wide highland valley; receding fir-covered ridges, amber rim light, violet cloud bands, light haze. The horizon is high (about 36% from top); from around 62% down is a broad uninterrupted FLAT readable meadow of sage grass and warm packed earth where side-view pixel soldiers will be composited; foreground grass only in little clusters at lower corners. Balanced composition with the sun slightly off-center. Keep the entire central three quarters and lower third readable and open so responsive crops also include the twilight valley and ground. Rich teal shadows and apricot gold sun, cinematic value separation without oppressive darkness. Background only, absolutely no sprites, no people, no buildings, no signs, no text, logos, battle effects, frames, or UI. Independent fictional setting; no resemblance to any specific game or existing asset.
-
-</details>
 
 ## GitHub Pages への公開
 

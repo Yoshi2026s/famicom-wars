@@ -44,6 +44,37 @@ test('戦闘画面の全兵種に専用の発射・被弾・撃破音があり�
   assert.notDeepEqual(audio.synthesize('shot-tank', 22050, 0), audio.synthesize('shot-tank', 22050, 1));
 });
 
+test('音声を先読みする各タイマーで1つだけ合成し、繰り返し依頼と高サンプルレートでも負荷を抑える', () => {
+  const callbacks = [];
+  const rates = [];
+  const listeners = new Map();
+  class AudioContext {
+    state = 'running';
+    sampleRate = 96000;
+    createBuffer(channels, length, rate) {
+      rates.push(rate);
+      return {getChannelData: () => new Float32Array(length)};
+    }
+  }
+  const window = {AudioContext, addEventListener() {}};
+  const document = {hidden: false, querySelectorAll: () => [], getElementById: () => null,
+    addEventListener: (type, fn) => listeners.set(type, fn)};
+  const audio = new Function('window', 'document', 'localStorage', 'setTimeout', script + '\nreturn combatAudio;')(
+    window, document, {getItem: () => null}, fn => callbacks.push(fn));
+  listeners.get('click')({isTrusted: true, target: {}});
+  audio.prepare(['shot-drone', 'shot-support']);
+  audio.prepare(['shot-drone', 'shot-support']);
+  for (let i = 0; i < 6; i++) {
+    assert.equal(callbacks.length, 1);
+    callbacks.shift()();
+    assert.equal(rates.length, i + 1);
+  }
+  assert.deepEqual(rates, Array(6).fill(32000));
+  assert.equal(callbacks.length, 0);
+  audio.prepare(['shot-drone']);
+  assert.equal(callbacks.length, 0);
+});
+
 test('マップ・メニュー・占領・生産・手番の効果音がすべて作れ、ゲームの場面から呼ばれる', () => {
   const audio = load();
   const cues = ['select', 'inspect', 'confirm', 'cancel', 'error', 'open', 'close', 'produce', 'heal', 'capture-step',

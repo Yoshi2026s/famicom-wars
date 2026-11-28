@@ -144,12 +144,30 @@ function synthesizer(bpm, beats, loop) {
   return {channels: [left, right], note, drum, beatSeconds: beat};
 }
 
+// The two battle themes share the brass-and-guitar palette, but their rhythm sections
+// phrase the beat differently. Durations below are in quarter-note beats.
+const battleParts = {
+  charge: {
+    kicks: [0, 1.5, 2, 3.25],
+    guitar: [[0,.55], [.75,.16], [1.5,.36], [2,.62], [2.75,.17], [3.25,.35]],
+    bass: [[0,0], [.75,0], [1.5,7], [2,0], [2.75,12], [3.25,7]],
+    answer: [[2.25,.30,0], [2.75,.30,1], [3.25,.55,2]],
+  },
+  siege: {
+    kicks: [0, .75, 2, 2.75],
+    guitar: [[0,.70], [1,.17], [1.25,.17], [1.5,.28], [2,.70], [3,.17], [3.25,.17], [3.5,.28]],
+    bass: [[0,0], [.75,0], [1.5,0], [2,7], [2.75,0], [3.5,7]],
+    answer: [[1.75,.26,2], [2.25,.34,1], [3,.66,0]],
+  },
+};
+
 /**
  * Arranges a piece from bars of [chord, melody] and sections [firstBar, energy (0-2), lead voice].
  * Energy 0: pads, light drums. 1: driving band. 2: full band, brass harmony, timpani and crashes.
  */
 function arrange(piece) {
   const {bpm, bars, sections, groove = 'rock', dark = false} = piece;
+  const battle = battleParts[groove];
   const {channels, note, drum} = synthesizer(bpm, bars.length * 4, true);
   const sectionAt = index => sections.filter(([first]) => first <= index).at(-1);
   for (const [index, [symbol, melody]] of bars.entries()) {
@@ -172,13 +190,14 @@ function arrange(piece) {
       for (const step of [1, 3]) drum(start + step, 'snare', .22, -.1);
       for (let step = 0; step < 4; step++) drum(start + step + .5, 'hat', .06, .35);
     } else {
-      const kicks = groove === 'march' ? [0, 2, 2.5] : groove === 'drive' ? [0, .75, 1.5, 2, 2.75, 3.5] : [0, 1.5, 2, 2.75];
+      const kicks = battle?.kicks ?? (groove === 'march' ? [0, 2, 2.5] : groove === 'drive' ? [0, .75, 1.5, 2, 2.75, 3.5] : [0, 1.5, 2, 2.75]);
       for (const step of kicks) drum(start + step, 'kick', .62);
       for (const step of [1, 3]) drum(start + step, 'snare', .5, -.1);
       for (let step = 0; step < 8; step++) drum(start + step / 2, step % 2 ? 'hat' : 'hat', step % 2 ? .07 : .045, .35);
       if (energy === 2) drum(start + 3.5, 'open', .05, .35);
       // Double-kick burst into the next bar when the full band is playing.
       if (energy === 2 && groove === 'drive') for (const step of [3.25, 3.75]) drum(start + step, 'kick', .48);
+      if (battle && energy === 2 && index % 2) drum(start + 3.75, 'kick', .44);
       if (groove === 'march') for (const step of [3.25, 3.75]) drum(start + step, 'snare', .2, -.1);
     }
     if (sectionStart && energy > 0) drum(start, 'crash', energy === 2 ? .19 : .14, .4);
@@ -196,6 +215,11 @@ function arrange(piece) {
     if (energy === 0) {
       note(start, 1.9, bassRoot, .2, 'bass');
       note(start + 2, 1.9, bassRoot, .17, 'bass');
+    } else if (battle) {
+      for (const [i, [at, interval]] of battle.bass.entries()) {
+        const end = battle.bass[i + 1]?.[0] ?? 4;
+        note(start + at, (end - at) * .78, bassRoot + interval, at % 2 === 0 ? .21 : .16, 'bass');
+      }
     } else {
       const steps = groove === 'drive' ? 16 : 8;
       for (let i = 0; i < steps; i++) {
@@ -208,7 +232,16 @@ function arrange(piece) {
     }
 
     // Power chords: palm-muted eighths, with a ringing chord at each section start.
-    if (energy > 0) {
+    if (battle && energy > 0) {
+      // Separate the pick attacks of the two cabinets without detuning the notes.
+      const low = 40 + ((root - 4 + 12) % 12);
+      for (const [at, length] of battle.guitar) {
+        const accent = length >= .5;
+        note(start + at, length, low, accent ? .095 : .064, 'drive', -.52);
+        note(start + at + .018, length * .94, low + 7, accent ? .078 : .048, 'drive', .52);
+        if (accent && energy === 2) note(start + at, length, low + 12, .044, 'drive', -.3);
+      }
+    } else if (energy > 0) {
       const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
       // Climax: a galloping eighth-and-two-sixteenths rhythm; otherwise steady eighths.
       const hits = energy === 2
@@ -230,7 +263,16 @@ function arrange(piece) {
 
     // Strings: sustained pad, plus a quick arpeggio figure when the band is driving.
     pad.forEach((pitch, i) => note(start, 3.85, pitch + (i > 1 ? 12 : 0), energy === 0 ? .05 : .035, 'strings', (i - 1.5) * .5));
-    if (energy > 0) {
+    if (battle && energy > 0) {
+      // In each two-bar phrase, the strings take a short answering line, then leave
+      // space for the next brass entry. Use the same consonant voicing as the pad.
+      if (index % 2 === 0 && pad.length) {
+        for (const [offset, length, rank] of battle.answer) {
+          note(start + offset, length, pad[rank % pad.length] + 12,
+            energy === 2 ? .095 : .078, 'pizz', .36);
+        }
+      }
+    } else if (energy > 0) {
       const figure = [0, 1, 2, 1, 2, 3, 2, 1];
       figure.forEach((voice, i) => {
         const pitch = pad[voice % pad.length] + 12;
@@ -244,8 +286,9 @@ function arrange(piece) {
     // The tune.
     for (const [offset, beats, pitch] of melody) {
       const at = start + offset;
-      note(at, beats, pitch, .16, lead, -.08);
-      if (energy >= 1) note(at + .01, beats, pitch - 12, .07, 'horn', .3);
+      const articulated = battle ? beats * (beats < 1 ? .78 : .94) : beats;
+      note(at, articulated, pitch, battle && offset === 0 ? .18 : .16, lead, -.08);
+      if (energy >= 1) note(at + .01, articulated, pitch - 12, .07, 'horn', .3);
       if (energy === 2) note(at + .02, beats, pitch - 12, .045, 'strings', -.35);
       if (energy === 2 && beats >= .5) {
         const second = harmonyBelow(pitch, tones);
@@ -469,7 +512,7 @@ const pieces = [
     G  | B5:1.5 G5:.5 D5:1 G5:1
     Cm | C6:3 G5:1
     G  | D5:.5 F5:.5 G5:1 B5:2`)},
-  {name: 'bgm-battle', bpm: 160, groove: 'drive', sections: [[0, 1, 'brass'], [8, 2, 'brass']], bars: piece(`
+  {name: 'bgm-battle', bpm: 160, groove: 'charge', sections: [[0, 1, 'brass'], [4, 1, 'horn'], [8, 2, 'brass']], bars: piece(`
     Am | A4:.5 C5:.5 E5:1 A5:2
     F  | A5:.5 G5:.5 F5:1 C5:2
     G  | B4:.5 D5:.5 G5:1 D5:2
@@ -486,7 +529,7 @@ const pieces = [
     G  | D6:1 B5:1 G5:1 D6:1
     E  | E6:2 B5:1 G#5:1
     E  | B5:.5 A5:.5 G#5:.5 F#5:.5 E5:2`)},
-  {name: 'bgm-enemy-battle', bpm: 164, groove: 'drive', dark: true, sections: [[0, 1, 'brass'], [8, 2, 'brass']], bars: piece(`
+  {name: 'bgm-enemy-battle', bpm: 164, groove: 'siege', dark: true, sections: [[0, 1, 'horn'], [4, 1, 'brass'], [8, 2, 'brass']], bars: piece(`
     Dm | A4:1 D5:.5 E5:.5 F5:1 A5:1
     Bb | Bb5:1.5 G5:.5 F5:1 D5:1
     C  | E5:1 G5:1 C6:1.5 G5:.5
@@ -514,7 +557,8 @@ const finales = [
 ];
 
 for (const score of pieces) {
-  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(hall(arrange(score), true), true, 128, 1.3));
+  const wet = battleParts[score.groove] ? .08 : .11;
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(hall(arrange(score), true, wet), true, 128, 1.3));
 }
 for (const score of finales) {
   writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(hall(arrangeFinale(score), false), false, 128, 1.2));

@@ -68,30 +68,27 @@ const combatScreen = (() => {
   const hpTicks = {player: 0, enemy: 0};
   let scene = null;
 
-  backdrop.decode().then(() => backdrop.classList.add('is-ready')).catch(() => {
-    // Keep the painted fallback if the panorama fails to load.
+  // Each battle requests a single panorama. Keep the terrain visible if the image is slow or unavailable.
+  backdrop.addEventListener('load', () => {
+    backdrop.classList.add('is-ready');
+    backdrop.parentElement.classList.add('has-panorama');
+  });
+  backdrop.addEventListener('error', () => {
+    backdrop.classList.remove('is-ready');
+    backdrop.parentElement.classList.remove('has-panorama');
   });
 
-  // Swap in the code-painted realistic panorama (scene-art.js) once the browser is idle.
-  let sceneryRequested = false;
-  function paintScenery() {
-    if (!window.SceneArt || sceneryRequested) return;
-    sceneryRequested = true;
-    try {
-      window.SceneArt.backdropAsync(url => {
-        const image = new Image();
-        image.src = url;
-        image.decode().then(() => {
-          backdrop.src = url;
-          document.documentElement.classList.add('scene-art');
-          backdrop.classList.add('is-ready');
-        }).catch(() => {});
-      });
-    } catch {
-      // Keep the original panorama.
-    }
+  function showPanorama() {
+    const coastal = Object.values(formations).some(formation => formation.dataset.domain === 'sea');
+    const skies = Object.values(formations).every(formation => formation.dataset.domain === 'air');
+    dialog.toggleAttribute('data-coastal', coastal);
+    dialog.toggleAttribute('data-skies', skies);
+    const path = './assets/battle-' + (coastal ? 'bay' : skies ? 'clouds' : 'valley') + '.webp';
+    if (backdrop.getAttribute('src') === path && (backdrop.naturalWidth || !backdrop.complete)) return;
+    backdrop.classList.remove('is-ready');
+    backdrop.parentElement.classList.remove('has-panorama');
+    backdrop.src = path;
   }
-  if (window.SceneArt) (window.requestIdleCallback ?? (task => setTimeout(task, 1500)))(paintScenery, {timeout: 4000});
 
   function showForces({playerHP, enemyHP}, animateLoss = false) {
     for (const [side, hp] of [
@@ -415,7 +412,6 @@ const combatScreen = (() => {
         document.getElementById('combat-' + side + '-terrain').textContent = fortress ? '要塞' : terrain.name;
         formations[side].dataset.terrain = terrain.id;
         formations[side].toggleAttribute('data-fortress', Boolean(fortress));
-        paintScenery();
         if (window.SceneArt && ['forest', 'mountain', 'marsh'].includes(terrain.id)) {
           formations[side].style.setProperty('--cover-image', `url("${window.SceneArt.cover(terrain.id)}")`);
         } else {
@@ -456,8 +452,7 @@ const combatScreen = (() => {
           : side === 'enemy' && (id === 'scout' || id === 'tank') ? `enemy-${id}` : id;
         formation.dataset.unit = sprite;
       }
-      dialog.toggleAttribute('data-coastal', Object.values(formations).some(formation => formation.dataset.domain === 'sea'));
-      dialog.toggleAttribute('data-skies', Object.values(formations).every(formation => formation.dataset.domain === 'air'));
+      showPanorama();
       versus.querySelector('.versus-ally').textContent = teamNames.player;
       versus.querySelector('.versus-foe').textContent = teamNames.enemy;
       for (const [side, selector, hp] of [['player', '.versus-ally', friendly.hp], ['enemy', '.versus-foe', enemy.hp]]) {

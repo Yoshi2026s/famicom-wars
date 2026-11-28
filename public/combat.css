@@ -98,7 +98,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 .combat-backdrop {
   /* A little larger than the field so shakes and zooms never show its edge. */
   position: absolute; inset: -14px; z-index: -2;
-  background: url("./assets/combat-field.png?v=graphics-bgm") center 65% / cover no-repeat;
+  background: #82715c url("./assets/combat-field.png?v=graphics-bgm") center 65% / cover no-repeat;
 }
 .combat-backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 61%; opacity: 0; transition: opacity .2s ease-out; }
 .combat-backdrop img.is-ready { opacity: 1; }
@@ -107,7 +107,6 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
     radial-gradient(ellipse at 57% 24%, #ffe2a6 0 5%, #efaa8b 5.5%, transparent 23%),
     linear-gradient(#525d87, #d68c8e 49%, #e7b09d 55%, #578698 55.5%, #21506c);
 }
-[data-coastal] .combat-backdrop img { visibility: hidden; }
 [data-coastal] .combat-backdrop::after {
   content: ""; position: absolute; inset: 55% 0 0;
   background: repeating-linear-gradient(174deg, transparent 0 9px, #e9f5df38 10px 11px, transparent 12px 21px),
@@ -510,7 +509,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   scale: var(--vs, 1); z-index: var(--vz, 2); transform-origin: 50% 100%;
 }
 .formation[data-domain="air"] { --lift: 24%; }
-.formation[data-domain="sea"] { --lift: -3%; }
+.formation[data-domain="sea"] { --lift: 3%; }
 .formation[data-domain="air"] .fighter-sprite { animation: squadron-hover 2.4s var(--bob-delay, 0s) ease-in-out infinite; }
 .formation[data-domain="sea"] .fighter-sprite { animation: squadron-sway 3.2s var(--bob-delay, 0s) ease-in-out infinite; }
 @keyframes squadron-hover { 50% { translate: 0 -7%; } }
@@ -531,7 +530,6 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   background: radial-gradient(ellipse at 70% 30%, #ffe7b4 0 4%, #ffb98a99 7%, transparent 26%),
     linear-gradient(#2d3d78 0%, #6c6fa8 34%, #e59b8c 72%, #f5c49a 100%);
 }
-[data-skies] .combat-backdrop img { visibility: hidden; }
 [data-skies] .combat-clouds { inset: 0; }
 [data-skies] .combat-clouds i { opacity: .7; }
 [data-skies] .combat-atmosphere { opacity: .2; }
@@ -634,7 +632,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 
 /* Cinematic, photographic grading for the battle with realistic units:
    shallow depth of field on the backdrop, warm key light, film grain and a lens vignette. */
-.unit-art .combat-backdrop img.is-ready { filter: blur(1.6px) saturate(1.06) contrast(1.08) brightness(.94); transform: scale(1.03); }
+.unit-art .combat-backdrop img.is-ready { filter: saturate(.95) brightness(.95); transform: scale(1.025); }
 .unit-art .fighter { filter: drop-shadow(0 3px 2px #160e0cb0) saturate(.96); }
 .unit-art .fighter::before { inset: 84% 4% 1% 4%; background: radial-gradient(ellipse, #120c0acc, #120c0a00 70%); filter: none; }
 .unit-art .combat-field::after {
@@ -674,10 +672,11 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   filter: blur(.5px);
 }
 
-/* Code-painted realistic panorama and cover (scene-art.js). */
-.scene-art .combat-backdrop img.is-ready { filter: saturate(1.04) contrast(1.03); transform: scale(1.02); }
-.scene-art .unit-art .combat-backdrop img.is-ready, .unit-art.scene-art .combat-backdrop img.is-ready { filter: blur(.6px) saturate(1.04) contrast(1.03); }
-.scene-art .formation::before { filter: brightness(.94) drop-shadow(0 5px 4px #140c0a80); image-rendering: auto; }
+/* Keep the painted subjects distinct from the distant landscape. */
+[data-coastal] .combat-backdrop.has-panorama::after { opacity: .16; }
+[data-skies] .combat-backdrop img { object-position: 40% 50%; }
+[data-coastal] .combat-backdrop img { object-position: 52% 42%; }
+.unit-art .formation::before { filter: brightness(.94) drop-shadow(0 5px 4px #140c0a80); image-rendering: auto; }
 
 /* Gentle idle motion while the battle plays: ground units breathe on their suspension,
    the backdrop pans very slowly and the coastal sea rolls. Off with reduced motion. */
