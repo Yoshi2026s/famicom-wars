@@ -850,10 +850,10 @@
     glass(ctx, [[110, 88], [142, 88], [144, 98], [108, 98]]);
     for (const x of [117,127,137]) strokeLine(ctx,[[x,89],[x-1,97]],p.dark,1.4);
     vents(ctx,76,120,24,3);
-    // Lattice mast with radar arrays.
-    ctx.fillStyle = '#2d3134'; ctx.fillRect(124, 40, 4, 42); ctx.fillRect(110, 52, 32, 3);
-    ctx.fillStyle = vgrad(ctx, 58, 74, [[0, '#d8dde0'], [1, '#6f787c']]);
-    ctx.fillRect(112, 62, 28, 12); ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1.4; ctx.strokeRect(112, 62, 28, 12);
+    // The broad angled radar panel reads differently from the battleship's narrow mast at map scale.
+    fillShape(ctx, [[114,82],[122,53],[132,53],[141,82]], metal(ctx,53,82,p));
+    fillShape(ctx, [[103,45],[142,35],[151,52],[111,63]], vgrad(ctx,35,63,[[0,'#d4dedb'],[1,'#657987']]));
+    strokeLine(ctx, [[109,48],[140,40]], '#ebeee1', 2);
     // Missile cells on the foredeck and guns fore and aft.
     ctx.fillStyle = '#2b2f32'; ctx.fillRect(184, 142, 26, 8);
     ctx.fillStyle = '#6b7276';
@@ -869,7 +869,7 @@
 
   function drawStriker(ctx, p) {
     groundShadow(ctx, 128, 76, GROUND + 4, .18);
-    fillShape(ctx, [[104, 118], [150, 118], [112, 94], [96, 94]], vgrad(ctx, 94, 118, [[0, p.dark], [1, p.base]]));
+    fillShape(ctx, [[91,118],[146,118],[135,77],[106,77]], vgrad(ctx,77,118,[[0,p.dark],[1,p.base]]));
     // Twin tail fins.
     fillShape(ctx, [[22, 118], [54, 118], [46, 76], [30, 76]], metal(ctx, 76, 118, p));
     fillShape(ctx, [[36, 116], [64, 116], [58, 84], [46, 84]], vgrad(ctx, 84, 116, [[0, p.dark], [1, p.base]]));
@@ -880,7 +880,7 @@
     specular(ctx, body, .4);
     glass(ctx, [[158, 108], [174, 98], [196, 106], [200, 114], [164, 114]]);
     // Near wing with bombs and rocket pods.
-    fillShape(ctx, [[90, 128], [158, 128], [108, 170], [86, 170]], metal(ctx, 128, 170, p));
+    fillShape(ctx, [[88,128],[153,128],[131,177],[99,177]], metal(ctx,128,177,p));
     for (const [x, y] of [[100, 150], [124, 140]]) {
       fillShape(ctx, [[x - 14, y], [x + 16, y], [x + 22, y + 5], [x + 16, y + 10], [x - 14, y + 10]], vgrad(ctx, y, y + 10, [[0, '#7c8a6a'], [1, '#2c331a']]), 'rgba(0,0,0,.8)', 1.2);
     }
