@@ -1519,7 +1519,7 @@ endTurn.addEventListener('click', (event) => {
 });
 function finishTurn() {
   if (inputBlocked() || !game.beginEnemyTurn()) return;
-  inspectedCell = null;
+  clearMapDetails();
   playerScrollTop = window.scrollY;
   saveProgress();
   music.setTurn('enemy');
@@ -2203,7 +2203,13 @@ function confirmMenu(opener, title, text, label, action, danger = true) {
 }
 document.getElementById('menu-confirm-cancel').addEventListener('click', () => menuConfirm.close());
 menuConfirm.addEventListener('close', () => {
-  if (!menuConfirm.open) menuConfirmAction = null;
+  if (menuConfirm.open) return;
+  const cancelledEndTurn = menuConfirmAction === finishTurn;
+  menuConfirmAction = null;
+  if (cancelledEndTurn) {
+    clearMapDetails();
+    render();
+  }
 });
 menuConfirmOk.addEventListener('click', (event) => {
   const action = menuConfirmAction;
