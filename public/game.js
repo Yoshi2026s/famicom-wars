@@ -1331,15 +1331,24 @@ actionDialog.addEventListener('close', () => {
   button.focus({preventScroll: true});
 });
 
+// Ending the turn hands control to the enemy, so it is confirmed first.
 endTurn.addEventListener('click', (event) => {
-  if (event.detail > 1 || inputBlocked() || !game.beginEnemyTurn()) return;
+  if (event.detail > 1 || inputBlocked()) return;
+  const ready = game.friendlyUnits.filter(unit => ['ready', 'attack'].includes(friendlyAction(unit))).length;
+  combatAudio.cue('open');
+  confirmMenu('ターンを終了しますか？',
+    ready ? `まだ行動できる部隊が${ready}部隊あります。終了すると敵の手番になります。` : '終了すると敵の手番になります。',
+    'ターン終了', finishTurn, false);
+});
+function finishTurn() {
+  if (inputBlocked() || !game.beginEnemyTurn()) return;
   inspectedCell = null;
   playerScrollTop = window.scrollY;
   saveProgress();
   music.setTurn('enemy');
   render();
   announceTurn('enemy', runEnemyTurn);
-});
+}
 
 function openEnemyMenu(menu, title, choices) {
   enemyPreview.hidden = false;
@@ -1936,11 +1945,12 @@ document.getElementById('menu-open').addEventListener('click', () => {
   combatAudio.cue('open');
   gameMenu.showModal();
 });
-function confirmMenu(title, text, label, action) {
-  gameMenu.close();
+function confirmMenu(title, text, label, action, danger = true) {
+  if (gameMenu.open) gameMenu.close();
   menuConfirmTitle.textContent = title;
   menuConfirmText.textContent = text;
   menuConfirmOk.textContent = label;
+  menuConfirmOk.classList.toggle('danger', danger);
   menuConfirmAction = action;
   menuConfirm.showModal();
 }
