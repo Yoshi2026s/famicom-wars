@@ -40,6 +40,7 @@ function preferredLevel() {
 game ??= BattleMap.newMatch(currentScenario, undefined, {difficulty: preferredLevel()});
 const board = document.getElementById('board');
 const mapSurround = document.getElementById('map-surround');
+const fieldSpeech = createMapDialogue(document.getElementById('map-speech'), mapSurround);
 const mapScrollNote = document.getElementById('map-scroll-note');
 const roster = document.getElementById('friendly-roster');
 const enemyRoster = document.getElementById('enemy-roster');
@@ -161,6 +162,20 @@ let markedEnemyTiles = [];
 let enemyPositionInView = null;
 let playerScrollTop = null;
 
+function sayOnMap(event, {unit, position = unit, side = 'friendly', speaker, ambient = false} = {}) {
+  if (document.hidden || portraitMode.blocked || titleScreen.open || game.result) return;
+  const name = speaker ?? (unit ? (side === 'enemy' ? '敵' : '味方') + unit.name : '作戦司令部');
+  fieldSpeech.show(event, name, side, position && tileAt(position), ambient);
+}
+
+function acknowledgeUnit(unit) {
+  if (!game.selected || game.activeUnit !== unit || friendlyAction(unit) !== 'ready') return;
+  const domain = unit.type.domain;
+  const foot = ['infantry', 'antitank', 'mortar'].includes(unit.type.id);
+  const event = domain === 'air' ? 'selectAir' : domain === 'sea' ? 'selectSea' : foot ? 'selectFoot' : 'selectVehicle';
+  sayOnMap(event, {unit});
+}
+
 function renderSaveStatus() {
   saveStatus.hidden = false;
   const messages = {
@@ -232,6 +247,7 @@ function celebrateCapture(step, side) {
   if (!step.completed) {
     combatAudio.cue('capture-step');
     flashMapTile(step.site, 'capture', `残り${step.points}`);
+    if (side === 'friendly') sayOnMap('capture', {unit: game.activeUnit, position: step.site});
     return;
   }
   if (step.site.kind === 'headquarters' || game.result) {
@@ -239,6 +255,7 @@ function celebrateCapture(step, side) {
     return;
   }
   const name = facilityNames[step.site.kind];
+  if (side === 'friendly') sayOnMap('secured', {unit: game.activeUnit, position: step.site});
   combatAudio.cue(`capture-${side}`);
   music.duck(1300);
   celebrate(side === 'friendly' ? 'capture' : 'lost', side === 'friendly' ? `${name}占領！` : `${name}を奪われた`,
@@ -328,6 +345,7 @@ function selectFriendlyUnit(unit) {
   }
   revealTile(tile, mobileField);
   render();
+  acknowledgeUnit(unit);
 }
 
 function canAct(unit) {
@@ -369,6 +387,7 @@ function announceTurn(side, onComplete) {
   turnChangeNumber.textContent = `ターン ${String(game.turn).padStart(2, '0')}`;
   turnChangeSide.textContent = turnSide.textContent;
   turnChange.hidden = false;
+  if (side === 'enemy') sayOnMap('enemyTurn');
   combatAudio.playTurn(side);
   turnChangeTimer = portraitMode.schedule(() => {
     turnChange.hidden = true;
@@ -378,7 +397,13 @@ function announceTurn(side, onComplete) {
 }
 
 let productionNotice = '';
-productionDialog.addEventListener('close', () => { productionNotice = ''; });
+let deploymentSpeech;
+productionDialog.addEventListener('close', () => {
+  if (productionDialog.open) return;
+  productionNotice = '';
+  if (deploymentSpeech) sayOnMap('deploy', {unit: deploymentSpeech});
+  deploymentSpeech = undefined;
+});
 function renderProduction() {
   const owned = game.productionSites.filter(factory => factory.owner === 'friendly');
   if (!owned.includes(selectedFactory)) selectedFactory = owned.find(site => game.productionStatus(site) === 'ready') ?? owned[0];
@@ -463,6 +488,8 @@ function buildFactories() {
       saveProgress();
       render();
       flashMapTile(unit, 'deploy');
+      if (productionDialog.open) deploymentSpeech = unit;
+      else sayOnMap('deploy', {unit});
     });
     productionCatalog.append(button);
   }
@@ -772,6 +799,8 @@ function renderBattleStatus() {
 }
 
 function showMap() {
+  fieldSpeech.clear();
+  deploymentSpeech = undefined;
   endCelebration();
   celebratedResult = game.result;
   if (turnChangeTimer) portraitMode.cancel(turnChangeTimer);
@@ -964,6 +993,7 @@ board.addEventListener('click', (event) => {
     detailUnit = game.enemyAt(x, y) ?? null;
     combatAudio.cue('inspect');
     render();
+    if (detailUnit) sayOnMap('spotEnemy', {position: detailUnit, speaker: '偵察班'});
     return;
   }
   combatAudio.cue('select');
@@ -972,6 +1002,7 @@ board.addEventListener('click', (event) => {
   if (detailUnit) detailUnit = game.activeUnit;
   saveProgress();
   render();
+  acknowledgeUnit(game.friendlyAt(x, y));
 });
 board.addEventListener('keydown', (event) => {
   const cell = boardCell(event.target);
@@ -1240,6 +1271,7 @@ function stageFriendlyMove(cell) {
   const from = {x: unit.x, y: unit.y};
   if (!route || !game.stageMove(cell.x, cell.y)) return false;
   combatAudio.playMove(unit.type);
+  sayOnMap('move', {unit, position: cell});
   detailUnit = null;
   inspectedCell = null;
   animateFriendlyMove(unit, from, routeSteps(route), () => {
@@ -1307,7 +1339,10 @@ function renderMoveConfirm(waiting) {
 moveCommit.addEventListener('click', () => {
   if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
   const moved = commitStagedMove();
-  if (!moved.step) combatAudio.cue('confirm');
+  if (!moved.step) {
+    combatAudio.cue('confirm');
+    sayOnMap('moveReady', {unit: game.activeUnit});
+  }
   restoreBoardFocus();
   if (moved.captured) flashMapTile(moved.cell, 'capture');
   if (moved.step) celebrateCapture(moved.step, 'friendly');
@@ -1318,6 +1353,7 @@ function cancelStagedMove() {
   combatAudio.cue('cancel');
   game.cancelMove();
   restoreBoardFocus();
+  sayOnMap('moveCancel', {unit: game.activeUnit});
 }
 moveCancel.addEventListener('click', cancelStagedMove);
 document.addEventListener('keydown', (event) => {
@@ -1398,6 +1434,12 @@ function followEnemy(position) {
   if (!mobileField) tile.scrollIntoView({block: 'nearest', inline: 'nearest'});
 }
 
+function announceEnemyCapture(action, position) {
+  const captured = action?.captured || action?.cityCaptured || action?.factoryCaptured || action?.facility;
+  if (captured) sayOnMap('enemyCapture', {position, speaker: '味方監視班'});
+  return Boolean(captured);
+}
+
 function playEnemyAction(action, restoreFocus) {
   const {enemy, from, to, path, friendly} = action;
   const site = game.facilityAt(to.x, to.y);
@@ -1428,6 +1470,7 @@ function playEnemyAction(action, restoreFocus) {
       showEnemyChoice(step.id, step.id, commandDetail[step.id]);
       render();
       followEnemy(step.position);
+      if (index === 0 && path.length) sayOnMap('enemyAdvance', {unit: enemy, side: 'enemy', ambient: true});
       showStride(enemy, previous, step.position, true, step.delay);
       portraitMode.schedule(() => advance(index + 1, step.position), step.delay);
       return;
@@ -1437,13 +1480,16 @@ function playEnemyAction(action, restoreFocus) {
     highlightEnemyRoute([]);
     if (friendly) {
       presentAttack({attacker: 'enemy', enemy, friendly, enemyPosition: to,
-        resolve: () => game.resolveEnemyAction(action), onReturn: runEnemyTurn});
+        resolve: () => game.resolveEnemyAction(action), onReturn: focus => {
+          announceEnemyCapture(game.enemyActions.at(-1), to);
+          runEnemyTurn(focus);
+        }});
       return;
     }
     game.resolveEnemyAction(action);
     saveProgress();
     const resolved = game.enemyActions.at(-1);
-    if (resolved?.captured || resolved?.cityCaptured || resolved?.factoryCaptured || resolved?.facility) {
+    if (announceEnemyCapture(resolved, to)) {
       flashMapTile(to, 'capture');
       if (!game.scenario) combatAudio.cue(resolved.captured || resolved.cityCaptured || resolved.factoryCaptured ? 'capture-enemy' : 'capture-step');
     }
@@ -1477,6 +1523,7 @@ function playEnemyProduction(order, restoreFocus) {
       tileAt(factory).classList.add('enemy-spawned');
       combatAudio.cue('produce', .4);
       flashMapTile(factory, 'deploy');
+      sayOnMap('enemyDeploy', {unit, side: 'enemy'});
       portraitMode.schedule(() => runEnemyTurn(restoreFocus), 320);
     }, 240);
   }, 170);
@@ -1505,15 +1552,21 @@ function runEnemyTurn(restoreFocus = true) {
   restoreBoardFocus(restoreFocus);
   if (!game.result) announceTurn('friendly', () => {
     if (game.facilityHealing.length) combatAudio.cue('heal');
+    let supported;
     for (const {side, unit, amount} of game.facilityHealing) {
       const units = side === 'friendly' ? game.friendlyUnits : game.enemyUnits;
       const healed = units.find(candidate => candidate.name === unit);
-      if (healed) flashMapTile(healed, 'heal', `+${amount} HP`);
+      if (healed) {
+        flashMapTile(healed, 'heal', `+${amount} HP`);
+        if (side === 'friendly') supported ??= healed;
+      }
     }
+    sayOnMap(supported ? 'heal' : 'friendlyTurn', {unit: supported});
   });
 }
 
 function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPosition = enemy, resolve, onReturn = restoreBoardFocus}) {
+  fieldSpeech.clear();
   combatScreen.open({
     map: game, attacker, friendly, enemy, enemyPosition,
     resolve: () => {
@@ -1521,7 +1574,10 @@ function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPositi
       saveProgress();
       return strikes;
     },
-    onReturn,
+    onReturn: restoreFocus => {
+      if (attacker === 'player') sayOnMap('battleReturn', {position: friendly});
+      onReturn(restoreFocus);
+    },
   });
 }
 
@@ -1651,6 +1707,7 @@ function switchScenario(id) {
   saveProgress();
   showMap();
   friendlyTile().focus({preventScroll: true});
+  sayOnMap(restored ? 'resume' : 'start');
 }
 
 document.getElementById('play-coastal').addEventListener('click', () => switchScenario('coastal'));
@@ -1690,7 +1747,13 @@ for (const atlas of ['map-idle', 'map-march']) {
     // Keep the static sprite if the animation could not load.
   });
 }
-document.addEventListener('visibilitychange', () => board.toggleAttribute('data-map-hidden', document.hidden));
+document.addEventListener('visibilitychange', () => {
+  board.toggleAttribute('data-map-hidden', document.hidden);
+  if (document.hidden) fieldSpeech.clear();
+});
+portraitMode.onChange(() => {
+  if (portraitMode.blocked) fieldSpeech.clear();
+});
 if (typeof ResizeObserver === 'function') {
   new ResizeObserver(updateMapScrollNote).observe(mapSurround);
 }
@@ -1860,6 +1923,7 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     saveProgress();
     showMap();
     friendlyTile().focus({preventScroll: true});
+    sayOnMap('start');
   });
 }
 
@@ -1909,6 +1973,7 @@ function paintTitleArt() {
   }), 0));
 }
 function showTitle() {
+  fieldSpeech.clear();
   paintTitleArt();
   for (const dialog of [gameMenu, menuConfirm, guide, newMatchDialog]) if (dialog.open) dialog.close();
   const resumable = savedMatchExists() && crossingSave.status !== 'unreadable' && !game.result;
@@ -1930,6 +1995,7 @@ titleResume.addEventListener('click', () => {
   combatAudio.cue('start');
   titleScreen.close();
   restoreBoardFocus();
+  sayOnMap('resume');
   if (game.enemyTurn && !game.result) runEnemyTurn(false);
 });
 titleNew.addEventListener('click', () => openNewMatch());
@@ -1998,6 +2064,7 @@ document.getElementById('menu-restart').addEventListener('click', event => confi
     saveProgress();
     showMap();
     friendlyTile().focus({preventScroll: true});
+    sayOnMap('start');
   },
 ));
 menuSurrender.addEventListener('click', () => {
