@@ -214,8 +214,10 @@ test('対空攻撃には空の相性が適用され、山上の航空部隊は�
   assert.equal(preview[1].damage, 1);
   assert.equal(preview[1].mitigation, 1);
   assert.equal(defender.hp, 10);
-  assert.deepEqual(preview.map(hit => hit.range), [[5, 7], [1, 1]]);
-  assert.deepEqual(game.choose(4, 4), preview.map(({range, ...hit}) => hit));
+  // Aircraft are the anti-air gun's specialty, so the top of the range allows for a critical hit.
+  assert.deepEqual(preview.map(hit => hit.range), [[5, 10], [1, 1]]);
+  assert.equal(preview[0].canCritical, true);
+  assert.deepEqual(game.choose(4, 4), preview.map(({range, canCritical, ...hit}) => hit));
   assert.equal(defender.hp, 4);
 });
 

@@ -1170,7 +1170,8 @@ function previewAction(cell, opener) {
     // Real hits swing a little, so show the HP the target could end on (high damage leaves the lower HP).
     const after = (hp, {range: [low, high]}) => low === high ? `${hp - low}` : `${hp - high}〜${hp - low}`;
     const reply = counter ? `反撃で味方 HP ${unit.hp} → ${after(unit.hp, counter)}` : '反撃なし';
-    actionDetail.textContent = `戦力 ${Math.round(unit.hp / game.maxHP * 100)}% ／ 敵 HP ${enemy.hp} → ${after(enemy.hp, hit)} ／ ${reply}`;
+    const critical = hit.canCritical ? '（特効：クリティカルあり）' : '';
+    actionDetail.textContent = `戦力 ${Math.round(unit.hp / game.maxHP * 100)}% ／ 敵 HP ${enemy.hp} → ${after(enemy.hp, hit)}${critical} ／ ${reply}`;
   } else {
     // Moves happen first and wait on the board for 確定 or キャンセル.
     return stageFriendlyMove(cell);

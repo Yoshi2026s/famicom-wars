@@ -217,11 +217,13 @@ const combatScreen = (() => {
     showForces(hit, true);
     const target = teamNames[hit.attacker === 'player' ? 'enemy' : 'player'];
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
+    const critical = hit.critical ? 'クリティカル！' : '';
     const impact = !hit.damage ? `${target}にダメージを与えられない！残りHP ${remaining}`
-      : remaining ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
-      : `${target}を${hit.damage}ダメージで撃破。`;
+      : remaining ? `${critical}${target}に${hit.damage}ダメージ。残りHP ${remaining}`
+      : `${critical}${target}を${hit.damage}ダメージで撃破。`;
     const defense = defenseMessage(hit);
-    document.getElementById('combat-damage').textContent = `−${hit.damage}`;
+    document.getElementById('combat-damage').textContent = hit.critical ? `−${hit.damage}!` : `−${hit.damage}`;
+    dialog.toggleAttribute('data-critical', Boolean(hit.critical));
     const cover = document.getElementById('combat-cover');
     cover.textContent = defense;
     cover.hidden = !defense;
@@ -250,7 +252,7 @@ const combatScreen = (() => {
     const report = scene.strikes.map((hit, index) => {
       const action = index === 0 ? '先攻' : '反撃';
       const defense = defenseMessage(hit);
-      return `${action} ${hit.damage}ダメージ${defense ? `（${defense}）` : ''}`;
+      return `${action} ${hit.damage}ダメージ${hit.critical ? '（クリティカル）' : ''}${defense ? `（${defense}）` : ''}`;
     });
     status.textContent = result + report.join('、') + '。';
     dialog.dataset.phase = 'result';

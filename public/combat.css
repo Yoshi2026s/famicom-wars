@@ -316,6 +316,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   text-shadow: -2px -1px #1c222b, 2px 2px #1c222b, -1px 2px #1c222b, 1px -1px #1c222b;
 }
 .combat-damage b { font: 900 clamp(30px, 7vw, 64px)/1 Consolas, monospace; }
+#combat-screen[data-critical] .combat-damage b { color: #ffd84a; font-size: clamp(36px, 9vw, 76px); }
 .combat-damage small { padding: 2px 5px; font-size: 11px; font-weight: bold; background: #24303be8; border: 1px solid #a7bda6; border-radius: 4px; }
 [data-phase="impact"] .combat-impact { animation: burst .42s ease-out both; }
 [data-phase="impact"] .combat-smoke { animation: dust .78s ease-out both; }
