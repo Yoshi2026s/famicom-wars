@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 
 function leaveEnemySupport(game, x, y) {
   const [infantry, scout, support] = game.enemyUnits;

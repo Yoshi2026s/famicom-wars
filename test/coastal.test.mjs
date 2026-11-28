@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 import {createCrossingSave, crossingSaveKey} from '../public/crossing-save.js';
 
 const roundTrip = state => BattleMap.fromCrossingSnapshot(JSON.parse(JSON.stringify(state)));
@@ -213,7 +214,8 @@ test('対空攻撃には空の相性が適用され、山上の航空部隊は�
   assert.equal(preview[1].damage, 1);
   assert.equal(preview[1].mitigation, 1);
   assert.equal(defender.hp, 10);
-  assert.deepEqual(game.choose(4, 4), preview);
+  assert.deepEqual(preview.map(hit => hit.range), [[5, 7], [1, 1]]);
+  assert.deepEqual(game.choose(4, 4), preview.map(({range, ...hit}) => hit));
   assert.equal(defender.hp, 4);
 });
 

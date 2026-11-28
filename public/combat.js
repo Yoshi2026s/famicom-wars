@@ -1,5 +1,5 @@
 const combatScreen = (() => {
-  // Foot soldiers show one figure per HP; vehicles, aircraft and ships one per 2 HP.
+  // Every unit shows one figure per remaining HP.
   const footKinds = new Set(['infantry', 'antitank', 'mortar']);
   const dialog = document.getElementById('combat-screen');
   const advance = document.getElementById('combat-advance');
@@ -13,8 +13,16 @@ const combatScreen = (() => {
   const impactEffects = camera.querySelector('.combat-hit');
   const formations = {player: camera.querySelector('.ally'), enemy: camera.querySelector('.foe')};
   const versus = dialog.querySelector('.combat-versus');
-  // Machines other than infantry are shown as up to five vehicles; each one stands for 2 HP.
+  // Machines (vehicles, aircraft and ships) stand in up to three staggered ranks, one per HP; the first
+  // slots are the front line, so survivors stay up front as losses are removed from the back.
   const machineSlots = [
+    {x: 40, y: 6, scale: .66, z: 10}, {x: 12, y: 8, scale: .64, z: 9}, {x: 64, y: 10, scale: .62, z: 8},
+    {x: 28, y: 22, scale: .58, z: 7}, {x: 52, y: 25, scale: .56, z: 6}, {x: 2, y: 26, scale: .56, z: 5},
+    {x: 72, y: 29, scale: .54, z: 4}, {x: 16, y: 39, scale: .5, z: 3}, {x: 40, y: 41, scale: .48, z: 2},
+    {x: 62, y: 44, scale: .46, z: 1},
+  ];
+  // Five or fewer machines get the original roomier line-up at a larger size.
+  const roomySlots = [
     {x: 40, y: 8, scale: 1, z: 5}, {x: 4, y: 10, scale: .97, z: 4}, {x: 22, y: 29, scale: .82, z: 3},
     {x: 52, y: 31, scale: .8, z: 2}, {x: 0, y: 34, scale: .76, z: 1},
   ];
@@ -83,11 +91,12 @@ const combatScreen = (() => {
       document.getElementById('combat-' + side + '-hp').textContent = hp + '/' + scene.map.maxHP;
       document.getElementById('combat-' + side + '-bar').style.setProperty('--hp-fill', hp / scene.map.maxHP * 100 + '%');
       const formation = formations[side];
-      const count = footKinds.has(formation.dataset.kind) ? hp : Math.ceil(hp / 2);
+      const count = hp;
       for (const fighter of [...formation.children].slice(count)) {
         if (animateLoss && !motion.matches) fighter.classList.add('retreating');
         else fighter.remove();
       }
+      if (!formation.childElementCount) formation.toggleAttribute('data-roomy', count <= roomySlots.length);
       while (formation.childElementCount < count) {
         const fighter = document.createElement('span');
         fighter.className = 'fighter';
@@ -104,7 +113,8 @@ const combatScreen = (() => {
         const delay = column < 3 ? rank * 154 + column * 19 : 308 + (column - 3) * 23 + rank * 22;
         fighter.style.setProperty('--fire-delay', delay + 'ms');
         if (!footKinds.has(formation.dataset.kind)) {
-          const place = machineSlots[slot] ?? machineSlots[0];
+          const slots = formation.hasAttribute('data-roomy') ? roomySlots : machineSlots;
+          const place = slots[slot] ?? slots[0];
           fighter.style.setProperty('--vx', place.x + '%');
           fighter.style.setProperty('--vy', place.y + '%');
           fighter.style.setProperty('--vs', place.scale);
@@ -207,8 +217,8 @@ const combatScreen = (() => {
     showForces(hit, true);
     const target = teamNames[hit.attacker === 'player' ? 'enemy' : 'player'];
     const remaining = hit.attacker === 'player' ? hit.enemyHP : hit.playerHP;
-    const impact = remaining
-      ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
+    const impact = !hit.damage ? `${target}にダメージを与えられない！残りHP ${remaining}`
+      : remaining ? `${target}に${hit.damage}ダメージ。残りHP ${remaining}`
       : `${target}を${hit.damage}ダメージで撃破。`;
     const defense = defenseMessage(hit);
     document.getElementById('combat-damage').textContent = `−${hit.damage}`;

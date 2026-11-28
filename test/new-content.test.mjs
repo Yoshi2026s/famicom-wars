@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 import generator from '../public/map-generator.js';
 
 const type = (game, id) => game.unitTypes.find(unit => unit.id === id);
