@@ -251,52 +251,51 @@
     ship: id => !(id === 'o' || id === 'h'),
   };
   function reach(map, from, mover) {
-    const portAt = new Set(map.sites.filter(site => site.kind === 'port').map(({x, y}) => `${x},${y}`));
-    const seen = new Set([`${from.x},${from.y}`]);
+    const index = (x, y) => y * map.width + x;
+    const portAt = mover === 'ship'
+      ? new Set(map.sites.filter(site => site.kind === 'port').map(({x, y}) => index(x, y)))
+      : null;
+    const seen = new Uint8Array(map.width * map.height);
+    seen[index(from.x, from.y)] = 1;
     const queue = [from];
     for (const {x, y} of queue) {
       for (const [dx, dy] of steps) {
-        const nx = x + dx, ny = y + dy, key = `${nx},${ny}`;
-        if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height || seen.has(key)) continue;
-        if (blockedFor[mover](map.terrain[ny][nx]) && !(mover === 'ship' && portAt.has(key))) continue;
-        seen.add(key);
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+        const key = index(nx, ny);
+        if (seen[key] || (blockedFor[mover](map.terrain[ny][nx]) && !portAt?.has(key))) continue;
+        seen[key] = 1;
         queue.push({x: nx, y: ny});
       }
     }
-    return seen;
+    return ({x, y}) => x >= 0 && x < map.width && y >= 0 && y < map.height && seen[index(x, y)] === 1;
   }
 
-  function validateGeneratedMap(map) {
+  function validateGeneratedMap(map, requireVehicleAccess = false) {
     if (!map || map.terrain.length !== map.height || map.terrain.some(row => row.length !== map.width)) return false;
     const {friendly, enemy} = map.headquarters;
     const onFoot = reach(map, friendly, 'infantry');
     const byTank = reach(map, friendly, 'tank');
-    if (!onFoot.has(`${enemy.x},${enemy.y}`) || !byTank.has(`${enemy.x},${enemy.y}`)) return false;
+    if (!onFoot(enemy) || !byTank(enemy)) return false;
     for (const site of map.sites) {
       const id = map.terrain[site.y][site.x];
       if (id !== 'p' && id !== 'd') return false;
-      if (!onFoot.has(`${site.x},${site.y}`)) return false;
+      // Only new layouts must also allow a tank to reach every facility.
+      if (!onFoot(site) || (requireVehicleAccess && !byTank(site))) return false;
     }
     const ports = map.sites.filter(site => site.kind === 'port');
     if (ports.length) {
       const bySea = reach(map, ports[0], 'ship');
-      if (!ports.every(({x, y}) => bySea.has(`${x},${y}`))) return false;
+      if (!ports.every(bySea)) return false;
     }
     const kinds = side => map.sites.filter(site => site.owner === side).map(site => site.kind).sort().join();
     return kinds('friendly') === kinds('enemy') && kinds('friendly').includes('factory');
   }
 
-  // New layouts must also let a tank drive to every facility, so nothing built at a factory,
-  // port or airfield is stranded. Saved maps are only held to validateGeneratedMap.
-  function vehiclesReachSites(map) {
-    const byTank = reach(map, map.headquarters.friendly, 'tank');
-    return map.sites.every(({x, y}) => byTank.has(`${x},${y}`));
-  }
-
   function generateMap(seed = Math.floor(Math.random() * 0x7fffffff)) {
     for (let tries = 0; tries < 400; tries++) {
       const map = attempt((seed + tries * 7919) >>> 0);
-      if (map && validateGeneratedMap(map) && vehiclesReachSites(map)) return {...map, seed};
+      if (map && validateGeneratedMap(map, true)) return {...map, seed};
     }
     throw new Error('map generation failed');
   }

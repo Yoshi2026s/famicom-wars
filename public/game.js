@@ -1828,6 +1828,9 @@ const matchBusy = () => portraitMode.blocked || combatScreen.active
   || (!titleScreen.open && (game.enemyTurn || movingFriendly));
 function openNewMatch() {
   if (matchBusy()) return;
+  const replacesMatch = savedMatchExists('coastal') || (!titleScreen.open && currentScenario === 'coastal');
+  document.getElementById('new-match-note').textContent = 'CPUの強さを選ぶと、新しいマップで対戦を始めます。'
+    + (replacesMatch ? '「湾岸の攻防」の進行は上書きされます。' : '');
   for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
     choice.setAttribute('aria-pressed', String(choice.dataset.level === game.difficulty));
   }
@@ -1861,9 +1864,9 @@ for (const choice of newMatchDialog.querySelectorAll('[data-level]')) {
 }
 
 // Title screen: shown on every visit, on top of the restored (or new) match.
-function savedMatchExists() {
+function savedMatchExists(scenario = currentScenario) {
   try {
-    return Boolean(window.localStorage.getItem(currentScenario === 'coastal' ? coastalSaveKey : crossingSaveKey));
+    return Boolean(window.localStorage.getItem(scenario === 'coastal' ? coastalSaveKey : crossingSaveKey));
   } catch {
     return false;
   }
