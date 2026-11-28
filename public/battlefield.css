@@ -153,6 +153,14 @@ body:has(dialog[open]) .map-speech { visibility: hidden; }
 .tile-details dt { color: #566554; font-weight: 750; }
 .tile-details dd { margin: 0; font-family: inherit; font-size: inherit; font-weight: 500; line-height: inherit; }
 :is(#production-tile-info, #action-tile-info, #unit-tile-info, #move-tile-info):not(:empty) { margin: 6px 0; }
+#production-tile-info:not(:empty) { margin: 2px 0 3px; }
+#production-tile-info .tile-details { padding: 3px 6px; }
+#production-tile-info .tile-details-heading { margin-bottom: 2px; }
+#production-tile-info .tile-details dl { gap: 1px 6px; padding-top: 2px; font-size: 12px; line-height: 1.3; }
+@media (max-height: 540px) {
+  #production-tile-info .tile-details dl { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); }
+  #production-tile-info .tile-details dd:nth-of-type(n+3) { grid-column: span 3; }
+}
 #move-tile-info .tile-details { max-height: min(98px, 19dvh); overflow: auto; overscroll-behavior: contain; }
 [data-mobile-field] .orders-actions .replay { margin: 0; background: var(--gold); border-color: #92651d; font-size: 16px; }
 .map-hp { display: none; }

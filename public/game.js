@@ -81,6 +81,9 @@ const productionStatus = document.getElementById('production-status');
 const productionMove = document.getElementById('production-move');
 const factoryLegend = document.getElementById('factory-legend');
 const factoryPicker = document.getElementById('factory-picker');
+const productionSite = document.getElementById('production-site');
+const productionSiteSelect = document.getElementById('production-site-select');
+const productionTraits = document.getElementById('production-traits');
 const factoryEntries = [];
 let selectedFactory;
 let productionOrigin;
@@ -495,7 +498,18 @@ function renderProduction() {
   const owned = game.productionSites.filter(factory => factory.owner === 'friendly');
   if (!owned.includes(selectedFactory)) selectedFactory = owned.find(site => game.productionStatus(site) === 'ready') ?? owned[0];
   const mapFactory = productionOrigin?.cell;
-  factoryPicker.hidden = owned.length < 2 || Boolean(mapFactory);
+  const chooseSite = owned.length > 1 && !mapFactory;
+  const inDialog = productionControls.parentElement === productionDialog;
+  factoryPicker.hidden = !chooseSite || inDialog;
+  productionSite.hidden = !chooseSite || !inDialog;
+  if (!productionSite.hidden) {
+    const states = {used: '生産済み', occupied: '部隊あり', insufficient: '資金不足', limit: '出撃上限'};
+    productionSiteSelect.replaceChildren(...owned.map(site => {
+      const state = states[game.productionStatus(site)];
+      const label = siteLabel(site) + (state ? `（${state}）` : '');
+      return new Option(label, `${site.x},${site.y}`, false, site === selectedFactory);
+    }));
+  }
   productionMove.hidden = !mapFactory || !game.canMoveTo(mapFactory.x, mapFactory.y);
   for (const {factory, icon, owner, button} of factoryEntries) {
     icon.dataset.factory = factory.kind === 'factory' ? factory.owner : '';
@@ -528,7 +542,9 @@ function renderProduction() {
   const note = productionNotice || labels[status];
   if (productionStatus.textContent !== note) productionStatus.textContent = note;
   document.getElementById('production-funds').textContent = currency.format(game.funds.friendly);
-  const available = new Set(game.productionChoices(selectedFactory).map(type => type.id));
+  const choices = game.productionChoices(selectedFactory);
+  const available = new Set(choices.map(type => type.id));
+  productionTraits.hidden = !choices.some(type => type.trait);
   for (const button of productionCatalog.children) {
     const affordable = game.funds.friendly >= game.productionCost(button.dataset.produce);
     const canBuy = status === 'ready' && affordable && !movingFriendly;
@@ -536,6 +552,21 @@ function renderProduction() {
     button.setAttribute('aria-disabled', String(!canBuy));
   }
 }
+
+productionSiteSelect.addEventListener('change', () => {
+  if (portraitMode.blocked) return;
+  const [x, y] = productionSiteSelect.value.split(',').map(Number);
+  selectedFactory = game.productionSiteAt(x, y);
+  productionNotice = '';
+  renderProduction();
+});
+
+function showProductionTraits(show) {
+  productionTraits.setAttribute('aria-pressed', String(show));
+  productionControls.classList.toggle('show-production-traits', show);
+  if (!show) productionControls.scrollTop = 0;
+}
+productionTraits.addEventListener('click', () => showProductionTraits(productionTraits.getAttribute('aria-pressed') !== 'true'));
 
 function buildFactories() {
   selectedFactory = undefined;
@@ -548,7 +579,10 @@ function buildFactories() {
     button.type = 'button';
     button.dataset.produce = type.id;
     const detail = document.createElement('small');
-    detail.textContent = `${currency.format(type.cost)} · 移動 ${type.movement} · 射程 ${rangeLabel(type)}`;
+    const price = document.createElement('span');
+    price.className = 'production-price';
+    price.textContent = currency.format(type.cost);
+    detail.append(price, `移動${type.movement} 射程${rangeLabel(type)}`);
     const trait = document.createElement('span');
     trait.className = 'production-trait';
     trait.textContent = type.trait ?? '';
@@ -1787,11 +1821,12 @@ function openProduction(event, cell) {
   if (cell) selectedFactory = cell.factory;
   productionOrigin = {event, cell};
   positionProductionControls(true);
+  showProductionTraits(false);
   renderProduction();
   combatAudio.cue('open');
   productionDialog.showModal();
   renderTileDetails();
-  productionDialog.scrollTop = 0;
+  productionControls.scrollTop = 0;
   return true;
 }
 
@@ -2204,9 +2239,9 @@ function confirmMenu(opener, title, text, label, action, danger = true) {
 document.getElementById('menu-confirm-cancel').addEventListener('click', () => menuConfirm.close());
 menuConfirm.addEventListener('close', () => {
   if (menuConfirm.open) return;
-  const cancelledEndTurn = menuConfirmAction === finishTurn;
+  const cancelled = Boolean(menuConfirmAction);
   menuConfirmAction = null;
-  if (cancelledEndTurn) {
+  if (cancelled) {
     clearMapDetails();
     render();
   }
@@ -2217,6 +2252,7 @@ menuConfirmOk.addEventListener('click', (event) => {
   menuConfirmAction = null;
   menuConfirm.close();
   if (menuBlocked()) return;
+  clearMapDetails();
   if (gameMenu.open) gameMenu.close();
   action();
 });
