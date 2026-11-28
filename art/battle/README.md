@@ -1,6 +1,6 @@
 # 戦闘背景の素材
 
-組み込みの画像生成で制作した原画を保存しています。艦艇を含む戦闘は `bay.png`、航空部隊同士は `clouds.png` を使います。地上部隊が廃墟にいるときは `ruins.png`、森・密林にいるときは `forest.png`、それ以外の地上戦・空対地戦は `valley.png` を使います。
+組み込みの画像生成で制作した原画を保存しています。艦艇を含む戦闘は `bay.png`、港にいる艦艇が参加する場合は `harbor.png`、航空部隊同士は `clouds.png` を使います。地上部隊が参加する戦闘は、廃墟・雪原・山や丘陵・湿地・森や密林の順に当てはまる背景を選びます。その他の地形は `valley.png` を使います。
 
 Python と Pillow がある環境で、リポジトリ直下から次のコードを実行すると配信用の WebP を再生成できます。
 
@@ -16,7 +16,21 @@ for source in Path("art/battle").glob("*.png"):
 
 ## 生成プロンプト
 
+### snow.png
+
+Original 3:2 horizontal cinematic matte painting for an anime-influenced strategy game with realistically shaded miniature units added separately. Empty high alpine snowfield before dusk. Wide open, flat sage-blue icy snow apron along the entire lower half for two small dark teal and rust-red unit formations; readable compressed contrast with finely brushed snow, neither white glare nor dark crevasses. Thin drifting spindrift near the edges, stratified slate ranges and a very distant line of frozen pines, an apricot streak in a pale blue sky, naturally framed centered composition readable in a portrait crop, clean unobstructed center. Camera at a shallow side-on slightly elevated angle, naturalistic painterly realism, subtle atmosphere, clear depth, warm backlight on upper ridges and a cooler ground plane. Exact constraint: environment only, completely empty ground, no people, no animals, no vehicles, no weapons, no structures, no explosions, no typography, no UI, no black borders.+
+### ridge.png
+
+Original 3:2 horizontal cinematic matte painting for a strategy game with realistically shaded anime miniature sprites composited separately. A broad flat rocky shelf in a high mountain pass, natural ochre-grey scree with traces of olive grass, the entire lower half an open level staging plane with quiet fine rock textures and no boulders. Higher broken slate cliffs in the distant middle and at edges, far peaks lost in sapphire distance, low amber sunlight grazes the edge of rock after a passing storm. Deep but readable colors, quiet foreground shading suitable for blue and rust miniature unit silhouettes, centered composition readable in a vertical crop, shallow side-on slightly elevated camera. Finely painterly realism and natural light. Environment only, empty ground, no people, no animals, no vehicles, no weapons, no combat, signs, lettering, borders or interface.+
+### marsh.png
+
+Original 3:2 cinematic tactical videogame backdrop, environmental matte painting of an empty highland wet meadow on a foggy golden morning. The entire lower half is a continuous level muddy firm grassy causeway where blue and rust game units will be composited separately, low softly contrasting pale umber soil and sage grass, thin puddles only at far edges. Middle distance: low quiet reflective reedbeds and a slow silver river threading horizontally, distant muted blue-green willow clumps and rolling hills in soft amber haze. Slightly elevated broad side-on view, distinct near/mid/far atmospheric depth, clear center in a portrait crop, soft values in the foreground for silhouette readability. Painterly naturalistic material and light, warm distant horizon with cooler foreground. No people, no animals, no vehicles, no weapons, no damage, no buildings, no props or overlays, no text or borders.+
+### harbor.png
+
+Original 3:2 cinematic horizontal strategy game backdrop. A remote industrial harbor under a cool blue twilight just after golden sunset, with the entire lower 60% of the image unobstructed open water for miniature ships to be added separately, soft steel blue and jade water with long restrained ripples, no high-contrast foreground detail. Horizon at 38% from the top. A distant continuous line of breakwater, modest low stone wharves and a few thin silhouettes of fixed dock cranes well in the background, all empty. Peach afterglow at the horizon, blue atmospheric mountains in distance, a few warm shore lights with restrained reflections. Horizontally staged view, naturalistic painterly realism, center remains readable in a portrait crop, empty foreground, sophisticated physically plausible light and haze. No ships, vehicles, figures, weapons, explosions, logos, letters, framing or interface.
+
 ### valley.png
+
 
 Original production background matte painting for a mobile tactical videogame. A sheltered mountain grassland in late summer, large clear LEVEL meadow on the entire lower half where both formations will stand. Natural horizontal striations of golden grasses. Distant indigo ridges and a single iconic crag catching peach alpenglow, clear sunset sky with a few streaks of cloud. Quiet broad middle ground and subtle sage grass silhouettes only at extreme lower corners. Keep visual focus centrally when cropped to portrait. Landscape 3:2 with the essential image still readable in a centered portrait crop. Cinematic, realistic three-dimensional terrain, sophisticated naturalistic light scattering, subtle film grain and painterly realism; graceful warm apricot and cool blue-green sunset palette, natural values and a soft atmospheric distance. Match smoothly shaded realistically rendered miniature 3D unit illustrations. Show only the environment; no people, vehicles, projectiles, letters, game interface, labels, logos, pixel art or borders.
 

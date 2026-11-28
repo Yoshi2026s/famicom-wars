@@ -694,7 +694,7 @@ html.portrait-blocked :is(.formation, .combat-backdrop img, .combat-backdrop)::a
 html.portrait-blocked :is(.formation, .combat-backdrop img) { animation-play-state: paused; }
 
 /* Portrait phones: the field takes the full width and the spare height; the heading packs into two rows. */
-@media (max-width: 550px) and (min-height: 500px) {
+@media (max-width: 550px) {
   #combat-screen {
     padding: max(8px, env(safe-area-inset-top)) env(safe-area-inset-right) max(8px, env(safe-area-inset-bottom)) env(safe-area-inset-left);
   }
@@ -703,7 +703,7 @@ html.portrait-blocked :is(.formation, .combat-backdrop img) { animation-play-sta
     border-inline: 0; border-radius: 0; box-shadow: 0 0 0 1px #1d2231, 0 18px 50px #0a0b16cc;
   }
   .combat-frame > :not(.combat-field) { flex-shrink: 0; }
-  .combat-field { flex: 0 1 auto; height: min(150vw, 660px); min-height: 200px; }
+  .combat-field { flex: 0 1 auto; height: min(150vw, 660px); min-height: min(200px, 39dvh); }
   /* Keep two lines for the status so the field does not resize between messages. */
   #combat-status { min-height: calc(2 * 1.45em); line-height: 1.45; }
   .combat-heading {
@@ -717,7 +717,7 @@ html.portrait-blocked :is(.formation, .combat-backdrop img) { animation-play-sta
   .combat-stage { font-size: 12px; }
   .combat-damage small { font-size: 12px; }
 }
-@media (max-width: 360px) and (min-height: 500px) {
+@media (max-width: 360px) {
   .combat-heading { padding-inline: 8px; column-gap: 4px; }
   #combat-turn { font-size: 11px; }
   .combat-heading .sound-switch { padding-inline: 5px; }

@@ -658,6 +658,14 @@
   pointer-events: none;
   line-height: 1.25;
 }
+.combat-cut-in:has(.combat-cut-in-unit:not([hidden])) {
+  padding-inline-end: max(78px, 30%);
+  text-align: start;
+}
+[data-attacker="enemy"] .combat-cut-in:has(.combat-cut-in-unit:not([hidden])) {
+  padding-inline: max(78px, 30%) clamp(10px, 5%, 35px);
+  text-align: end;
+}
 .combat-speech {
   --speech-ink: #183f59;
   --speech-edge: #6bc3db;
@@ -726,16 +734,42 @@
 .combat-cut-in span { margin-top: 2px; }
 .combat-cut-in-unit {
   position: absolute;
-  top: -34%;
-  right: -3%;
-  width: clamp(124px, 38%, 218px);
-  height: 175%;
+  inset: 0 -2% 0 auto;
+  width: min(32%, 160px);
+  height: 100%;
   object-fit: contain;
-  opacity: .42;
-  mask-image: linear-gradient(90deg, transparent, #000 75%);
+  opacity: .92;
+  filter: drop-shadow(0 3px 4px #040812cc);
+}
+[data-attacker="enemy"] .combat-cut-in-unit {
+  inset-inline: -2% auto;
+  scale: -1 1;
 }
 .combat-cut-in b, .combat-cut-in span { position: relative; }
-:is([data-panorama="forest"], [data-panorama="ruins"]) .combat-backdrop img { object-position: center 65%; }
+@media (max-width: 550px) {
+  .unit-art .platoon .formation:is([data-kind="infantry"], [data-kind="antitank"], [data-kind="mortar"]) .fighter {
+    left: calc(68% - var(--column) * 16% + var(--rank) * 3%);
+    width: 30%;
+  }
+}
+:is([data-panorama="forest"], [data-panorama="ruins"], [data-panorama="snow"], [data-panorama="ridge"], [data-panorama="marsh"])
+  .combat-backdrop img { object-position: center 65%; }
+:is([data-panorama="snow"], [data-panorama="marsh"], [data-panorama="harbor"]) .combat-warfront { opacity: .16; }
+[data-panorama="snow"] .combat-atmosphere {
+  background: radial-gradient(ellipse at 48% 64%, #d4eaff7a, transparent 54%),
+    radial-gradient(ellipse at 15% 35%, #ffe2d446, transparent 48%);
+}
+[data-panorama="marsh"] .combat-atmosphere {
+  background: radial-gradient(ellipse 62% 34% at 40% 53%, #cbdac365, transparent);
+}
+[data-panorama="harbor"] .combat-atmosphere {
+  background: radial-gradient(ellipse 70% 35% at 54% 60%, #89bbc34f, transparent);
+}
+[data-defense-terrain="snow"] .combat-terrain i { --bit: #eef7ff; --fall: 48px; --t: .75s; border-radius: 50%; }
+[data-phase="impact"][data-defense-domain="land"][data-defense-terrain="snow"]:not([data-deflected]) .combat-terrain { opacity: 1; }
+[data-defense-terrain="snow"] .combat-dust {
+  background: radial-gradient(ellipse, #e9f5fcab 0%, #c4dbed65 42%, transparent 70%);
+}
 [data-panorama="forest"] .combat-embers { opacity: .25; }
 :is([data-panorama="forest"], [data-panorama="ruins"]) .combat-warfront { opacity: .34; }
 [data-panorama="forest"] .formation[data-terrain="forest"]::before {
@@ -757,6 +791,26 @@
   box-shadow: 0 0 6px #ff824899, inset 0 0 6px #ff824899;
   pointer-events: none;
 }
+.combat-impact-light {
+  position: absolute;
+  left: var(--hit-x);
+  top: var(--hit-y);
+  width: clamp(78px, 35%, 240px);
+  aspect-ratio: 1.85;
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse, #ffdf9a90, #ff955827 50%, transparent 72%);
+  mix-blend-mode: screen;
+}
+[data-defense-domain="sea"] .combat-impact-light {
+  aspect-ratio: 3;
+  background: radial-gradient(ellipse, #d7f5ed9a, #77bed836 52%, transparent 72%);
+}
+[data-defense-domain="air"] .combat-impact-light {
+  aspect-ratio: 1.2;
+  background: radial-gradient(ellipse, #fff2bf9c, #ffa97236 52%, transparent 72%);
+}
 [data-attack-domain="sea"] .combat-launch-wake {
   border-color: #d2faff;
   box-shadow: 0 3px 2px #92deee66;
@@ -775,7 +829,16 @@
   [data-phase="aim"] .combat-speech:not([hidden]) { animation: bubble-enter .22s cubic-bezier(.15,.8,.3,1.1) both; }
   [data-phase="impact"] .combat-cut-in:not([hidden]) { animation: cut-in .25s cubic-bezier(.14,.9,.28,1) both; }
   [data-phase="attack"] .combat-launch-wake { animation: launch-wake .42s var(--wake-delay, 0ms) ease-out both; }
+  [data-phase="impact"]:is([data-hit-tier="normal"], [data-hit-tier="heavy"]) .combat-impact-light {
+    animation: impact-light .34s ease-out both;
+  }
+  [data-phase="impact"][data-critical] .combat-impact-light { animation-delay: .14s; }
   html.portrait-blocked :is(.combat-speech, .combat-cut-in, .combat-launch-wake) { animation-play-state: paused; }
+  html.portrait-blocked .combat-impact-light { animation-play-state: paused; }
+}
+@keyframes impact-light {
+  from { opacity: .78; scale: .6; }
+  to { opacity: 0; scale: 1.35; }
 }
 @keyframes bubble-enter {
   from { opacity: 0; transform: translateY(6px) scale(.9); }
