@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 
 test('歩兵で占領した都市は次のターンから収入になり、ターン開始を繰り返しても加算は1回だけ', () => {
   const game = new BattleMap();

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 
 test('味方は工場で3種から1部隊ずつ生産でき、次のターンに移動できる', () => {
   const game = new BattleMap();

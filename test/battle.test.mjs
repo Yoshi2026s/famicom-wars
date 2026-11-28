@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 
 function adjacentInfantry(friendlyPosition = {x: 10, y: 1}, enemyPosition = {x: 11, y: 1}) {
   const map = new BattleMap();
@@ -56,7 +57,7 @@ test('攻撃の確認は反撃後まで予測し、確定までHPや行動状況
   ]);
   assert.deepEqual(map.crossingSnapshot(), before);
   assert.deepEqual(map.previewAttack(map.enemyUnits[1]), []);
-  assert.deepEqual(map.choose(enemy.x, enemy.y), prediction);
+  assert.deepEqual(map.choose(enemy.x, enemy.y), prediction.map(({range, ...hit}) => hit));
   assert.deepEqual(map.previewAttack(enemy), []);
 });
 

@@ -61,6 +61,16 @@ const coveredHit = (full, cover, armor = 0) => {
   const base = Math.max(1, full - armor);
   return Math.max(1, base - Math.min(cover, Math.floor(base / 2)));
 };
+// Every real hit swings up to this share above or below its expected damage (never below 1).
+// When the gap in strength is wide (expected damage under 1, from low HP, a poor matchup, cover or
+// armor), the hit lands for 1 only with that probability and otherwise deals nothing.
+const damageSwing = .2;
+const rollDamage = (expected, random) => {
+  if (expected < 1) return (random ? random() >= 1 - expected : expected >= .5) ? 1 : 0;
+  return Math.max(1, Math.round(expected * (random ? 1 - damageSwing + 2 * damageSwing * random() : 1)));
+};
+const damageRange = expected => expected < 1 ? [0, 1]
+  : [Math.max(1, Math.round(expected * (1 - damageSwing))), Math.round(expected * (1 + damageSwing))];
 const canCapture = type => type.id === infantry.id || Boolean(type.captures);
 // CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
 // most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
@@ -572,7 +582,7 @@ class BattleMap {
 
   previewAttack(enemy) {
     if (!enemy || !this.canUnitAttack(this.activeUnit, enemy)) return [];
-    return this.#exchange('player', {...this.activeUnit}, {...enemy});
+    return this.#exchange('player', {...this.activeUnit}, {...enemy}, null);
   }
 
   get canMove() {
@@ -684,7 +694,7 @@ class BattleMap {
     if (enemy && this.canUnitAttack(this.activeUnit, enemy)) {
       this.activeUnit.attacked = true;
       this.selected = false;
-      const strikes = this.#exchange('player', this.activeUnit, enemy);
+      const strikes = this.#exchange('player', this.activeUnit, enemy, this.random);
       this.#restoreActiveUnit();
       return strikes;
     }
@@ -812,7 +822,7 @@ class BattleMap {
       captured = this.#captureHeadquarters(enemy, 'enemy');
       facility = this.#captureFacility(enemy, 'enemy');
     }
-    const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy) : [];
+    const strikes = !captured && friendly ? this.#exchange('enemy', friendly, enemy, this.random) : [];
     this.#restoreActiveUnit();
     this.#clearStaleCaptures();
     const record = {enemy: enemy.name, friendly: friendly?.name, from, to, captured,
@@ -918,18 +928,19 @@ class BattleMap {
     }
   }
 
-  #exchange(attacker, friendly, enemy) {
-    const strikes = [this.#strike(attacker, friendly, enemy)];
+  // `random` rolls the damage swing for real fights; previews and CPU plans pass null for the expected outcome.
+  #exchange(attacker, friendly, enemy, random) {
+    const strikes = [this.#strike(attacker, friendly, enemy, random)];
     const defender = attacker === 'player' ? 'enemy' : 'player';
     const counterUnit = defender === 'player' ? friendly : enemy;
     const counterTarget = defender === 'player' ? enemy : friendly;
     if (friendly.hp > 0 && enemy.hp > 0 && this.#canStrike(counterUnit, counterTarget, counterUnit, false, true)) {
-      strikes.push(this.#strike(defender, friendly, enemy));
+      strikes.push(this.#strike(defender, friendly, enemy, random));
     }
     return strikes;
   }
 
-  #strike(attacker, friendly, enemy) {
+  #strike(attacker, friendly, enemy, random) {
     const playerAttacks = attacker === 'player';
     const attackingUnit = playerAttacks ? friendly : enemy;
     const defender = playerAttacks ? enemy : friendly;
@@ -938,23 +949,27 @@ class BattleMap {
     const {type} = attackingUnit;
     const cover = defender.type.domain && defender.type.domain !== land ? 0 : this.coverAt(defender.x, defender.y);
     let strength;
-    let protectedDamage;
+    let expected;
     if (this.scenario) {
       // Damage scales with the attacker's remaining strength (HP) after matchup and cover are applied,
       // so a squad at half strength deals about half the damage.
       const ratio = attackingUnit.hp / this.maxHP;
       const full = Math.max(1, type.firepower + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0));
       strength = Math.max(1, Math.round(full * ratio));
-      protectedDamage = Math.max(1, Math.round(coveredHit(full, cover, defender.type.armor) * ratio));
+      expected = coveredHit(full, cover, defender.type.armor) * ratio;
     } else {
       strength = baseStrength + (type.attackBonus ?? 0);
-      protectedDamage = Math.max(1, strength - cover);
+      // Cover at least as strong as the attack leaves only a slim chance of getting through.
+      expected = Math.max(.5, strength - cover);
     }
-    const damage = Math.min(protectedDamage, defender.hp);
+    const planned = Math.max(1, rollDamage(expected, null));
+    const damage = Math.min(rollDamage(expected, random), defender.hp);
+    const [low, high] = damageRange(expected);
     defender.hp -= damage;
     const fortified = this.scenario && cover > terrain.defense && this.facilityAt(defender.x, defender.y)?.kind === 'fortress';
-    return {attacker, damage, terrain: fortified ? facilityNames.fortress : terrain.name, mitigation: Math.max(0, strength - protectedDamage),
+    return {attacker, damage, terrain: fortified ? facilityNames.fortress : terrain.name, mitigation: Math.max(0, strength - planned),
       ...(this.scenario && defender.type.armor ? {armored: true, covered: cover > 0} : {}),
+      ...(random ? {} : {range: [Math.min(low, defender.hp + damage), Math.min(high, defender.hp + damage)]}),
       playerHP: friendly.hp, enemyHP: enemy.hp};
   }
 
@@ -1040,7 +1055,7 @@ class BattleMap {
       const targets = objectives.filter(target => this.#canStrike(enemy, target, route, moved));
       const risk = danger(route, null);
       for (const target of [null, ...targets]) {
-        const strikes = target ? this.#exchange('enemy', {...target}, {...enemy, x: route.x, y: route.y}) : [];
+        const strikes = target ? this.#exchange('enemy', {...target}, {...enemy, x: route.x, y: route.y}, null) : [];
         const [hit, reply] = strikes;
         const killed = hit?.playerHP === 0;
         const lost = reply?.enemyHP === 0;
@@ -1096,6 +1111,9 @@ class BattleMap {
   }
 }
 
+// Source of the damage swing in real fights (tests swap in fixed dice to pin outcomes).
+BattleMap.prototype.random = () => Math.random();
+
 // Damage one full-strength hit would deal (the same formula as a real strike), or null when
 // the attacker cannot target that kind of unit at all.
 BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp = 10, cover = 0} = {}) {
@@ -1105,10 +1123,10 @@ BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp =
   if (this.scenario) {
     const ratio = hp / this.maxHP;
     const full = Math.max(1, attackerType.firepower + (attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0));
-    return Math.max(1, Math.round(coveredHit(full, shield, defenderType.armor) * ratio));
+    return rollDamage(coveredHit(full, shield, defenderType.armor) * ratio, null);
   }
   const strength = (hp >= 8 ? 3 : hp >= 4 ? 2 : 1) + (attackerType.attackBonus ?? 0);
-  return Math.max(1, strength - shield);
+  return rollDamage(Math.max(.5, strength - shield), null);
 };
 
 // Where a unit could move and strike on its next action, ignoring whether it has acted.

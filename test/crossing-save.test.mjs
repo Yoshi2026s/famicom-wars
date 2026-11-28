@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 import {createCrossingSave, crossingSaveKey} from '../public/crossing-save.js';
 
 function openSave(storage) {

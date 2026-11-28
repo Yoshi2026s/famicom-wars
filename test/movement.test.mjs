@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import BattleMap from '../public/rules.js';
+import './fixed-dice.mjs';
 
 test('未選択では移動せず、歩兵の再選択で取り消せる', () => {
   const map = new BattleMap();
