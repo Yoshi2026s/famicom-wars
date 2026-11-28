@@ -1410,6 +1410,8 @@ function commitStagedMove() {
   const capturedFactory = factory && factory.owner !== 'friendly';
   const previousCapture = game.friendlyCapture;
   game.confirmMove();
+  detailUnit = null;
+  inspectedCell = null;
   if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
   saveProgress();
   const captured = game.capturedBy === 'friendly' || game.friendlyCapture !== previousCapture;
@@ -1699,6 +1701,8 @@ function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPositi
       return strikes;
     },
     onReturn: restoreFocus => {
+      detailUnit = null;
+      inspectedCell = null;
       if (attacker === 'player') sayOnMap('battleReturn', {position: friendly});
       onReturn(restoreFocus);
     },
