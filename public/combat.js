@@ -244,6 +244,7 @@ const combatScreen = (() => {
   function startVolley() {
     const fromPlayer = dialog.dataset.attacker === 'player';
     const {slots, muzzle, flight, attack} = attackTactics(dialog.dataset.armament);
+    const [muzzleX, muzzleY] = window.UnitArt?.muzzle(dialog.dataset.armament) ?? muzzle;
     const hitHeight = attackTactics(dialog.dataset.defender).hit;
     const attackers = formations[fromPlayer ? 'player' : 'enemy'].children;
     const squadron = !footKinds.has(formations[fromPlayer ? 'player' : 'enemy'].dataset.kind);
@@ -266,7 +267,7 @@ const combatScreen = (() => {
       lastShot = Math.max(lastShot, delay);
       ray.style.setProperty('--shot-delay', `${delay}ms`);
       ray.style.setProperty('--flight', `${flight}ms`);
-      const [fromX, fromY] = point(shooter, fromPlayer ? muzzle[0] : 1 - muzzle[0], muzzle[1]);
+      const [fromX, fromY] = point(shooter, fromPlayer ? muzzleX : 1 - muzzleX, muzzleY);
       const [toX, toY] = point(defenders[slot] ?? defenders[0], .50, hitHeight + lane * .03);
       const dx = (toX - fromX) * view.width;
       const dy = (toY - fromY) * view.height;
