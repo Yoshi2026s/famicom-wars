@@ -99,6 +99,12 @@ const scores = [
   },
 ];
 
+// Vibrato as bounded phase modulation. (Scaling the phase p = ωt by (1 + depth·sin) would make the pitch
+// swing grow with the note's length, which warbles audibly on long notes.)
+function vibrato(p, t, depth, rate, offset = 0) {
+  return t > 0 ? p + (p / t) * depth / (tau * rate) * Math.sin(tau * rate * t + offset) : p;
+}
+
 const instruments = {
   harp: {attack:.006, release:.22, wave:(p,t) =>
     (Math.sin(p + .87 * Math.exp(-4.1*t) * Math.sin(p*2.002)) + .14*Math.sin(3*p) + .09*Math.sin(5*p)) * Math.exp(-2.5*t)},
@@ -117,26 +123,24 @@ const instruments = {
     Math.tanh(1.8 * (.62*Math.sin(p) + .42*Math.sin(2*p) + .22*Math.sin(3*p)*Math.exp(-2*t) + .14*Math.sin(4*p)*Math.exp(-3*t))) * .8},
   // Symphonic section voices for the field themes.
   ensemble: {attack:.16, release:.45, wave:(p,t) => {
-    const v = .006*Math.sin(tau*5.3*t);
     let sum = 0;
     for (const detune of [.994, 1, 1.006]) {
-      const q = p*detune*(1+v);
+      const q = vibrato(p*detune, t, .004, 5.3);
       sum += .5*Math.sin(q) + .27*Math.sin(2*q) + .17*Math.sin(3*q) + .1*Math.sin(4*q) + .06*Math.sin(5*q) + .035*Math.sin(6*q);
     }
     return sum * .42;
   }},
   choir: {attack:.22, release:.5, wave:(p,t) => {
-    const v = .008*Math.sin(tau*4.8*t + 1);
     let sum = 0;
     for (const detune of [.996, 1.004]) {
-      const q = p*detune*(1+v);
+      const q = vibrato(p*detune, t, .005, 4.8, 1);
       sum += .55*Math.sin(q) + .22*Math.sin(2*q) + .3*Math.sin(3*q) + .2*Math.sin(4*q) + .06*Math.sin(6*q);
     }
     return sum * .5;
   }},
   trumpet: {attack:.03, release:.16, wave:(p,t) => {
     const bright = Math.min(1, t / .09);
-    const q = p*(1 + (t > .25 ? .005*Math.sin(tau*5.6*t) : 0));
+    const q = vibrato(p, t, Math.min(1, Math.max(0, (t - .2) / .3)) * .004, 5.6);
     return Math.tanh(1.2*(.68*Math.sin(q) + .46*Math.sin(2*q) + .3*bright*Math.sin(3*q) + .17*bright*Math.sin(4*q)
       + .09*bright*Math.sin(5*q) + .04*bright*Math.sin(6*q))) * .74;
   }},
