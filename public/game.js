@@ -175,6 +175,11 @@ let markedEnemyTiles = [];
 let enemyPositionInView = null;
 let playerScrollTop = null;
 
+function clearMapDetails() {
+  detailUnit = null;
+  inspectedCell = null;
+}
+
 function sayOnMap(event, {unit, position = unit, side = 'friendly', speaker, ambient = false} = {}) {
   if (document.hidden || portraitMode.blocked || titleScreen.open || game.result) return;
   const name = speaker ?? (unit ? (side === 'enemy' ? '敵' : '味方') + unit.name : '作戦司令部');
@@ -1410,8 +1415,7 @@ function commitStagedMove() {
   const capturedFactory = factory && factory.owner !== 'friendly';
   const previousCapture = game.friendlyCapture;
   game.confirmMove();
-  detailUnit = null;
-  inspectedCell = null;
+  clearMapDetails();
   if (capturedFactory && factory.owner === 'friendly') selectedFactory = factory;
   saveProgress();
   const captured = game.capturedBy === 'friendly' || game.friendlyCapture !== previousCapture;
@@ -1463,6 +1467,7 @@ function cancelStagedMove() {
   if (!game.stagedMove || inputBlocked(true) || actionDialog.open) return;
   combatAudio.cue('cancel');
   game.cancelMove();
+  clearMapDetails();
   restoreBoardFocus();
   sayOnMap('moveCancel', {unit: game.activeUnit});
 }
@@ -1486,9 +1491,12 @@ document.addEventListener('keydown', (event) => {
 
 actionDialog.addEventListener('close', () => {
   if (actionDialog.open) return;
-  renderTileDetails();
-  if (!pendingAction) return;
-  const {button} = pendingAction.cell;
+  if (!pendingAction) {
+    renderTileDetails();
+    return;
+  }
+  const {cell: {button}, enemy} = pendingAction;
+  if (enemy) clearMapDetails();
   pendingAction = undefined;
   highlightFriendlyRoute([]);
   button.classList.remove('action-pending');
@@ -1701,8 +1709,7 @@ function presentAttack({attacker, friendly = game.activeUnit, enemy, enemyPositi
       return strikes;
     },
     onReturn: restoreFocus => {
-      detailUnit = null;
-      inspectedCell = null;
+      clearMapDetails();
       if (attacker === 'player') sayOnMap('battleReturn', {position: friendly});
       onReturn(restoreFocus);
     },
