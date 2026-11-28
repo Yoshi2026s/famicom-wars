@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="./style.css?v=fx1">
     <link rel="stylesheet" href="./combat.css?v=cinema-score">
     <link rel="stylesheet" href="./combat-fx.css?v=cut-in">
-    <link rel="stylesheet" href="./battlefield.css?v=tile-details">
+    <link rel="stylesheet" href="./battlefield.css?v=unit-dock">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=reach3"></script>
     <script defer src="./rules.js?v=tile-details"></script>
@@ -25,7 +25,7 @@
     <script defer src="./combat.js?v=cut-in"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
     <script defer src="./map-dialogue.js?v=1"></script>
-    <script defer src="./game.js?v=tile-details"></script>
+    <script defer src="./game.js?v=unit-dock"></script>
   </head>
   <body>
     <header class="masthead">
@@ -102,14 +102,20 @@
           </section>
           <section class="unit-detail" id="unit-detail" aria-labelledby="unit-detail-title" hidden>
             <header>
-              <h2 id="unit-detail-title" tabindex="-1">ユニット詳細</h2>
-              <span class="unit-detail-hp" id="unit-detail-hp"></span>
-              <button type="button" class="unit-detail-close" id="unit-detail-close">閉じる</button>
+              <div class="unit-detail-heading">
+                <h2 id="unit-detail-title" tabindex="-1" aria-live="polite">ユニット詳細</h2>
+                <p class="unit-detail-basics"><span id="unit-detail-hp"></span> <span id="unit-detail-speed"></span> <span id="unit-detail-range-label"></span></p>
+              </div>
+              <button type="button" class="unit-detail-range" id="unit-detail-range" aria-haspopup="dialog" aria-controls="field-overview-dialog">範囲全体</button>
+              <button type="button" class="unit-detail-close" id="unit-detail-close" aria-label="ユニット詳細を閉じる">閉じる</button>
             </header>
-            <div id="unit-tile-info"></div>
-            <p class="unit-detail-legend"><span class="detail-move-key"></span>移動できる <b id="detail-move-count"></b>マス <span class="detail-attack-key"></span>攻撃が届く <b id="detail-attack-count"></b>マス</p>
-            <dl class="unit-detail-stats" id="unit-detail-stats"></dl>
-            <div class="unit-detail-matchups" id="unit-detail-matchups"></div>
+            <div class="unit-detail-body" role="group" aria-label="部隊の能力・次回の行動範囲" tabindex="0">
+              <p class="unit-detail-legend"><span class="detail-move-key" aria-hidden="true"></span>次回移動 <b id="detail-move-count"></b>マス <span class="detail-attack-key" aria-hidden="true"></span>攻撃範囲 <b id="detail-attack-count"></b>マス</p>
+              <div class="unit-detail-favorites"><b>得意な相手</b><div id="unit-detail-favorites"></div></div>
+              <div class="unit-detail-matchups" id="unit-detail-matchups"></div>
+              <div id="unit-tile-info"></div>
+              <dl class="unit-detail-stats" id="unit-detail-stats"></dl>
+            </div>
           </section>
           <section class="move-confirm" id="move-confirm" aria-labelledby="move-confirm-title" aria-describedby="move-confirm-route move-confirm-hint" hidden>
             <h2 id="move-confirm-title">移動を確定しますか？</h2>
@@ -202,6 +208,7 @@
       <header><h2 id="field-overview-title">全体図</h2><form method="dialog"><button type="submit" autofocus>閉じる</button></form></header>
       <div class="field-dialog-content">
         <p>地図を選ぶと、その場所を表示します。</p>
+        <p class="unit-detail-legend" id="overview-unit-range" hidden><span class="detail-move-key" aria-hidden="true"></span><b id="overview-unit-range-label"></b></p>
         <button type="button" class="overview-grid" id="overview-grid" aria-label="表示位置を選ぶ地図"></button>
         <div class="overview-jumps" aria-label="マップの表示位置" role="group">
           <button type="button" data-jump="friendly">味方本拠地</button>
@@ -224,6 +231,10 @@
       <h2 id="action-title"></h2>
       <p id="action-summary"></p>
       <p id="action-detail"></p>
+      <div class="action-unit-detail">
+        <p id="action-unit-info"></p>
+        <button type="button" class="unit-detail-range" id="action-unit-range" aria-haspopup="dialog" aria-controls="field-overview-dialog">範囲全体</button>
+      </div>
       <div id="action-tile-info"></div>
       <form method="dialog" class="order-dialog-buttons">
         <button class="replay" autofocus>キャンセル</button>
