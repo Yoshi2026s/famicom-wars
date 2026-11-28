@@ -35,6 +35,8 @@ test('戦闘画面の全兵種に専用の発射・被弾・撃破音があり�
       check(audio.synthesize(`defeat-${unit}:${domain}`, 22050), `defeat-${unit}:${domain}`);
     }
   }
+  // Accents laid over hits: critical, armor bouncing the round off, and a kill.
+  for (const accent of ['accent-critical', 'accent-blocked', 'accent-kill']) check(audio.synthesize(accent, 22050), accent);
   // Weapons differ: a fighter's missile is not the scout's machine gun, and a bomber is not a tank.
   assert.notDeepEqual(audio.synthesize('shot-fighter', 22050), audio.synthesize('shot-scout', 22050));
   assert.notDeepEqual(audio.synthesize('shot-bomber', 22050), audio.synthesize('shot-tank', 22050));

@@ -187,10 +187,31 @@ const combatAudio = (() => {
       return finish('shot', .12);
     }
 
+    // Accents laid over a hit: a sharp critical, armor bouncing a round off, and the rumble of a kill.
+    if (stage === 'accent') {
+      if (unit === 'critical') {
+        crack(0, 1, 4600);
+        tone({dur: .55, amp: .55, f: [132, 50], decay: 5, drive: 3.6});
+        notes([[93, .22], [98, .4]], {at: .03, step: .06, amp: .16, wave: 'pulse', decay: 8});
+        noise({at: .04, dur: .6, amp: .3, f: [6200, 2400], q: .6, attack: .01, decay: 5});
+      } else if (unit === 'blocked') {
+        metal(0, .9, 1.7);
+        tone({at: .05, dur: .4, amp: .2, f: [3400, 1300], decay: 7, vibrato: .025});
+        noise({at: .02, dur: .12, amp: .25, f: [5200, 3000], q: 1.6, decay: 30});
+      } else if (unit === 'kill') {
+        tone({dur: 1.2, amp: .6, f: [96, 42], decay: 2.4, drive: 2.8});
+        noise({at: .04, dur: 1.3, amp: .4, f: [760, 120], q: .5, attack: .05, decay: 2});
+        for (let i = 0; i < 6; i++) noise({at: .25 + rnd() * .7, dur: .05, amp: .16, f: [1800 + rnd() * 1600], q: 1.4, decay: 40});
+      }
+      return finish('impact', .16);
+    }
+
     if (stage === 'impact' || stage === 'defeat') {
       const material = materialOf(unit, domain);
       const fatal = stage === 'defeat';
       const heavy = ['tank', 'heavytank', 'battleship', 'bomber', 'cruiser'].includes(unit) ? 1.25 : 1;
+      // Heavy targets get a bass thump; drive adds overtones a phone speaker can still play.
+      if (material !== 'foot') tone({dur: .38, amp: .5 * heavy, f: [124, 58], decay: 7, drive: 3.2});
       if (!fatal) {
         if (material === 'foot') thud(0, 1);
         if (material === 'armor') { thud(0, .6); metal(0, .9, heavy > 1 ? .8 : 1); }
@@ -449,11 +470,11 @@ const combatAudio = (() => {
   const common = ['select', 'inspect', 'confirm', 'cancel', 'error', 'open', 'close', 'turn-friendly', 'turn-enemy',
     'move-foot', 'move-vehicle', 'move-air', 'move-sea', 'capture-step', 'capture-friendly', 'capture-enemy', 'produce', 'heal'];
 
-  function play(kind, pan = 0) {
+  function play(kind, pan = 0, {at = 0, gain: level = 1, minor = false} = {}) {
     if (!enabled || document.hidden || context?.state !== 'running') return;
     const now = context.currentTime;
     // Several lanes of one volley start together; one sound per lane is enough.
-    if (now - (lastStart.get(kind) ?? -1) < .035 || sources.size >= 10) return;
+    if (now - (lastStart.get(kind) ?? -1) < .035 || sources.size >= (minor ? 6 : 10)) return;
     const buffer = bufferFor(kind);
     if (!buffer) return;
     lastStart.set(kind, now);
@@ -461,7 +482,7 @@ const combatAudio = (() => {
     source.buffer = buffer;
     if (/^(shot|impact|defeat)-/.test(kind)) source.playbackRate.value = 1 + (Math.random() - .5) * .05;
     const gain = context.createGain();
-    gain.gain.value = 1 / Math.sqrt(sources.size + 1);
+    gain.gain.value = level / Math.sqrt(sources.size + 1);
     const panner = context.createStereoPanner?.();
     source.connect(gain);
     if (panner) {
@@ -477,7 +498,7 @@ const combatAudio = (() => {
       gain.disconnect();
       panner?.disconnect();
     };
-    source.start();
+    source.start(now + at);
     sources.add(source);
   }
 
@@ -495,11 +516,11 @@ const combatAudio = (() => {
   }
 
   /** Plays a cue now, or right after the first tap finishes unlocking audio. */
-  function cue(kind, pan = 0) {
+  function cue(kind, pan = 0, options) {
     const id = cueId;
-    if (context?.state === 'running') play(kind, pan);
+    if (context?.state === 'running') play(kind, pan, options);
     else resuming?.then(() => {
-      if (id === cueId) play(kind, pan);
+      if (id === cueId) play(kind, pan, options);
     });
   }
 

@@ -40,26 +40,64 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 .combat-team strong { font-size: clamp(13px,2vw,18px); }
 .combat-hp { white-space: nowrap; color: var(--side); }
 .combat-hp b { font-size: 1.15em; }
-.force-health { position: relative; align-self: center; height: 6px; width: clamp(52px,12vw,140px); background: #111c24; border-radius: 2px; }
-.force-health::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--hp-fill, 0%); background: var(--side); border-radius: inherit; transition: width 240ms ease; }
+.force-health {
+  position: relative; align-self: center; height: 6px; width: clamp(52px,12vw,140px); border-radius: 2px;
+  background: linear-gradient(#ff8a66, #d4303a) no-repeat 0 0 / var(--hp-ghost, 0%) 100%, #111c24;
+  transition: background-size 450ms cubic-bezier(.3,.6,.4,1) 300ms;
+}
+.force-health::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--hp-fill, 0%); background: var(--side); border-radius: inherit; transition: width 160ms ease-out; }
+.force-health[data-instant], .force-health[data-instant]::before { transition: none; }
+[data-phase="impact"] .combat-team[data-hurt] .force-health::before { animation: hp-hit-flash .32s ease-out; }
+.combat-team[data-down] .combat-hp { color: #ff6b5b; }
+@keyframes hp-hit-flash { from { background: #fff; } to { background: var(--side); } }
+/* The struck side's panel shakes and flashes red (twice as hard when wiped out); a hit for 0 leaves it still. */
+.combat-teams { overflow: hidden; }
+.combat-team { position: relative; overflow: hidden; transition: opacity .2s ease; }
+.combat-team::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; background: linear-gradient(180deg, #ff4a3a66, #ff4a3a10 70%); }
+[data-phase="impact"] .combat-team[data-hurt] { animation: panel-hit .38s ease-out; }
+[data-phase="impact"] .combat-team[data-hurt]::after { animation: panel-flash .45s ease-out; }
+[data-phase="impact"] .combat-team[data-down] { animation: panel-hit .38s ease-out 2; }
+[data-phase="impact"] .combat-team[data-down]::after { animation: panel-flash .9s ease-out; }
+@keyframes panel-hit { 0%,100% { transform: none; } 20% { transform: translate(-4px,1px); } 45% { transform: translate(3px,-1px); } 70% { transform: translate(-2px,0); } }
+@keyframes panel-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+/* A light sweeps the attacking side's panel as it takes aim; the other side dims. */
+.combat-team::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transform: translateX(-100%); background: linear-gradient(100deg, transparent 35%, #ffffff3a 50%, transparent 65%); }
+[data-phase="aim"][data-attacker="player"] .combat-team.ally::before,
+[data-phase="aim"][data-attacker="enemy"] .combat-team.foe::before { animation: panel-sweep .6s ease-out; }
+:is([data-phase="aim"], [data-phase="attack"])[data-attacker="player"] .combat-team.foe,
+:is([data-phase="aim"], [data-phase="attack"])[data-attacker="enemy"] .combat-team.ally { opacity: .72; }
+@keyframes panel-sweep { 0% { opacity: 1; transform: translateX(-100%); } 100% { opacity: 1; transform: translateX(100%); } }
 .force-health::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), #0f202e95 calc(10% - 1px) 10%); }
 .combat-field {
   --shot: #bff8ff; --shot-edge: #68bddd; --pan: 1; --stage-ink: #b9f7f3;
   position: relative; overflow: hidden; isolation: isolate; height: clamp(220px,44dvh,460px);
   background: #82715c; border-block: 1px solid #938269;
 }
+/* The camera leans in on the attacker while it takes aim, follows the rounds and snaps onto the impact point. */
 .combat-camera {
-  position: absolute; inset: 0; isolation: isolate;
-  transition: transform .36s ease-out;
+  position: absolute; inset: 0; isolation: isolate; will-change: transform, translate;
+  --aim-x: calc(50% - var(--pan) * 27%);
+  transform-origin: var(--aim-x) 62%;
+  transition: transform .36s ease-out, transform-origin .36s ease-out;
 }
-[data-phase="aim"] .combat-camera, [data-phase="attack"] .combat-camera {
-  transform: scale(1.045) translateX(calc(var(--pan) * 1.1%));
+[data-phase="aim"] .combat-camera {
+  transform: scale(1.085);
+  transition-duration: .42s; transition-timing-function: cubic-bezier(.2,.7,.2,1);
+}
+[data-phase="attack"] .combat-camera {
+  transform: scale(1.04);
+  transform-origin: calc((var(--aim-x) + var(--hit-x, 50%)) / 2) 60%;
+  transition-duration: var(--cam-follow, .3s); transition-delay: var(--cam-delay, 0s);
+  transition-timing-function: cubic-bezier(.45,0,.2,1);
 }
 [data-phase="impact"] .combat-camera {
-  transform: scale(1.025) translateX(calc(var(--pan) * -.8%));
+  transform: scale(1.07);
+  transform-origin: var(--hit-x, 50%) var(--hit-y, 60%);
+  transition: transform .14s cubic-bezier(.3,1.5,.5,1), transform-origin .14s ease-out;
 }
 .combat-backdrop {
-  position: absolute; inset: 0; z-index: -2;
+  /* A little larger than the field so shakes and zooms never show its edge. */
+  position: absolute; inset: -14px; z-index: -2;
   background: url("./assets/combat-field.png?v=graphics-bgm") center 65% / cover no-repeat;
 }
 .combat-backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 61%; opacity: 0; transition: opacity .2s ease-out; }
@@ -100,7 +138,36 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   box-shadow: 0 3px 12px #12151e55;
 }
 [data-attacker="enemy"] .combat-stage { left: auto; right: 12px; border-left: 1px solid #dbc9a971; border-right: 3px solid var(--stage-ink); }
-:is([data-phase="entry"], [data-phase="result"]) .combat-stage { display: none; }
+[data-phase="entry"] .combat-stage, [data-outcome] .combat-stage { display: none; }
+/* 先攻・反撃 labels cut in from the attacker's side; a counter is stamped with a COUNTER subtitle. */
+[data-strike="counter"] .combat-stage {
+  padding-block: 5px 6px; font-size: clamp(13px, 2.4vw, 17px);
+  box-shadow: 0 0 0 1px var(--stage-ink), 0 3px 16px #0008;
+}
+[data-strike="counter"] .combat-stage::after {
+  content: "COUNTER"; display: block; margin-top: 1px;
+  font-size: 9px; letter-spacing: .32em; color: var(--stage-ink);
+}
+.combat-swap {
+  position: absolute; inset: 0; z-index: 12; pointer-events: none; opacity: 0;
+  background: linear-gradient(calc(var(--pan) * 104deg), transparent 36%, #fff6df26 45%,
+    var(--stage-ink) 49.5%, #fffbe8 50%, var(--stage-ink) 50.5%, #fff6df26 55%, transparent 64%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-phase="aim"]:not([data-strike="counter"]) .combat-stage { animation: stage-cut .3s cubic-bezier(.2,.9,.3,1.15) both; }
+  [data-phase="aim"][data-strike="counter"] .combat-stage {
+    animation: stage-cut .3s cubic-bezier(.2,.9,.3,1.15) both, stage-stamp .42s .24s ease-out both;
+  }
+  [data-phase="aim"][data-strike="counter"] .combat-swap { animation: counter-swap .44s cubic-bezier(.4,0,.2,1) both; }
+  [data-phase="aim"][data-strike="counter"] .combat-camera { animation: counter-whip .46s cubic-bezier(.2,.8,.3,1) both; }
+}
+@keyframes stage-cut { from { translate: calc(var(--pan) * -130%) 0; opacity: 0; } 55% { opacity: 1; } to { translate: 0 0; } }
+@keyframes stage-stamp { 30% { scale: 1.16; } to { scale: 1; } }
+@keyframes counter-swap {
+  from { translate: calc(var(--pan) * -100%) 0; opacity: .95; }
+  to   { translate: calc(var(--pan) * 100%) 0; opacity: .6; }
+}
+@keyframes counter-whip { from { translate: calc(var(--pan) * 3.5%) 0; } to { translate: 0 0; } }
 .formation { position: absolute; inset: 0 50% 0 0; z-index: 2; image-rendering: pixelated; }
 .formation.foe { inset: 0 0 0 50%; transform: scaleX(-1); }
 .formation::before {
@@ -172,6 +239,13 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 @keyframes take-position { from { opacity: .25; transform: translateX(-24%); } to { opacity: 1; transform: none; } }
 [data-phase="aim"] .formation[data-role="attacking"] .fighter { animation: raise-sights .25s steps(1, end) both; }
 @keyframes raise-sights { from { background-position-y: 0%; } 65%, to { background-position-y: var(--pose-aim); } }
+@media (prefers-reduced-motion: no-preference) {
+  [data-phase="aim"][data-strike="counter"] .formation[data-role="attacking"] .fighter {
+    animation: raise-sights .25s steps(1, end) both,
+      counter-brace .6s calc(var(--column, 0) * 24ms) cubic-bezier(.3,0,.2,1) both;
+  }
+}
+@keyframes counter-brace { 45% { transform: translateX(-5%) scaleY(.97); } 80% { transform: translateX(3%); } to { transform: none; } }
 [data-phase="attack"] .formation[data-role="attacking"] .fighter {
   animation: var(--fire-motion) var(--fire-time) var(--fire-delay) steps(1, end) both;
 }
@@ -618,3 +692,33 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
 @keyframes sea-roll { to { background-position: 0 0, 0 34px, 0 -58px, 0 0; } }
 html.portrait-blocked :is(.formation, .combat-backdrop img, .combat-backdrop)::after,
 html.portrait-blocked :is(.formation, .combat-backdrop img) { animation-play-state: paused; }
+
+/* Portrait phones: the field takes the full width and the spare height; the heading packs into two rows. */
+@media (max-width: 550px) and (min-height: 500px) {
+  #combat-screen {
+    padding: max(8px, env(safe-area-inset-top)) env(safe-area-inset-right) max(8px, env(safe-area-inset-bottom)) env(safe-area-inset-left);
+  }
+  .combat-frame {
+    display: flex; flex-direction: column; width: 100%; max-height: 100%;
+    border-inline: 0; border-radius: 0; box-shadow: 0 0 0 1px #1d2231, 0 18px 50px #0a0b16cc;
+  }
+  .combat-frame > :not(.combat-field) { flex-shrink: 0; }
+  .combat-field { flex: 0 1 auto; height: min(150vw, 660px); min-height: 200px; }
+  /* Keep two lines for the status so the field does not resize between messages. */
+  #combat-status { min-height: calc(2 * 1.45em); line-height: 1.45; }
+  .combat-heading {
+    display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title sound" "turn sound";
+    align-items: center; column-gap: 8px; padding: 0 10px;
+  }
+  .combat-heading-actions { display: contents; }
+  .combat-heading h2 { grid-area: title; align-self: end; font-size: 20px; line-height: 1.15; }
+  #combat-turn { grid-area: turn; align-self: start; font-size: 12px; color: #e9dcc4; white-space: nowrap; }
+  .combat-heading .sound-controls { grid-area: sound; flex-wrap: nowrap; gap: 2px; }
+  .combat-stage { font-size: 12px; }
+  .combat-damage small { font-size: 12px; }
+}
+@media (max-width: 360px) and (min-height: 500px) {
+  .combat-heading { padding-inline: 8px; column-gap: 4px; }
+  #combat-turn { font-size: 11px; }
+  .combat-heading .sound-switch { padding-inline: 5px; }
+}

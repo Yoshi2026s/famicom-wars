@@ -275,7 +275,7 @@ dialog .end { justify-content: center; }
 .portrait-phone::after { content: ""; position: absolute; bottom: 3px; left: 8px; width: 5px; height: 2px; border-radius: 2px; background: #ffd483; }
 html.portrait-blocked body { overflow: hidden; }
 html.portrait-blocked body > :is(header, main, dialog:not(#portrait-notice)) { visibility: hidden; }
-html.portrait-blocked :is(#combat-screen, #combat-screen *, .tile.enemy-spawned img) { animation-play-state: paused; }
+html:is(.portrait-blocked, .timers-held) :is(#combat-screen, #combat-screen *, #combat-screen *::before, #combat-screen *::after, .tile.enemy-spawned img) { animation-play-state: paused; }
 @media (min-width: 1100px) and (max-height: 820px) { main { padding-top: 22px; } }
 @media (min-width: 1100px) {
   main, .mast-inner { width: min(100% - 64px, 1180px); }
