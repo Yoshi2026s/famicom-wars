@@ -19,13 +19,20 @@ const combatAudio = (() => {
   // Each unit fires its own weapon; impacts depend on what is hit (foot soldiers, armour, ships, aircraft).
   const weapons = {
     infantry: 'rifle', antitank: 'atRocket', mortar: 'mortar', scout: 'mg', antiair: 'flak', patrol: 'autocannon',
-    tank: 'cannon', heavytank: 'heavyCannon', artillery: 'howitzer', support: 'howitzer', rocket: 'salvo',
-    striker: 'salvo', helicopter: 'heliRocket', fighter: 'missile', drone: 'missile', destroyer: 'missile',
-    samlauncher: 'sam', cruiser: 'sam', bomber: 'bomb', battleship: 'navalGun', submarine: 'torpedo',
+    tank: 'cannon', heavytank: 'heavyCannon', artillery: 'howitzer', support: 'supportRound', rocket: 'salvo',
+    striker: 'airSalvo', helicopter: 'heliRocket', fighter: 'missile', drone: 'droneMissile', destroyer: 'shipMissile',
+    samlauncher: 'sam', cruiser: 'fleetSam', bomber: 'bomb', battleship: 'navalGun', submarine: 'torpedo',
   };
   const footKinds = new Set(['infantry', 'antitank', 'mortar']);
   const materialOf = (unit, domain) => domain === 'sea' ? 'water' : domain === 'air' ? 'air'
     : footKinds.has(unit) ? 'foot' : 'armor';
+  // Register of the body struck. Small frames ring above the heavier hulls.
+  const bodyPitch = {
+    infantry: 169, antitank: 204, mortar: 251, scout: 406, antiair: 348, support: 283, artillery: 231,
+    rocket: 316, samlauncher: 269, tank: 189, heavytank: 146, drone: 690, fighter: 498,
+    helicopter: 330, striker: 388, bomber: 252, patrol: 357, destroyer: 226, cruiser: 187,
+    battleship: 134, submarine: 164,
+  };
   // Peak level of each cue after normalising; map and menu sounds stay below the battle.
   const levels = {shot: .78, impact: .74, defeat: .86, move: .34, ui: .32, jingle: .5};
 
@@ -80,6 +87,8 @@ const combatAudio = (() => {
       noise({at, dur: .22 + .2 * size, amp: .8, f: [900, 220], q: .7, decay: 9 / size});
       tone({at, dur: .3 + .15 * size, amp: .7, f: [165 / size ** .3, 58], decay: 7 / size, drive: 3});
       tone({at: at + .005, dur: .12, amp: .18, f: [640, 380], decay: 30, wave: 'triangle'});
+      // A short second knock carries the recoil through the lower midrange on a small speaker.
+      tone({at: at + .046 * size, dur: .10, amp: .24, f: [290 / size, 147 / size], wave: 'triangle', decay: 24});
     }
     function whoosh(at, dur, from, to, amp = .5) {
       noise({at, dur, amp, f: [from, to], q: 2.2, attack: dur * .25, decay: 2.2 / dur});
@@ -135,6 +144,11 @@ const combatAudio = (() => {
           cannon(0, 1.6);
           whistle(.25, .45, 2300, 1200, .1);
           break;
+        case 'supportRound':
+          gun(0, .78, .70);
+          tone({at: .018, dur: .15, amp: .32, f: [360, 172], wave: 'triangle', decay: 14});
+          whoosh(.035, .27, 920, 2380, .42);
+          break;
         case 'mortar':
           tone({at: 0, dur: .08, amp: .55, f: [420, 180], decay: 30, drive: 2});
           noise({at: 0, dur: .14, amp: .5, f: [1600, 700], q: .9, decay: 24});
@@ -150,6 +164,13 @@ const combatAudio = (() => {
             whoosh(i * .1 + .01, .42, 3000, 800, .38);
           }
           break;
+        case 'airSalvo':
+          whoosh(0, .34, 1500, 610, .35);
+          for (const at of [0, .072]) {
+            crack(at, .59, 3200);
+            whistle(at + .012, .21, 760, 1680, .14);
+          }
+          break;
         case 'heliRocket':
           tone({at: 0, dur: .55, amp: .1, f: [92], tremolo: 22, drive: 1.5, decay: 2});
           for (let i = 0; i < 2; i++) {
@@ -162,6 +183,23 @@ const combatAudio = (() => {
           beep(.075, 1760);
           crack(.16, .45, 2400);
           whoosh(.16, .55, 900, 3400, .5);
+          break;
+        case 'droneMissile':
+          tone({dur: .23, amp: .22, f: [770, 1050], tremolo: 33, decay: 6});
+          beep(.012, 2637, .09);
+          whoosh(.046, .28, 2200, 4900, .54);
+          break;
+        case 'shipMissile':
+          tone({dur: .14, amp: .36, f: [260, 124], decay: 14, drive: 2});
+          crack(.018, .64, 1950);
+          whoosh(.034, .42, 870, 2700, .64);
+          whistle(.08, .27, 860, 1610, .10);
+          break;
+        case 'fleetSam':
+          beep(0, 1318, .12);
+          beep(.048, 1976, .10);
+          metal(.077, .28, .7);
+          whoosh(.092, .44, 740, 3200, .66);
           break;
         case 'sam':
           beep(0, 1568, .12);
@@ -210,17 +248,28 @@ const combatAudio = (() => {
       const material = materialOf(unit, domain);
       const fatal = stage === 'defeat';
       const heavy = ['tank', 'heavytank', 'battleship', 'bomber', 'cruiser'].includes(unit) ? 1.25 : 1;
+      const pitch = bodyPitch[unit] ?? 240;
+      // Brief material-specific tails sit behind the impact and leave the critical/block accents clear.
+      if (material === 'water') {
+        tone({at: .025, dur: .30, amp: .31, f: [pitch * 1.9, pitch * 1.72], decay: 12});
+        tone({at: .041, dur: .24, amp: .14, f: [pitch * 3.7, pitch * 3.53], decay: 16});
+      } else if (material === 'air') {
+        tone({at: .027, dur: fatal ? .41 : .18, amp: .23, f: [pitch * 1.8, pitch * .76],
+          tremolo: unit === 'helicopter' ? 19 : 0, decay: 10});
+      } else if (material === 'foot') {
+        noise({at: .033, dur: .12, amp: .27, f: [pitch * 8, pitch * 4], q: .75, decay: 20});
+      }
       // Heavy targets get a bass thump; drive adds overtones a phone speaker can still play.
       if (material !== 'foot') tone({dur: .38, amp: .5 * heavy, f: [124, 58], decay: 7, drive: 3.2});
       if (!fatal) {
         if (material === 'foot') thud(0, 1);
-        if (material === 'armor') { thud(0, .6); metal(0, .9, heavy > 1 ? .8 : 1); }
+        if (material === 'armor') { thud(0, .6); metal(0, .9, .48 + pitch / 610); }
         if (material === 'water') { boom(0, .55, .55); splash(.04, 1, .8); }
         if (material === 'air') { metal(0, .7, 1.35); noise({at: 0, dur: .25, amp: .45, f: [2600, 900], q: .9, decay: 14}); }
         return finish('impact', .1);
       }
       if (material === 'foot') { boom(0, .8, .85); thud(.02, .5); }
-      if (material === 'armor') { boom(0, 1.3 * heavy); metal(.06, .6, .85); boom(.24, .7, .45); }
+      if (material === 'armor') { boom(0, 1.3 * heavy); metal(.06, .6, .38 + pitch / 665); boom(.24, .7, .45); }
       if (material === 'water') { boom(0, 1.2 * heavy); splash(.18, 1.6, 1); }
       if (material === 'air') { whistle(0, .55, 1500, 260, .14); boom(.45, 1); boom(.62, .6, .35); }
       return finish('defeat', .2);
@@ -438,9 +487,11 @@ const combatAudio = (() => {
   function bufferFor(kind, variant = Math.floor(Math.random() * variantsOf(kind))) {
     const key = `${kind}#${variant}`;
     if (!effects.has(key)) {
-      const samples = synthesize(kind, context.sampleRate, variant);
+      // The mix rolls off above 4.2 kHz. Keep synthesis bounded on high-rate devices.
+      const rate = Math.min(32000, context.sampleRate);
+      const samples = synthesize(kind, rate, variant);
       if (!samples.length) return null;
-      const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+      const buffer = context.createBuffer(1, samples.length, rate);
       buffer.getChannelData(0).set(samples);
       effects.set(key, buffer);
     }
@@ -448,24 +499,32 @@ const combatAudio = (() => {
   }
 
   // Renders cues ahead of time in small idle slices so the first shot never stalls an animation.
-  const pending = [];
+  const pending = new Map();
   let preparing = false;
   function prepare(kinds) {
     if (!enabled || !context) return;
     for (const kind of kinds) {
       for (let variant = 0; variant < variantsOf(kind); variant++) {
-        if (!effects.has(`${kind}#${variant}`)) pending.push([kind, variant]);
+        const key = `${kind}#${variant}`;
+        if (!effects.has(key)) pending.set(key, [kind, variant]);
       }
     }
-    if (preparing) return;
+    if (preparing || !pending.size) return;
     preparing = true;
-    const idle = window.requestIdleCallback ?? (callback => setTimeout(() => callback({timeRemaining: () => 8}), 60));
-    const work = deadline => {
-      while (pending.length && deadline.timeRemaining() > 4) bufferFor(...pending.shift());
-      if (pending.length) idle(work);
+    const schedule = window.requestIdleCallback
+      ? callback => window.requestIdleCallback(callback, {timeout: 180})
+      : callback => setTimeout(callback, 24);
+    const work = () => {
+      // Safari's timer fallback also yields after one buffer; do not render a whole battle in one frame.
+      if (enabled && !document.hidden && pending.size) {
+        const [key, cue] = pending.entries().next().value;
+        pending.delete(key);
+        bufferFor(...cue);
+      } else pending.clear();
+      if (pending.size) schedule(work);
       else preparing = false;
     };
-    idle(work);
+    schedule(work);
   }
   const common = ['select', 'inspect', 'confirm', 'cancel', 'error', 'open', 'close', 'turn-friendly', 'turn-enemy',
     'move-foot', 'move-vehicle', 'move-air', 'move-sea', 'capture-step', 'capture-friendly', 'capture-enemy', 'produce', 'heal'];
