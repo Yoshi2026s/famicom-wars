@@ -561,6 +561,7 @@ function buildFactories() {
         combatAudio.cue('error');
         return;
       }
+      clearMapDetails();
       combatAudio.cue('produce');
       // From the picker, move on to the next site that can still produce this turn.
       if (!productionOrigin?.cell) {
@@ -1343,11 +1344,14 @@ actionConfirm.addEventListener('click', (event) => {
     pendingAction = undefined;
     cell.button.classList.remove('action-pending');
     actionDialog.close();
-    if (unit !== game.activeUnit || !game.canCaptureHere) return;
+    clearMapDetails();
+    if (unit !== game.activeUnit || !game.canCaptureHere) {
+      render();
+      return;
+    }
     const step = game.captureHere();
     if (step?.completed && factory) selectedFactory = factory;
     saveProgress();
-    render();
     restoreBoardFocus();
     celebrateCapture(step, 'friendly');
     return;
@@ -1495,8 +1499,8 @@ actionDialog.addEventListener('close', () => {
     renderTileDetails();
     return;
   }
-  const {cell: {button}, enemy} = pendingAction;
-  if (enemy) clearMapDetails();
+  const {button} = pendingAction.cell;
+  clearMapDetails();
   pendingAction = undefined;
   highlightFriendlyRoute([]);
   button.classList.remove('action-pending');
@@ -1803,8 +1807,14 @@ productionDialog.addEventListener('close', () => {
   const {cell} = productionOrigin;
   productionOrigin = undefined;
   positionProductionControls();
-  renderProduction();
-  renderTileDetails();
+  // The move button hands the facility to the pending move instead of dismissing it.
+  if (game.stagedMove) {
+    renderProduction();
+    renderTileDetails();
+    return;
+  }
+  clearMapDetails();
+  render();
   if (cell && !actionDialog.open && !portraitMode.blocked) cell.button.focus({preventScroll: true});
 });
 
