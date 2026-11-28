@@ -509,6 +509,7 @@ html.combat-open body > :is(.masthead, main) { visibility: hidden; }
   scale: var(--vs, 1); z-index: var(--vz, 2); transform-origin: 50% 100%;
 }
 .formation[data-domain="air"] { --lift: 24%; }
+.platoon:not([data-skies]) .formation[data-domain="air"] { --lift: 32%; }
 .formation[data-domain="sea"] { --lift: 3%; }
 .formation[data-domain="air"] .fighter-sprite { animation: squadron-hover 2.4s var(--bob-delay, 0s) ease-in-out infinite; }
 .formation[data-domain="sea"] .fighter-sprite { animation: squadron-sway 3.2s var(--bob-delay, 0s) ease-in-out infinite; }
