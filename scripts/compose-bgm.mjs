@@ -9,6 +9,8 @@ const chords = {
   G: [43, 54, 59, 62, 67], Em: [40, 55, 59, 62, 66], Fsm: [42, 54, 57, 61, 64],
   C: [36, 55, 60, 64, 67], Dm: [38, 53, 57, 60, 64], Bb: [34, 53, 57, 62, 65],
   Gm: [43, 55, 58, 62, 65], A7: [33, 55, 57, 61, 64], A7b9: [33, 55, 58, 61, 64],
+  // Softer colours for the enemy field theme: G minor sixth fits the tune, and the dominant resolves without the flat ninth.
+  Gm6: [43, 55, 58, 62, 64], A7s: [33, 52, 57, 61, 67],
   F: [41, 53, 57, 60, 64], Eb: [39, 55, 58, 62, 65], Dsus: [38, 55, 57, 62, 64],
   // Plain triads for the marches: brighter and more martial than the sevenths of the field themes.
   D3: [38, 50, 57, 62, 66], C3: [36, 48, 55, 60, 64], G3: [43, 55, 59, 62, 67], A3: [33, 45, 57, 61, 64],
@@ -28,7 +30,7 @@ const meadow = [
 const valley = [
   [[0,1.16,62],[1.5,.48,65],[2.25,1.24,64],[3.75,.20,60]],
   [[0,1.35,58],[1.75,.45,60],[2.5,1.16,62]],
-  [[0,.62,64],[.75,.39,67],[1.25,.55,70],[2,1.37,69],[3.6,.29,65]],
+  [[0,.62,64],[.75,.39,67],[1.25,.55,70],[2,1.37,67],[3.6,.29,64]],
   [[0,.94,64],[1.25,.65,61],[2.25,1.28,57]],
   [[0,1.12,62],[1.5,.38,64],[2,.70,65],[3,.56,69],[3.62,.28,72]],
   [[0,1.44,70],[1.75,.52,69],[2.5,1.14,65]],
@@ -74,8 +76,9 @@ const scores = [
     harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A', ...friendlyPhrase],
   },
   {
-    name: 'bgm-enemy-map', bpm: 92, melody: valley, epic: true, enemy: true,
-    harmony: [...enemyPhrase, 'F','Bb','Gm','A7','Dm','Eb','Gm','A7b9','Dm','Bb','Gm','A7b9'],
+    // Tense but easy to listen to: chords follow the tune (no clashing ninths), and no choir.
+    name: 'bgm-enemy-map', bpm: 100, melody: valley, epic: true, enemy: true,
+    harmony: ['Dm','Bb','Gm6','A7s','Dm','Bb','Gm','A7', 'F','Bb','Gm6','A7s','Dm','Bb','Gm','A7', 'Dm','Bb','Gm6','A7'],
   },
   {
     name: 'bgm-battle', bpm: 144, melody: charge, reply: [69, 72, 74, 73, 78, 79, 77, 76],
@@ -295,7 +298,7 @@ function arrangeEpic({bpm, harmony, melody, enemy}) {
     tones.forEach((pitch, i) => {
       note(start, 3.9, pitch + (i >= 2 ? 12 : 0), .036 * swell, 'ensemble', (i - 1.5) * .45);
     });
-    if (lyric || grand) {
+    if ((lyric || grand) && !enemy) {
       for (const [i, pitch] of tones.slice(0, 3).entries()) note(start, 3.9, pitch + 12, .024 * swell, 'choir', (1 - i) * .55);
     }
     // Low strings and basses: driving eighths in the outer sections, long bows in the middle.
