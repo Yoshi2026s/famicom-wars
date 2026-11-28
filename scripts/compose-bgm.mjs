@@ -73,6 +73,11 @@ const instruments = {
   }},
   // Warm French horn for lyrical lines and doubling an octave below.
   horn: {attack: .04, release: .18, wave: (p, t, f) => partials(p, f, [1, .48, .22, .1, .05]) * .8},
+  // Trombone section. The accented overtones decay into a round sustained note.
+  trombone: {attack: .019, release: .14, wave: (p, t, f) => {
+    const bite = Math.exp(-8 * t);
+    return partials(p, f, [1, .72, .47 + .17 * bite, .2 + .16 * bite, .11, .055]) * .56;
+  }},
   // Strings: two very slightly spread saw voices, no vibrato.
   strings: {attack: .09, release: .3, wave: (p, t, f) =>
     (partials(p * .999, f, saw.slice(0, 10)) + partials(p * 1.001, f, saw.slice(0, 10))) * .32},
@@ -86,9 +91,18 @@ const instruments = {
     const string = partials(p, f, guitarPartials);
     return Math.tanh((2.7 + pick) * string) * (.39 + .16 * pick);
   }},
+  // Lead guitar with a short pick and a smoother sustained note above the rhythm guitars.
+  leadGuitar: {attack: .006, release: .095, wave: (p, t, f) => {
+    const pick = Math.exp(-24 * t);
+    return partials(p, f, [1, .56, .68 + .18 * pick, .24, .33, .12, .085, .045]) *
+      (.55 + .12 * pick) * Math.exp(-1.1 * t);
+  }},
   // A quick bowed stroke carries the rhythm without adding another bright lead.
   spiccato: {attack: .009, release: .04, wave: (p, t, f) =>
     partials(p, f, bowPartials) * Math.exp(-12 * t) * .65},
+  // Low ensemble octaves with a short, breathy swell between the drum accents.
+  lowStrings: {attack: .055, release: .11, wave: (p, t, f) =>
+    partials(p, f, [1, .78, .59, .27, .15, .08]) * (.55 - .16 * Math.exp(-8 * t))},
   // Electric bass: round fundamental with enough upper partials to carry on small speakers.
   bass: {attack: .008, release: .07, wave: (p, t, f) => Math.tanh(1.5 * partials(p, f, [1, .55, .32, .18, .1])) * .85},
   // Timpani: tuned membrane partials, quick decay.
@@ -166,6 +180,10 @@ const battleParts = {
     strings: [[.5,0], [1.25,1], [1.75,2], [2.5,1], [3.25,2], [3.75,3]],
     answer: [[2.25,.25,0], [2.75,.25,1], [3.25,.44,2]],
     toms: [2.5, 3, 3.5, 3.75],
+    opening: [0, 1.5],
+    hornStabs: [0, 2.75],
+    halfTimeKicks: [0, 1.5, 2.75, 3.5],
+    pickup: [3.25, 3.5, 3.75],
   },
   siege: {
     kicks: [0, .5, .75, 1.75, 2.5, 2.75, 3.5],
@@ -175,6 +193,10 @@ const battleParts = {
     strings: [[.25,2], [.75,1], [1.5,0], [2.25,2], [2.75,1], [3.5,0]],
     answer: [[1.75,.24,2], [2.25,.31,1], [3,.55,0]],
     toms: [2, 2.75, 3.25, 3.75],
+    opening: [0, .75],
+    hornStabs: [0, 1.75, 2.5],
+    halfTimeKicks: [0, .75, 2.5, 3.25],
+    pickup: [3, 3.5, 3.75],
   },
 };
 
@@ -194,6 +216,8 @@ function arrange(piece) {
     const next = sections.find(([at]) => at > index)?.[0] ?? bars.length;
     const sectionStart = index === first;
     const sectionEnd = index === next - 1;
+    // Each battle theme moves from the opening riff through a half-time bridge to the full band.
+    const halfTime = battle && first === 4;
     // Energy of the section that follows (the loop wraps to the first one).
     const upcoming = sectionAt(next % bars.length)[1];
     const held = melody.filter(([, beats]) => beats >= .5).map(([, , pitch]) => pitch);
@@ -207,15 +231,19 @@ function arrange(piece) {
       for (const step of [1, 3]) drum(start + step, 'snare', .22, -.1);
       for (let step = 0; step < 4; step++) drum(start + step + .5, 'hat', .06, .35);
     } else if (battle) {
-      for (const step of battle.kicks) drum(start + step, 'kick', step % 2 === 0 ? .74 : .53);
-      for (const step of battle.snare) drum(start + step, 'snare', .67, -.1);
+      for (const step of halfTime ? battle.halfTimeKicks : battle.kicks) {
+        drum(start + step, 'kick', step % 2 === 0 ? .79 : .54);
+      }
+      for (const step of halfTime ? [2] : battle.snare) drum(start + step, 'snare', halfTime ? .79 : .66, -.1);
       for (let step = 0; step < 8; step++) drum(start + step / 2, 'hat', step % 2 ? .072 : .044, .35);
       if (index % 2 === 1) {
         drum(start + 3.5, 'open', .075, .38);
         if (energy === 2 && !battle.kicks.includes(3.75)) drum(start + 3.75, 'kick', .51);
       }
-      if (index % 4 === 3) {
+      if (sectionEnd && upcoming === 2) {
+        // The toms cross the stereo field before centered kick hits lead back into the riff.
         battle.toms.forEach((step, i) => drum(start + step, 'tom', .36 + i * .055, -.42 + i * .28));
+        battle.pickup.forEach((step, i) => drum(start + step, 'kick', .42 + i * .045));
       }
     } else {
       const kicks = groove === 'march' ? [0, 2, 2.5] : groove === 'drive' ? [0, .75, 1.5, 2, 2.75, 3.5] : [0, 1.5, 2, 2.75];
@@ -265,11 +293,16 @@ function arrange(piece) {
       const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
       for (const [at, length] of battle.guitar) {
         const accent = at % 2 === 0;
-        const voice = accent ? 'drive' : 'chug';
-        note(start + at, length, low, accent ? .14 : .106, voice, -.56);
-        // Stagger both cabinets, with root and fifth audible even through a mono speaker.
-        note(start + at + .017, length * .92, low + 7, accent ? .11 : .068, voice, .54);
-        if (accent) note(start + at + .029, length * .84, low + 12, energy === 2 ? .075 : .058, voice, -.28);
+        if (halfTime && !accent && at !== battle.guitar.at(-1)[0]) continue;
+        const voice = accent || length >= .23 ? 'drive' : 'chug';
+        const sustain = halfTime ? length * 1.65 : length;
+        note(start + at, sustain, low, accent ? .16 : .107, voice, -.49);
+        // Stagger the cabinets. Both strong beats carry the root and fifth in mono.
+        note(start + at + .015, sustain * .86, low + (accent ? 0 : 7), accent ? .09 : .056, voice, .5);
+        if (accent) {
+          note(start + at + .026, sustain * .92, low + 7, .092, 'drive', .33);
+          note(start + at + .034, sustain * .81, low + 12, .07, 'chug', -.28);
+        }
       }
     } else if (energy > 0) {
       const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
@@ -296,7 +329,11 @@ function arrange(piece) {
     if (battle && energy > 0) {
       // Give the percussion a bar to answer each bowed figure.
       if (pad.length) {
-        if (index % 2 === 0 || energy === 2) {
+        if (halfTime) {
+          const [low, high = low] = pad;
+          note(start, 1.8, low - 12, .12, 'lowStrings', -.26);
+          note(start + 2, 1.72, high, .10, 'lowStrings', .26);
+        } else if (index % 2 === 0 || energy === 2) {
           battle.strings.forEach(([offset, rank], i) =>
             note(start + offset, .19, pad[rank % pad.length] + (dark ? 0 : 12),
               i % 2 ? .08 : .108, 'spiccato', i % 2 ? .39 : -.39));
@@ -316,18 +353,26 @@ function arrange(piece) {
 
     // Timpani on downbeats of big sections.
     if (energy === 2 || sectionStart) note(start, 1, 41 + ((root + 7) % 12), .22, 'timpani', -.2);
-    if (battle && (sectionStart || (dark && index % 2 === 0))) {
-      // The first seconds of each battle already carry the full band.
-      note(start, .55, bassRoot + 12, .11, 'brass', -.31);
-      note(start + .02, .52, bassRoot + 19, .085, 'brass', .31);
-      if (dark) note(start + 2, .38, bassRoot + 12, .10, 'timpani', -.2);
+    if (battle && (sectionStart || (energy === 2 && index % 2 === 0))) {
+      // Short orchestral accents clear the way for the opening melody.
+      const strikes = index === 0 ? battle.opening : battle.hornStabs;
+      strikes.forEach((step, i) => {
+        const at = start + step;
+        note(at, .4, bassRoot + 12, i === 0 ? .15 : .095, 'trombone', -.28);
+        note(at + .018, .33, bassRoot + 19, .095, 'trombone', .28);
+        note(at + .008, .55, bassRoot, .14, 'timpani', -.12);
+      });
     }
 
     // The tune.
     for (const [offset, beats, pitch] of melody) {
       const at = start + offset;
       const articulated = battle ? beats * (beats < 1 ? .78 : .94) : beats;
-      note(at, articulated, pitch, battle && offset === 0 ? .18 : .16, lead, -.08);
+      note(at, articulated, pitch, battle && offset === 0 ? .19 : .16, lead, -.08);
+      if (battle && (index < 4 || first === 12) && beats >= .5) {
+        note(at + .025, articulated * .88, pitch - 12, lead === 'leadGuitar' ? .052 : .1,
+          lead === 'leadGuitar' ? 'trombone' : 'leadGuitar', -.32);
+      }
       if (energy >= 1) note(at + .01, articulated, pitch - 12, .07, 'horn', .3);
       if (energy === 2) note(at + .02, beats, pitch - 12, .045, 'strings', -.35);
       if (energy === 2 && beats >= .5) {
@@ -552,7 +597,7 @@ const pieces = [
     G  | B5:1.5 G5:.5 D5:1 G5:1
     Cm | C6:3 G5:1
     G  | D5:.5 F5:.5 G5:1 B5:2`)},
-  {name: 'bgm-battle', bpm: 160, groove: 'charge', sections: [[0, 1, 'brass'], [4, 1, 'horn'], [8, 2, 'brass']], bars: piece(`
+  {name: 'bgm-battle', bpm: 160, groove: 'charge', sections: [[0, 1, 'brass'], [4, 1, 'horn'], [8, 2, 'brass'], [12, 2, 'leadGuitar']], bars: piece(`
     Am | A4:.5 C5:.5 E5:1 A5:2
     F  | A5:.5 G5:.5 F5:1 C5:2
     G  | B4:.5 D5:.5 G5:1 D5:2
@@ -569,7 +614,7 @@ const pieces = [
     G  | D6:1 B5:1 G5:1 D6:1
     E  | E6:2 B5:1 G#5:1
     E  | B5:.5 A5:.5 G#5:.5 F#5:.5 E5:2`)},
-  {name: 'bgm-enemy-battle', bpm: 164, groove: 'siege', dark: true, sections: [[0, 1, 'horn'], [4, 1, 'brass'], [8, 2, 'brass']], bars: piece(`
+  {name: 'bgm-enemy-battle', bpm: 164, groove: 'siege', dark: true, sections: [[0, 1, 'horn'], [4, 1, 'brass'], [8, 2, 'brass'], [12, 2, 'trombone']], bars: piece(`
     Dm | A4:1 D5:.5 E5:.5 F5:1 A5:1
     Bb | Bb5:1.5 G5:.5 F5:1 D5:1
     C  | E5:1 G5:1 C6:1.5 G5:.5
