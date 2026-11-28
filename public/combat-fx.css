@@ -237,7 +237,7 @@
 [data-phase="impact"][data-critical] .combat-flash { animation: critical-flash .44s linear both; }
 [data-phase="impact"][data-lethal="true"] .combat-flash { animation: lethal-flash .75s ease-out both; }
 @keyframes fire-flash { from { opacity: .16; } to { opacity: 0; } }
-@keyframes critical-flash { 0% { opacity: .62; } 20% { opacity: .04; } 32% { opacity: .56; } to { opacity: 0; } }
+@keyframes critical-flash { from { opacity: .36; } to { opacity: 0; } }
 @keyframes lethal-flash { 0% { opacity: .82; } 14% { opacity: .7; } 40% { opacity: .3; } to { opacity: 0; } }
 
 /* ---- Explosions on the ground: twin fireball lobes, ground-hugging dust, a smoke column on a kill ---- */
@@ -542,17 +542,11 @@
 #combat-screen[data-critical][data-phase="impact"] .combat-lines { animation: critical-lines .56s ease-out both; }
 #combat-screen[data-critical][data-phase="impact"] .combat-damage { animation: critical-slam .9s cubic-bezier(.2,.9,.3,1) 140ms both; }
 #combat-screen[data-critical] .combat-damage b { color: #ffd84a; font-size: clamp(36px, 9vw, 76px); text-shadow: -2px -1px #3a0d08, 2px 2px #3a0d08, -1px 2px #3a0d08, 1px -1px #3a0d08, 0 0 14px #ff7a1f; }
-#combat-screen[data-critical][data-phase="impact"] .combat-damage::before {
-  content: "CRITICAL!"; padding: 1px 8px 2px; color: #fff8e0; background: linear-gradient(90deg, #b3121b, #e8541d);
-  font: italic 900 clamp(13px, 3.6vw, 20px)/1.15 Georgia, serif; letter-spacing: .08em; transform: skewX(-12deg);
-  box-shadow: 0 0 0 2px #ffd84a, 0 3px 0 #3a0d08; animation: critical-label .5s ease-out both;
-}
 @keyframes critical-lines { from { opacity: .95; transform: scale(.72); } 45% { opacity: .7; } to { opacity: 0; transform: scale(1.18) rotate(5deg); } }
 @keyframes critical-slam {
   from { opacity: 0; transform: scale(2.6); } 18% { opacity: 1; transform: scale(.86); }
   30% { transform: scale(1.14); } 42%, to { opacity: 1; transform: translateY(-12px) scale(1); }
 }
-@keyframes critical-label { from { opacity: 0; transform: skewX(-12deg) scale(2.2); } 35% { opacity: 1; transform: skewX(-12deg) scale(.94); } to { opacity: 1; transform: skewX(-12deg) scale(1); } }
 
 #combat-screen[data-deflected] .combat-damage b {
   font: 900 clamp(22px, 6.4vw, 46px)/1 system-ui, sans-serif; letter-spacing: .04em; color: transparent; text-shadow: none;
@@ -654,6 +648,147 @@
   [data-hit-tier="light"] .combat-damage b { font-size: clamp(28px, 8vw, 42px); }
   [data-hit-tier="heavy"] .combat-damage b { font-size: clamp(38px, 11.5vw, 58px); }
   #combat-screen[data-critical] .combat-damage b { font-size: clamp(40px, 12.5vw, 62px); }
+}
+
+/* ---- Speech balloons, rare impacts and domain-specific launch wakes ---- */
+.combat-speech,
+.combat-cut-in {
+  position: absolute;
+  z-index: 15;
+  pointer-events: none;
+  line-height: 1.25;
+}
+.combat-speech {
+  --speech-ink: #183f59;
+  --speech-edge: #6bc3db;
+  top: clamp(54px, 10%, 66px);
+  inset-inline-start: clamp(12px, 5%, 40px);
+  max-width: calc(100% - 24px);
+  padding: 7px 14px 9px;
+  color: #171d2b;
+  background: radial-gradient(#183f5915 1px, transparent 1px) top right / 5px 5px, #fcf4df;
+  border: 2px solid var(--speech-ink);
+  border-radius: 4px 14px 14px 14px;
+  box-shadow: 3px 3px 0 var(--speech-edge), 0 5px 18px #0e172f60;
+  font-weight: 850;
+}
+.combat-speech[data-side="enemy"] {
+  --speech-ink: #612b20;
+  --speech-edge: #df8c65;
+  inset-inline: auto clamp(12px, 5%, 40px);
+  border-radius: 14px 4px 14px 14px;
+}
+.combat-speech::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  inset-inline-start: 15px;
+  width: 10px;
+  height: 10px;
+  rotate: 45deg;
+  background: #fcf4df;
+  border: solid var(--speech-ink);
+  border-width: 0 2px 2px 0;
+  box-shadow: 2px 2px 0 var(--speech-edge);
+}
+.combat-speech[data-side="enemy"]::after { inset-inline: auto 15px; }
+.combat-speech b, .combat-cut-in span { display: block; font-size: clamp(11px, 2.5vw, 14px); }
+.combat-speech b { color: var(--speech-ink); margin-bottom: 2px; }
+.combat-speech span { font-size: clamp(13px, 3.9vw, 19px); }
+.combat-cut-in {
+  --cut-in-edge: #ffe4a0;
+  inset: clamp(56px, 14%, 86px) 3% auto;
+  padding: 8px clamp(10px, 5%, 35px) 10px;
+  width: min(94%, 510px);
+  margin-inline: auto;
+  text-align: center;
+  color: #fffaf0;
+  background:
+    repeating-linear-gradient(118deg, transparent 0 10px, #ffffff13 10px 12px, transparent 12px 24px) right / 42% 100% no-repeat,
+    linear-gradient(100deg, #192338, #432619 72%, #251f29);
+  border-block: 2px solid var(--cut-in-edge);
+  box-shadow: 0 5px 18px #0c1426be, 0 2px 0 2px #131c31;
+}
+[data-rare="counter"] .combat-cut-in {
+  --cut-in-edge: #a2e2fc;
+  background-color: #121e36;
+  background-image: repeating-linear-gradient(118deg, transparent 0 10px, #a5c2ff36 10px 12px, transparent 12px 24px),
+    linear-gradient(112deg, #151d35, #204466 70%, #1a213e);
+  background-size: 45% 100%, 100% 100%;
+}
+[data-rare="breakthrough"] .combat-cut-in { --cut-in-edge: #ffb399; }
+.combat-cut-in b {
+  color: var(--cut-in-edge);
+  font-size: clamp(18px, 5.3vw, 33px);
+  font-weight: 900;
+  text-shadow: 0 2px #171827;
+}
+.combat-cut-in span { margin-top: 2px; }
+.combat-cut-in-unit {
+  position: absolute;
+  top: -34%;
+  right: -3%;
+  width: clamp(124px, 38%, 218px);
+  height: 175%;
+  object-fit: contain;
+  opacity: .42;
+  mask-image: linear-gradient(90deg, transparent, #000 75%);
+}
+.combat-cut-in b, .combat-cut-in span { position: relative; }
+:is([data-panorama="forest"], [data-panorama="ruins"]) .combat-backdrop img { object-position: center 65%; }
+[data-panorama="forest"] .combat-embers { opacity: .25; }
+:is([data-panorama="forest"], [data-panorama="ruins"]) .combat-warfront { opacity: .34; }
+[data-panorama="forest"] .formation[data-terrain="forest"]::before {
+  opacity: .48;
+  filter: brightness(.68) saturate(.48);
+}
+
+.combat-launch-wake {
+  position: absolute;
+  z-index: 3;
+  left: var(--wake-x, 50%);
+  top: var(--wake-y, 50%);
+  width: clamp(34px, 11%, 110px);
+  aspect-ratio: 1.8;
+  translate: -50% -35%;
+  opacity: 0;
+  border: 2px solid #ffdf9d;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #ff824899, inset 0 0 6px #ff824899;
+  pointer-events: none;
+}
+[data-attack-domain="sea"] .combat-launch-wake {
+  border-color: #d2faff;
+  box-shadow: 0 3px 2px #92deee66;
+  translate: -50% 10%;
+  aspect-ratio: 3.4;
+}
+[data-attack-domain="air"] .combat-launch-wake {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  translate: calc(-50% - var(--pan) * 18%) -35%;
+  background: linear-gradient(90deg, transparent, #d4ecfc70, transparent) center 35% / 100% 3px no-repeat,
+    linear-gradient(90deg, transparent, #bce6f28f, transparent) center 66% / 85% 2px no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-phase="aim"] .combat-speech:not([hidden]) { animation: bubble-enter .22s cubic-bezier(.15,.8,.3,1.1) both; }
+  [data-phase="impact"] .combat-cut-in:not([hidden]) { animation: cut-in .25s cubic-bezier(.14,.9,.28,1) both; }
+  [data-phase="attack"] .combat-launch-wake { animation: launch-wake .42s var(--wake-delay, 0ms) ease-out both; }
+  html.portrait-blocked :is(.combat-speech, .combat-cut-in, .combat-launch-wake) { animation-play-state: paused; }
+}
+@keyframes bubble-enter {
+  from { opacity: 0; transform: translateY(6px) scale(.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cut-in {
+  from { opacity: 0; clip-path: inset(0 48%); transform: scale(.97); }
+  to { opacity: 1; clip-path: inset(-15px); transform: none; }
+}
+@keyframes launch-wake {
+  0% { opacity: 0; scale: .4; }
+  20% { opacity: .78; }
+  to { opacity: 0; scale: 1.95 1.25; }
 }
 
 /* ---- Reduce motion: no new movement; hide the one-off layers, keep text and still states ---- */

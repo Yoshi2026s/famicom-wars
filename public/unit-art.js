@@ -5,8 +5,8 @@
 (() => {
   const W = 256, H = 224, GROUND = 204;
   const teams = {
-    friendly: {base: '#58758c', light: '#a7c3d6', dark: '#26384a', camo: '#3e5c58', camo2: '#7d97a3', mark: '#3cc8e6', markDark: '#126d86', cloth: '#4d6a70', skin: '#e0b48e'},
-    enemy: {base: '#93603f', light: '#dcab84', dark: '#4a2a1a', camo: '#6f4a2c', camo2: '#b98a5c', mark: '#ff6b3d', markDark: '#9c2a14', cloth: '#7c5236', skin: '#d9a982'},
+    friendly: {base: '#4f7899', light: '#bed5e0', dark: '#203448', camo: '#3d5d61', camo2: '#80a0b1', mark: '#63e4f4', markDark: '#176d8d', cloth: '#4b7180', skin: '#e0b48e'},
+    enemy: {base: '#a36549', light: '#edc1a2', dark: '#482820', camo: '#764c3a', camo2: '#bf8c6e', mark: '#ff8c61', markDark: '#a42f24', cloth: '#86583e', skin: '#d9a982'},
   };
 
   function rng(seed) {
@@ -22,7 +22,9 @@
   }
   function metal(ctx, y0, y1, p, tone = 'base') {
     const base = tone === 'camo' ? p.camo : p.base;
-    return vgrad(ctx, y0, y1, [[0, p.light], [.12, p.light], [.22, base], [.57, base], [.86, p.dark], [1, base]]);
+    // A bright bevel, a wide painted face, and a narrow bounce from the ground.
+    return vgrad(ctx, y0, y1, [[0, p.light], [.09, p.light], [.22, base], [.51, base],
+      [.78, p.dark], [.94, p.dark], [1, base]]);
   }
   function poly(ctx, points) {
     ctx.beginPath();
@@ -80,15 +82,21 @@
     const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
     const g = ctx.createLinearGradient(left, top, left + (right-left)*.22, bottom);
     g.addColorStop(0, `rgba(255,226,186,${strength})`);
-    g.addColorStop(.36, 'rgba(255,238,217,0)');
-    g.addColorStop(.77, 'rgba(25,40,59,.10)');
-    g.addColorStop(1, 'rgba(12,25,44,.34)');
+    g.addColorStop(.25, 'rgba(255,238,217,.03)');
+    g.addColorStop(.52, 'rgba(25,35,50,0)');
+    g.addColorStop(.81, 'rgba(20,32,49,.35)');
+    g.addColorStop(1, 'rgba(134,163,177,.20)');
     ctx.fillStyle = g;
     ctx.fillRect(left, top, right-left, bottom-top);
-    // Grazing light catches the exposed upper edges of the plate.
+    // Warm edge light faces the sky. Short cool edges under the panel pick up bounced light.
+    const middle = (top + bottom) * .5;
     for (const [i, a] of points.entries()) {
       const b = points[(i+1) % points.length];
-      if (b[0] > a[0] && a[1] <= (top+bottom)*.5) strokeLine(ctx, [a,b], 'rgba(255,226,188,.68)', 2.8);
+      if (b[0] > a[0] && Math.max(a[1], b[1]) <= middle) {
+        strokeLine(ctx, [a,b], 'rgba(255,231,192,.84)', 3.6);
+      } else if (b[0] < a[0] && Math.min(a[1], b[1]) >= middle) {
+        strokeLine(ctx, [a,b], 'rgba(173,210,221,.40)', 2.5);
+      }
     }
     ctx.restore();
   }
@@ -171,7 +179,9 @@
     ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   }
   function stripe(ctx, x, y, w, h, p) {
-    ctx.fillStyle = vgrad(ctx, y, y + h, [[0, p.mark], [1, p.markDark]]);
+    ctx.fillStyle = 'rgba(14,22,31,.62)';
+    ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    ctx.fillStyle = vgrad(ctx, y, y + h, [[0, p.mark], [.5, p.mark], [1, p.markDark]]);
     ctx.fillRect(x, y, w, h);
   }
   function muzzleFlash(ctx, x, y, size, angle = 0) {
@@ -204,10 +214,12 @@
     const xs = points.map(q => q[0]), ys = points.map(q => q[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const w = x1-x0, h = y1-y0;
-    ctx.fillStyle = vgrad(ctx, y0, y1, [[0, '#d9f4ed'], [.32, '#8db9bd'], [.56, '#658eac'], [.6, '#324a60'], [1, '#1c3446']]);
+    ctx.fillStyle = vgrad(ctx, y0, y1, [[0, '#e0f8ec'], [.22, '#8fcdd0'], [.48, '#5083a1'],
+      [.51, '#263b51'], [.83, '#172b3a'], [1, '#3d6471']]);
     ctx.fill();
     ctx.save(); ctx.clip();
-    fillShape(ctx, [[x0+w*.32,y0],[x0+w*.55,y0],[x0+w*.25,y1],[x0+w*.07,y1]], 'rgba(255,244,214,.42)', null);
+    fillShape(ctx, [[x0+w*.36,y0],[x0+w*.53,y0],[x0+w*.31,y1],[x0+w*.13,y1]], 'rgba(255,244,214,.52)', null);
+    fillShape(ctx, [[x0+w*.61,y0],[x0+w*.67,y0],[x0+w*.45,y1],[x0+w*.39,y1]], 'rgba(179,237,241,.36)', null);
     ctx.restore();
     poly(ctx, points);
     ctx.strokeStyle = 'rgba(12,16,20,.9)'; ctx.lineWidth = 1.8; ctx.stroke();
@@ -247,7 +259,10 @@
       strokeLine(ctx, [[x+1,116],[x+8,115]], '#c3ba91', 1.3);
     }
     strokeLine(ctx, [[109,89],[116,102],[136,109]], '#c6b78e', 3);
-    stripe(ctx, 100, 90, 10, 8, p);
+    const shoulder = [[100, 91], [112, 89], [122, 95], [117, 107], [103, 105], [98, 99]];
+    fillShape(ctx, shoulder, metal(ctx, 89, 107, p), '#192834', 1.7);
+    specular(ctx, shoulder);
+    stripe(ctx, 102, 95, 12, 5, p);
     // Head and helmet.
     const face = ctx.createRadialGradient(140, 70, 2, 136, 74, 18);
     face.addColorStop(0, '#f6d2b0'); face.addColorStop(1, p.skin);
@@ -266,6 +281,7 @@
     fillShape(ctx, [[115,60],[141,59],[160,62],[161,66],[141,64],[115,65]], p.mark, null);
     strokeLine(ctx, [[117,58],[123,49],[133,45]], '#e7d7b3', 2);
     ctx.fillStyle = '#a9a58c'; ctx.fillRect(118,63,5,5);
+    strokeLine(ctx, [[116,68],[140,69],[161,68]], '#232b35', 2.4);
   }
 
   function drawInfantry(ctx, p, pose) {
@@ -326,6 +342,7 @@
     // Cab.
     const cab = [[176, 184], [176, 120], [204, 120], [226, 150], [228, 184]];
     fillShape(ctx, cab, metal(ctx, 120, 184, p));
+    specular(ctx, cab);
     glass(ctx, [[184, 126], [202, 126], [218, 150], [184, 150]]);
     // Cargo bed with mortar launcher.
     const bed = [[32, 184], [32, 150], [176, 150], [176, 184]];
@@ -355,7 +372,9 @@
     fillShape(ctx, turret, metal(ctx, 108, 146, p));
     camo(ctx, turret, p, 43);
     specular(ctx, turret);
+    fillShape(ctx, [[82,118],[131,110],[171,117],[153,125],[97,126]], 'rgba(210,225,227,.20)', null);
     fillShape(ctx, [[108, 110], [126, 108], [128, 100], [110, 100]], metal(ctx, 100, 110, p));
+    fillShape(ctx, [[175,120],[187,119],[192,126],[186,137],[178,139]], metal(ctx, 119, 139, p));
     const [mx, my] = barrel(ctx, 182, 126, 66, 9, 0, p);
     stripe(ctx, 84, 128, 30, 6, p);
     vents(ctx,43,152,26,3);
@@ -398,6 +417,7 @@
     const pod = [[0, -30], [112, -30], [112, 4], [0, 4]];
     fillShape(ctx, pod, metal(ctx, -30, 4, p, 'camo'));
     camo(ctx, pod, p, 63);
+    specular(ctx, pod, .45);
     fillShape(ctx, [[106,-29],[117,-25],[117,7],[106,3]], metal(ctx,-29,7,p), '#29343b', 1.4);
     for (let row=0; row<3; row++) for (let column=0; column<2; column++) {
       const x=109+column*5, y=-23+row*10+column*2;
@@ -488,7 +508,9 @@
     specular(ctx, body, .45);
     glass(ctx, [[160, 106], [178, 96], [202, 104], [206, 112], [168, 112]]);
     // Near wing.
-    fillShape(ctx, [[96, 126], [162, 126], [110, 166], [90, 166]], metal(ctx, 126, 166, p));
+    const wing = [[96, 126], [162, 126], [110, 166], [90, 166]];
+    fillShape(ctx, wing, metal(ctx, 126, 166, p));
+    fillShape(ctx, [[95,144],[142,137],[125,149],[93,156]], 'rgba(208,224,214,.23)', null);
     insignia(ctx, 112, 148, 9, p);
     strokeLine(ctx, [[96,160],[106,160],[135,139]], p.dark, 1.5);
     jetIntake(ctx,134,120,p);
@@ -511,7 +533,9 @@
     glass(ctx, [[204, 100], [224, 104], [240, 116], [212, 116]]);
     for (let x = 70; x < 200; x += 16) { ctx.fillStyle = 'rgba(20,30,40,.55)'; ctx.fillRect(x, 108, 7, 5); }
     // Near wing with two engines.
-    fillShape(ctx, [[80, 128], [170, 128], [112, 182], [82, 182]], metal(ctx, 128, 182, p));
+    const wing = [[80, 128], [170, 128], [112, 182], [82, 182]];
+    fillShape(ctx, wing, metal(ctx, 128, 182, p));
+    specular(ctx, wing, .4);
     for (const [x, y] of [[118, 150], [96, 170]]) {
       fillShape(ctx, [[x - 4, y - 7], [x + 36, y - 7], [x + 42, y], [x + 36, y + 7], [x - 4, y + 7]], vgrad(ctx, y - 7, y + 7, [[0, '#9aa1a5'], [1, '#2d3134']]));
       ctx.fillStyle = 'rgba(30,34,38,.5)'; ctx.beginPath(); ctx.ellipse(x + 44, y, 2, 14, 0, 0, Math.PI * 2); ctx.fill();
@@ -524,14 +548,18 @@
 
   function wake(ctx, x0, x1, y) {
     const g = ctx.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0,'rgba(140,194,190,0)'); g.addColorStop(.2,'rgba(140,194,190,.40)');
-    g.addColorStop(.8,'rgba(202,228,211,.64)'); g.addColorStop(1,'rgba(248,242,209,.82)');
+    g.addColorStop(0,'rgba(140,194,190,0)'); g.addColorStop(.2,'rgba(133,195,206,.36)');
+    g.addColorStop(.8,'rgba(191,225,227,.66)'); g.addColorStop(1,'rgba(247,245,222,.90)');
     for (let i=0; i<3; i++) {
       const base=y+2+i*2.5;
       ctx.beginPath(); ctx.moveTo(x0-i*5,base+i);
       ctx.bezierCurveTo(x0+38,base-4,x1-32,base+3,x1-i*9,base-5);
       ctx.strokeStyle=g; ctx.lineWidth=3-i*.6; ctx.stroke();
     }
+    // Broken wake crests keep the direction of travel visible against dark water.
+    const x = x1 - 42;
+    strokeLine(ctx, [[x,y+10],[x+14,y+9],[x+22,y+6]], 'rgba(210,246,240,.58)', 2.2);
+    strokeLine(ctx, [[x+25,y+8],[x+35,y+7],[x+40,y+4]], 'rgba(243,246,226,.64)', 1.6);
   }
   function hull(ctx, x0, x1, top, bottom, p, seed) {
     const mid=(x0+x1)/2;
@@ -549,8 +577,8 @@
     }
     ctx.restore();
     // Reflected sky marks the waterline even in the dark foreground of the bay.
-    strokeLine(ctx, [[x0+15,bottom],[mid,bottom+1],[x1-34,bottom],[x1-20,bottom-4]], '#9aaba6', 2.2);
-    strokeLine(ctx, [[x0+1,top],[mid,top-1],[x1-14,top-5],[x1-2,top-8]], '#c8b9a1', 2.3);
+    strokeLine(ctx, [[x0+15,bottom],[mid,bottom+1],[x1-34,bottom],[x1-20,bottom-4]], '#a8c5c7', 2.4);
+    strokeLine(ctx, [[x0+1,top],[mid,top-1],[x1-14,top-5],[x1-2,top-8]], '#e0c7a2', 2.6);
     // A short railing at the stern leaves the front turrets easy to read.
     for (let x=x0+4; x<x0+29; x+=8) strokeLine(ctx,[[x,top],[x,top-6]],'#6d7778',1.4);
     strokeLine(ctx,[[x0+4,top-6],[x0+28,top-6]],'#c1c3b6',1.2);
@@ -559,7 +587,9 @@
   function drawPatrol(ctx, p) {
     wake(ctx, 24, 200, 184);
     hull(ctx, 40, 228, 156, 184, p, 111);
-    fillShape(ctx, [[92, 154], [96, 124], [156, 124], [168, 152]], metal(ctx, 124, 154, p));
+    const bridge = [[92, 154], [96, 124], [108, 116], [148, 116], [159, 124], [173, 152]];
+    fillShape(ctx, bridge, metal(ctx, 116, 154, p));
+    specular(ctx, bridge, .4);
     glass(ctx, [[140, 128], [156, 128], [162, 144], [140, 144]]);
     ctx.fillStyle = '#2d3134'; ctx.fillRect(118, 96, 4, 28);
     ctx.fillRect(108, 102, 24, 3);
@@ -599,7 +629,8 @@
     for (const x of [86, 156]) fillShape(ctx, [[x, 106], [x + 14, 106], [x + 12, 82], [x + 2, 82]], vgrad(ctx, 82, 106, [[0, '#4c5256'], [1, '#22262a']]));
     let muzzle = [0, 0];
     for (const [x, dir] of [[196, 1], [222, 1], [30, -1]]) {
-      fillShape(ctx, [[x - 12, 146], [x + 12, 146], [x + 10, 132], [x - 10, 132]], metal(ctx, 132, 146, p));
+      fillShape(ctx, [[x - 13, 147], [x + 13, 147], [x + 11, 134], [x + 4, 128], [x - 8, 129]],
+        metal(ctx, 128, 147, p));
       if (dir > 0) muzzle = barrel(ctx, x + 8, 138, 30, 5, .12, p);
       else barrel(ctx, x - 6, 138, -26, 5, -.12, p);
     }
@@ -677,6 +708,7 @@
     fillShape(ctx, body, metal(ctx, 136, 166, p));
     camo(ctx, body, p, 153);
     specular(ctx, body, .3);
+    strokeLine(ctx, [[25,157],[60,155],[196,155],[210,151]], 'rgba(25,38,47,.72)', 2.2);
     // Spare track links on the glacis.
     for (let i = 0; i < 3; i++) fillShape(ctx, [[214 + i * 9, 141 + i * 4], [222 + i * 9, 145 + i * 4], [220 + i * 9, 151 + i * 4], [212 + i * 9, 147 + i * 4]], '#2c2e2f', 'rgba(0,0,0,.7)', 1);
     // Angular turret with a rear bustle.
@@ -684,7 +716,8 @@
     fillShape(ctx, turret, metal(ctx, 94, 136, p));
     camo(ctx, turret, p, 155);
     specular(ctx, turret, .38);
-    fillShape(ctx, [[64, 104], [188, 104], [198, 122], [44, 116]], 'rgba(255,255,255,.08)', 'rgba(12,16,20,.35)', 1.2);
+    fillShape(ctx, [[64, 104], [188, 104], [198, 122], [44, 116]], 'rgba(216,230,226,.18)', 'rgba(12,16,20,.42)', 1.6);
+    fillShape(ctx, [[44,116],[74,122],[70,135],[42,135]], metal(ctx, 116, 135, p, 'camo'), '#24333b', 1.5);
     fillShape(ctx, [[94, 94], [98, 84], [124, 84], [128, 94]], metal(ctx, 84, 94, p));
     glass(ctx, [[102, 87], [110, 87], [110, 91], [102, 91]]);
     ctx.fillStyle = '#2d3134'; ctx.fillRect(140, 74, 3, 20);
@@ -714,6 +747,7 @@
     // Near tail fin of the V-tail.
     const fin = [[38, 114], [62, 114], [38, 84], [26, 88]];
     fillShape(ctx, fin, metal(ctx, 84, 114, p));
+    specular(ctx, fin, .45);
     stripe(ctx, 32, 92, 14, 6, p);
     // Rear pusher propeller.
     fillShape(ctx, [[36, 112], [26, 117], [36, 122]], '#3a3e41', 'rgba(0,0,0,.8)', 1.4);
@@ -766,7 +800,7 @@
     for (const x of [127,136,145,154]) {
       ctx.fillStyle='#15212a'; ctx.fillRect(x,127,5,2.8);
     }
-    strokeLine(ctx, [[174,171],[198,171],[213,173]], 'rgba(225,219,192,.60)', 1.7);
+    strokeLine(ctx, [[174,171],[198,171],[213,173]], 'rgba(225,231,207,.74)', 2.1);
     insignia(ctx, 140, 148, 8, p);
     fillShape(ctx, [[150, 158], [194, 160], [192, 165], [150, 165]], metal(ctx, 158, 165, dark), 'rgba(12,16,20,.85)', 1.6);
     // Water line over the submerged hull, with bow foam.
@@ -880,7 +914,9 @@
     specular(ctx, body, .4);
     glass(ctx, [[158, 108], [174, 98], [196, 106], [200, 114], [164, 114]]);
     // Near wing with bombs and rocket pods.
-    fillShape(ctx, [[88,128],[153,128],[131,177],[99,177]], metal(ctx,128,177,p));
+    const wing = [[88,128],[153,128],[131,177],[99,177]];
+    fillShape(ctx, wing, metal(ctx,128,177,p));
+    specular(ctx, wing, .45);
     for (const [x, y] of [[100, 150], [124, 140]]) {
       fillShape(ctx, [[x - 14, y], [x + 16, y], [x + 22, y + 5], [x + 16, y + 10], [x - 14, y + 10]], vgrad(ctx, y, y + 10, [[0, '#7c8a6a'], [1, '#2c331a']]), 'rgba(0,0,0,.8)', 1.2);
     }
