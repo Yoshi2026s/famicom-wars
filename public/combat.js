@@ -85,6 +85,13 @@ const combatScreen = (() => {
     bomb: '投下位置についた！',
     missile: '目標をロックした！',
   };
+  const landPanoramas = [
+    ['ruins', ['ruins']],
+    ['snow', ['snow']],
+    ['ridge', ['mountain', 'hill']],
+    ['marsh', ['marsh']],
+    ['forest', ['forest', 'jungle']],
+  ];
 
   function clearCutIn() {
     cutIn.hidden = true;
@@ -113,11 +120,11 @@ const combatScreen = (() => {
     const coastal = units.some(formation => formation.dataset.domain === 'sea');
     const skies = units.every(formation => formation.dataset.domain === 'air');
     const ground = units.filter(({dataset}) => dataset.domain === 'land').map(({dataset}) => dataset.terrain);
-    const ruined = ground.includes('ruins');
-    const wooded = ground.includes('forest') || ground.includes('jungle');
+    const port = units.some(({dataset}) => dataset.domain === 'sea' && dataset.facility === 'port');
+    const land = landPanoramas.find(([, terrains]) => terrains.some(terrain => ground.includes(terrain)));
     dialog.toggleAttribute('data-coastal', coastal);
     dialog.toggleAttribute('data-skies', skies);
-    const panorama = coastal ? 'bay' : skies ? 'clouds' : ruined ? 'ruins' : wooded ? 'forest' : 'valley';
+    const panorama = coastal ? (port ? 'harbor' : 'bay') : skies ? 'clouds' : land?.[0] ?? 'valley';
     dialog.dataset.panorama = panorama;
     const path = './assets/battle-' + panorama + '.webp';
     if (backdrop.getAttribute('src') === path && (backdrop.naturalWidth || !backdrop.complete)) return;
@@ -483,7 +490,8 @@ const combatScreen = (() => {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
-        const fortress = map.scenario && (unit.type.domain ?? 'land') === 'land' && map.facilityAt(position.x, position.y)?.kind === 'fortress';
+        const facility = map.scenario ? map.facilityAt(position.x, position.y)?.kind : undefined;
+        const fortress = (unit.type.domain ?? 'land') === 'land' && facility === 'fortress';
         document.getElementById('combat-' + side + '-terrain').textContent = fortress ? '要塞' : terrain.name;
         formations[side].dataset.terrain = terrain.id;
         formations[side].toggleAttribute('data-fortress', Boolean(fortress));
@@ -494,6 +502,7 @@ const combatScreen = (() => {
         }
         const {id, domain = 'land'} = unit.type;
         const formation = formations[side];
+        formation.dataset.facility = facility ?? '';
         formation.replaceChildren();
         const detail = attackTactics(id);
         formation.dataset.kind = id;
