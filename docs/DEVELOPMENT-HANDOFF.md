@@ -44,7 +44,7 @@ gh pr list --repo Yoshi2026s/famicom-wars --base main
 | 兵種、移動、戦闘、CPU、施設、生産 | `public/rules.js`、湾岸の配置は `public/coastal-scenario.js` | `test/coastal.test.mjs` と対象機能のテスト。旧マップは `test/crossing.test.mjs` |
 | 盤面・操作・ダイアログ | `public/index.html`、`public/game.js`、`public/style.css`、`public/battlefield.css`、`public/orientation.js` | スマホ縦画面で部隊切替・全体図・生産・ターン終了、キーボードで選択とキャンセル |
 | 自動保存、シナリオの切替・復元 | `public/crossing-save.js`、`public/game.js`、`public/rules.js` | `test/crossing-save.test.mjs` と `test/coastal.test.mjs`。再読込・旧セーブ・同時に開いたタブ |
-| 戦闘演出、BGM、効果音 | `public/combat.js`、`public/combat.css`、`public/music.js`、`public/combat-audio.js` | `test/battle.test.mjs`、`test/music.test.mjs`。実際の再生、スキップ、音声設定の復元 |
+| 戦闘演出、BGM、効果音 | `public/combat.js`、`public/combat.css`、`public/music.js`、`public/combat-audio.js` | `test/battle.test.mjs`、`test/music.test.mjs`、`test/sound-effects.test.mjs`。実際の再生、スキップ、音声設定の復元 |
 | 素材・ホーム画面アイコン | `scripts/draw-assets.mjs`、`scripts/compose-bgm.mjs`、`public/manifest.webmanifest` | [READMEの再生成手順](../README.md#ローカル開発)。編集元と対象生成物の差分を照合 |
 
 ゲームはビルド工程のない静的サイトで、`public/index.html` からスクリプトを順番に読み込む。湾岸の保存キーは `sumaho-wars:coastal-save`、旧対戦は `famicom-wars:crossing-save`。シナリオ選択は `sumaho-wars:scenario`。互換性確認にはテストで生成した進行を使う。
