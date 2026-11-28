@@ -69,15 +69,13 @@ const friendlyPhrase = ['D','A','Bm','G','D','Em','G','A'];
 const enemyPhrase = ['Dm','Bb','Gm','A7','Dm','Bb','Gm','A7b9'];
 const scores = [
   {
-    name: 'bgm-map', bpm: 116, melody: [...meadow, ...ridge, ...meadow], reply: [69, 73, 74, 71, 78, 76, 74, 73],
+    // Field theme as a full symphonic arrangement (see arrangeEpic).
+    name: 'bgm-map', bpm: 104, melody: [...meadow, ...ridge, ...meadow], epic: true,
     harmony: [...friendlyPhrase, 'Bm','Fsm','G','D','Bm','Em','G','A', ...friendlyPhrase],
-    lead: ['flute','horn','horn'], bass: [0,1.5,2,3.25], drums: [0,2.5], offbeats: [1,3], drive: .65,
-    bridgeLift: 0, quietOpening: true,
   },
   {
-    name: 'bgm-enemy-map', bpm: 96, melody: valley, reply: [69, 65, 70, 61, 72, 69, 74, 67],
+    name: 'bgm-enemy-map', bpm: 92, melody: valley, epic: true, enemy: true,
     harmony: [...enemyPhrase, 'F','Bb','Gm','A7','Dm','Eb','Gm','A7b9','Dm','Bb','Gm','A7b9'],
-    lead: ['reed','cello','horn'], bass: [0,.75,1.5,2.5,3], drums: [0,1.5,2.5], offbeats: [1,3.5], drive: .85, enemy: true,
   },
   {
     name: 'bgm-battle', bpm: 144, melody: charge, reply: [69, 72, 74, 73, 78, 79, 77, 76],
@@ -114,6 +112,42 @@ const instruments = {
   // Extra upper harmonics let the bass line come through on phone speakers.
   bass: {attack:.019, release:.11, wave:(p,t) =>
     Math.tanh(1.8 * (.62*Math.sin(p) + .42*Math.sin(2*p) + .22*Math.sin(3*p)*Math.exp(-2*t) + .14*Math.sin(4*p)*Math.exp(-3*t))) * .8},
+  // Symphonic section voices for the field themes.
+  ensemble: {attack:.16, release:.45, wave:(p,t) => {
+    const v = .006*Math.sin(tau*5.3*t);
+    let sum = 0;
+    for (const detune of [.994, 1, 1.006]) {
+      const q = p*detune*(1+v);
+      sum += .5*Math.sin(q) + .27*Math.sin(2*q) + .17*Math.sin(3*q) + .1*Math.sin(4*q) + .06*Math.sin(5*q) + .035*Math.sin(6*q);
+    }
+    return sum * .42;
+  }},
+  choir: {attack:.22, release:.5, wave:(p,t) => {
+    const v = .008*Math.sin(tau*4.8*t + 1);
+    let sum = 0;
+    for (const detune of [.996, 1.004]) {
+      const q = p*detune*(1+v);
+      sum += .55*Math.sin(q) + .22*Math.sin(2*q) + .3*Math.sin(3*q) + .2*Math.sin(4*q) + .06*Math.sin(6*q);
+    }
+    return sum * .5;
+  }},
+  trumpet: {attack:.03, release:.16, wave:(p,t) => {
+    const bright = Math.min(1, t / .09);
+    const q = p*(1 + (t > .25 ? .005*Math.sin(tau*5.6*t) : 0));
+    return Math.tanh(1.4*(.62*Math.sin(q) + .5*Math.sin(2*q) + .4*bright*Math.sin(3*q) + .28*bright*Math.sin(4*q)
+      + .18*bright*Math.sin(5*q) + .1*bright*Math.sin(6*q))) * .72;
+  }},
+  brass: {attack:.06, release:.25, wave:(p,t) => {
+    let sum = 0;
+    for (const detune of [.997, 1.003]) {
+      const q = p*detune;
+      sum += .7*Math.sin(q) + .36*Math.sin(2*q) + .24*Math.sin(3*q) + .12*Math.sin(4*q) + .05*Math.sin(5*q);
+    }
+    return Math.tanh(sum * .8) * .75;
+  }},
+  timpani: {attack:.003, release:.3, wave:(p,t) =>
+    (Math.sin(p) + .5*Math.sin(1.504*p)*Math.exp(-2*t) + .32*Math.sin(1.992*p)*Math.exp(-3*t) + .2*Math.sin(2.44*p)*Math.exp(-6*t))
+    * Math.exp(-2.6*t)},
   bell: {attack:.005, release:.27, wave:(p,t) =>
     (.61*Math.sin(p) + .24*Math.sin(2.004*p) + .13*Math.sin(2.76*p) + .12*Math.sin(4.1*p)*Math.exp(-5*t))*Math.exp(-5*t)},
 };
@@ -150,7 +184,7 @@ function synthesizer(bpm, beats, loop) {
   }
 
   function percussion(start, kind, gain, pan = 0) {
-    const duration = {kick:.39, snare:.29, tom:.52, brush:.17}[kind];
+    const duration = {kick:.39, snare:.29, tom:.52, brush:.17, cymbal:2.6, roll:.12, bass:.9}[kind];
     let low = 0;
     add(start, duration, pan, t => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -164,6 +198,12 @@ function synthesizer(bpm, beats, loop) {
         snare: .57*bright + .29*low + .28*Math.sin(tau*174*t)*Math.exp(-18*t),
         tom: .78*skin + .14*bright*Math.exp(-16*t),
         brush: .59*bright + .09*Math.sin(tau*7310*t),
+        // Crash cymbal: bright noise with shimmering partials and a long tail.
+        cymbal: (.7*bright + .08*Math.sin(tau*5180*t) + .06*Math.sin(tau*7930*t)) * Math.exp(-1.2*t),
+        roll: .6*bright + .25*low,
+        // Concert bass drum: deep thump that still carries on small speakers.
+        bass: (Math.sin(tau * (62*t + 2.2*(1 - Math.exp(-t*18)))) + .3*Math.sin(tau*124*t)*Math.exp(-6*t)) * Math.exp(-3.4*t)
+          + .18*bright*Math.exp(-40*t),
       }[kind];
       return gain * waveform * Math.min(1, t / .004) * (1 - t / duration) ** 2.7;
     });
@@ -229,6 +269,144 @@ function arrange(score) {
   return channels;
 }
 
+// Chord tone a third to a sixth below the melody, for horn harmony under the tune.
+function under(pitch, tones) {
+  for (let candidate = pitch - 3; candidate > pitch - 10; candidate--) {
+    if (tones.some(tone => (tone - candidate) % 12 === 0)) return candidate;
+  }
+  return pitch - 5;
+}
+
+// A / B / A' in full orchestra: strings, choir, horns and trumpets, harp, timpani and cymbals.
+function arrangeEpic({bpm, harmony, melody, enemy}) {
+  const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4, true);
+  for (const [bar, chord] of harmony.entries()) {
+    const [root, ...tones] = chords[chord];
+    const start = bar * 4;
+    const section = Math.floor(bar / 8);
+    const phrase = bar % 8;
+    const grand = section === 2;
+    const lyric = section === 1;
+    const swell = [.8, .9, 1.12][section];
+    const sectionStart = phrase === 0;
+    const sectionEnd = phrase === 7;
+
+    // String ensemble and choir pads, spread wide.
+    tones.forEach((pitch, i) => {
+      note(start, 3.9, pitch + (i >= 2 ? 12 : 0), .036 * swell, 'ensemble', (i - 1.5) * .45);
+    });
+    if (lyric || grand) {
+      for (const [i, pitch] of tones.slice(0, 3).entries()) note(start, 3.9, pitch + 12, .024 * swell, 'choir', (1 - i) * .55);
+    }
+    // Low strings and basses: driving eighths in the outer sections, long bows in the middle.
+    const low = root < 36 ? root + 12 : root;
+    if (lyric) {
+      note(start, 1.9, low, .11, 'bass', -.1);
+      note(start + 2, 1.9, low + 7, .085, 'bass', .1);
+      note(start, 3.9, low + 12, .05, 'cello', -.3);
+    } else {
+      [0, .5, 1, 1.5, 2, 2.5, 3, 3.5].forEach((step, i) => {
+        note(start + step, .42, low + (i % 4 === 2 ? 7 : 0) + (i % 2 ? 12 : 0), (i % 2 ? .055 : .085) * swell, 'bass', i % 2 ? .15 : -.15);
+      });
+      // Cello counter-line rising through the chord.
+      [0, 1, 2, 3].forEach(step => note(start + step, .9, tones[step % tones.length] - (enemy ? 0 : 12) + 12, .04 * swell, 'cello', -.45));
+    }
+    // Harp: rippling arpeggios, with a glissando into each new section.
+    const ripple = sectionEnd ? [0,.25,.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75] : [0,.5,1,1.5,2,2.5,3,3.5];
+    ripple.forEach((step, i) => {
+      const pitch = tones[i % tones.length] + 12 * (1 + Math.floor(i / tones.length) % 2) + (sectionEnd ? 12 * Math.floor(i / 8) : 0);
+      note(start + step, .4, pitch, (sectionEnd ? .028 + i * .002 : .03) * swell, 'harp', i % 2 ? .6 : -.6);
+    });
+
+    // The tune: horns, then a lyrical cello and horn middle, then trumpets with horn harmony.
+    for (const [offset, duration, pitch] of melody[bar % melody.length]) {
+      const at = start + offset;
+      if (grand) {
+        note(at, duration, pitch, .13, enemy ? 'brass' : 'trumpet', -.12);
+        note(at + .012, duration, under(pitch, tones), .075, 'brass', .3);
+        note(at + .02, duration, pitch - 12, .07, 'horn', -.35);
+        note(at, duration, pitch + 12, .03, 'ensemble', .5);
+      } else if (lyric) {
+        note(at, duration, pitch, .14, 'horn', -.1);
+        note(at + .015, duration, pitch - 12, .08, 'cello', .3);
+        note(at, duration, pitch + 12, .026, 'ensemble', -.5);
+      } else {
+        note(at, duration, pitch, .13, 'horn', -.12);
+        note(at + .01, duration, pitch + 12, .042, 'ensemble', .45);
+        note(at + .02, duration * .9, pitch - 12, .05, 'brass', .25);
+      }
+    }
+    // Brass fanfare stabs and glockenspiel sparkle on the grand return.
+    if (grand || sectionStart) {
+      for (const step of grand ? [0, 2.5] : [0]) {
+        tones.slice(0, 3).forEach((pitch, i) => note(start + step, grand ? .9 : 1.6, pitch, .045, 'brass', (i - 1) * .5));
+      }
+    }
+    if (grand && phrase % 2 === 0 && !enemy) {
+      [0, .5, 1].forEach((step, i) => note(start + 2 + step, .3, tones[(i + 1) % tones.length] + 24, .03, 'bell', .55));
+    }
+
+    // Timpani on the roots, rolls into each section, crashes at section starts.
+    note(start, 1.5, root < 38 ? root + 12 : root, .17 * swell, 'timpani', -.2);
+    if (!lyric) note(start + 2, 1, (root < 38 ? root + 12 : root) + 7 - 12, .11 * swell, 'timpani', .2);
+    if (sectionEnd) {
+      for (let i = 0; i < 12; i++) note(start + 2 + i * .1667, .2, root < 38 ? root + 12 : root, .05 + i * .009, 'timpani', -.2);
+      for (let i = 0; i < 8; i++) percussion(start + 3 + i * .125, 'roll', .03 + i * .01, .15);
+    }
+    if (sectionStart) {
+      percussion(start, 'cymbal', .11, .35);
+      percussion(start, 'bass', .32);
+    }
+    if (grand) {
+      for (const step of [0, 2]) percussion(start + step, 'bass', .2);
+      for (const step of [1, 3]) percussion(start + step, 'snare', .06, -.2);
+      if (phrase % 4 === 3) percussion(start + 3.5, 'cymbal', .06, -.4);
+    } else if (!lyric) {
+      for (const step of [1, 3]) percussion(start + step, 'snare', .05, -.2);
+      percussion(start + 2.5, 'brush', .04, .3);
+    }
+  }
+  return channels;
+}
+
+// Concert-hall reverb (Schroeder combs and allpasses). Loops run twice so the tail wraps around the seam.
+function hall([left, right], loop, wet = .2) {
+  const length = left.length;
+  const out = [];
+  for (const [channel, spread] of [[left, 0], [right, 23]]) {
+    const input = loop ? Float32Array.from({length: length * 2}, (_, i) => channel[i % length]) : channel;
+    const mix = new Float32Array(input.length);
+    for (const delay of [1557, 1617, 1491, 1422, 1277, 1356]) {
+      const size = Math.round((delay + spread) * 1.6);
+      const buffer = new Float32Array(size);
+      let index = 0;
+      let damp = 0;
+      for (let i = 0; i < input.length; i++) {
+        const value = buffer[index];
+        damp = value * .62 + damp * .38;
+        buffer[index] = input[i] + damp * .84;
+        mix[i] += value;
+        index = (index + 1) % size;
+      }
+    }
+    for (const delay of [556, 441, 341, 225]) {
+      const size = delay + spread;
+      const buffer = new Float32Array(size);
+      let index = 0;
+      for (let i = 0; i < mix.length; i++) {
+        const delayed = buffer[index];
+        const value = -mix[i] + delayed;
+        buffer[index] = mix[i] + delayed * .5;
+        mix[i] = value;
+        index = (index + 1) % size;
+      }
+    }
+    const offset = loop ? length : 0;
+    out.push(Float32Array.from(channel, (sample, i) => sample + mix[i + offset] * wet / 6));
+  }
+  return out;
+}
+
 function arrangeFinale({bpm, beats, melody, harmony, accents, lead, reply}) {
   const {channels, note, percussion} = synthesizer(bpm, beats, false);
   for (const [start, length, pitches] of harmony) {
@@ -247,7 +425,7 @@ function arrangeFinale({bpm, beats, melody, harmony, accents, lead, reply}) {
   return channels;
 }
 
-function encode([left, right], loop, bitrate = 112) {
+function encode([left, right], loop, bitrate = 112, ceiling = .91) {
   const room = [[.031,.11],[.061,.088],[.104,.062],[.157,.038],[.214,.024]]
     .map(([delay, gain]) => [Math.round(delay * sampleRate), gain]);
   let power = 0;
@@ -257,7 +435,7 @@ function encode([left, right], loop, bitrate = 112) {
     peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
   }
   const rms = Math.sqrt(power / (2 * left.length));
-  const level = Math.min(.15 / rms, .91 / peak, 2.4);
+  const level = Math.min(.15 / rms, ceiling / peak, 2.4);
   const fadeLength = Math.round(.010 * sampleRate);
   function master(dry, other) {
     return Int16Array.from(dry, (sample, i) => {
@@ -284,7 +462,8 @@ function encode([left, right], loop, bitrate = 112) {
 }
 
 for (const score of scores) {
-  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(arrange(score), true, score.bitrate ?? 96));
+  const mix = score.epic ? hall(arrangeEpic(score), true) : arrange(score);
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(mix, true, score.bitrate ?? 96, score.epic ? 1.35 : .91));
 }
 
 const victory = {
