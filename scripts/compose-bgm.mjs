@@ -277,7 +277,8 @@ function under(pitch, tones) {
   for (let candidate = pitch - 3; candidate > pitch - 10; candidate--) {
     if (tones.some(tone => (tone - candidate) % 12 === 0)) return candidate;
   }
-  return pitch - 5;
+  // No chord tone fits: leave the harmony out rather than add a note from outside the key.
+  return null;
 }
 
 // Plain major/minor triads for the orchestral pads. The jazzier sevenths and ninths of the small band
@@ -344,7 +345,8 @@ function arrangeEpic({bpm, harmony, melody, enemy}) {
       const at = start + offset;
       if (grand) {
         note(at, duration, pitch, .13, enemy ? 'brass' : 'trumpet', -.12);
-        note(at + .012, duration, under(pitch, tones), .075, 'brass', .3);
+        const second = under(pitch, tones);
+        if (second !== null) note(at + .012, duration, second, .075, 'brass', .3);
         note(at + .02, duration, pitch - 12, .07, 'horn', -.35);
         if (pitch + 12 <= 93) note(at, duration, pitch + 12, .03, 'ensemble', .5);
       } else if (lyric) {
@@ -391,7 +393,7 @@ function arrangeEpic({bpm, harmony, melody, enemy}) {
 }
 
 // Concert-hall reverb (Schroeder combs and allpasses). Loops run twice so the tail wraps around the seam.
-function hall([left, right], loop, wet = .2) {
+function hall([left, right], loop, wet = .11) {
   const length = left.length;
   const out = [];
   for (const [channel, spread] of [[left, 0], [right, 23]]) {
@@ -404,8 +406,8 @@ function hall([left, right], loop, wet = .2) {
       let damp = 0;
       for (let i = 0; i < input.length; i++) {
         const value = buffer[index];
-        damp = value * .62 + damp * .38;
-        buffer[index] = input[i] + damp * .84;
+        damp = value * .5 + damp * .5;
+        buffer[index] = input[i] + damp * .7;
         mix[i] += value;
         index = (index + 1) % size;
       }
