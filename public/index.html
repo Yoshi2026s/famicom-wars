@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="./combat-fx.css?v=fx1">
     <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
-    <script defer src="./map-generator.js?v=balance2"></script>
+    <script defer src="./map-generator.js?v=reach3"></script>
     <script defer src="./rules.js?v=armor1"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=cinema-score"></script>
@@ -24,7 +24,7 @@
     <script defer src="./scene-art.js?v=content2"></script>
     <script defer src="./combat.js?v=cinema-score"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
-    <script defer src="./game.js?v=endconfirm1"></script>
+    <script defer src="./game.js?v=playtest-menu"></script>
   </head>
   <body>
     <header class="masthead">
@@ -231,6 +231,7 @@
     </dialog>
     <dialog id="game-menu" class="game-menu" aria-labelledby="game-menu-title">
       <h2 id="game-menu-title">メニュー</h2>
+      <p id="suspend-error" role="alert" hidden></p>
       <div class="menu-actions">
         <button type="button" id="menu-suspend"><b>中断してタイトルへ</b><small>進行を保存します。タイトルの「中断から再開」で続けられます</small></button>
         <button type="button" id="menu-restart"><b>最初から</b><small>同じマップ・同じCPUの強さで、ターン1からやり直します</small></button>
@@ -248,7 +249,7 @@
     </dialog>
     <dialog id="new-match-dialog" class="new-match-dialog" aria-labelledby="new-match-title">
       <h2 id="new-match-title">新しい対戦</h2>
-      <p id="new-match-note">CPUの強さを選ぶと、新しいマップで対戦を始めます。今の対戦の進行は上書きされます。</p>
+      <p id="new-match-note"></p>
       <div class="level-choices">
         <button type="button" data-level="easy"><b>やさしい</b><small>CPUの収入50%。判断が甘く、危険をあまり気にしない</small></button>
         <button type="button" data-level="normal"><b>ふつう</b><small>標準の収入と判断</small></button>
