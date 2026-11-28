@@ -63,13 +63,13 @@ test('対戦車兵は占領でき車両に強い。重戦車は受けるダメ�
   assert.equal(site.owner, 'friendly');
 });
 
-test('潜水艦は艦船だけを攻撃し、哨戒艇・駆逐艦・潜水艦にしか攻撃されない', () => {
+test('潜水艦は艦船だけを攻撃し、哨戒艇・駆逐艦・巡洋艦・潜水艦にしか攻撃されない', () => {
   const game = BattleMap.newMatch('coastal', 3);
   const sub = type(game, 'submarine');
   assert.equal(game.damageEstimate(sub, type(game, 'tank')), null);
   assert.ok(game.damageEstimate(sub, type(game, 'battleship')) > 0);
   for (const id of ['bomber', 'helicopter', 'battleship', 'artillery', 'drone']) assert.equal(game.damageEstimate(type(game, id), sub), null, id);
-  for (const id of ['patrol', 'destroyer', 'submarine']) assert.ok(game.damageEstimate(type(game, id), sub) > 0, id);
+  for (const id of ['patrol', 'destroyer', 'cruiser', 'submarine']) assert.ok(game.damageEstimate(type(game, id), sub) > 0, id);
 });
 
 test('油田は収入2000、補給所は収入500で全種の部隊を半額で回復する', () => {
