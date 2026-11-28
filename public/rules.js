@@ -445,10 +445,14 @@ class BattleMap {
     return domain ? this.unitTypes.filter(type => (type.domain ?? land) === domain) : [];
   }
 
+  facilityIncome(site) {
+    return this.scenario ? siteIncome[site.kind] ?? 0 : site.kind === 'city' ? cityIncome : 0;
+  }
+
   incomeFor(side) {
     if (!Object.hasOwn(this.funds, side)) return 0;
     const income = this.scenario
-      ? this.sites.reduce((sum, site) => sum + (site.owner === side ? siteIncome[site.kind] ?? 0 : 0), 1000)
+      ? this.sites.reduce((sum, site) => sum + (site.owner === side ? this.facilityIncome(site) : 0), 1000)
       : this.cities.filter(city => city.owner === side).length * cityIncome;
     if (side !== 'enemy') return income;
     return Math.round(income * difficulties[this.difficulty].income / 100) * 100;
@@ -777,7 +781,7 @@ class BattleMap {
   }
 
   #affordableRecovery(unit, side, funds = this.funds[side], site = this.facilityAt(unit.x, unit.y)) {
-    const rate = site?.kind === 'hospital' ? hospitalRecovery : facilityRecovery;
+    const rate = this.facilityRecovery(site, unit.type);
     const wanted = Math.min(rate, this.maxHP - unit.hp);
     return Math.max(0, Math.min(wanted, Math.floor(funds / repairCostPerHP(unit.type, site))));
   }
@@ -786,13 +790,17 @@ class BattleMap {
     return amount * repairCostPerHP(unit.type, this.facilityAt(unit.x, unit.y));
   }
 
-  #canRecover(unit, side, facility) {
-    if (facility?.owner !== side || facility.kind === 'oilfield') return false;
+  facilityRecovery(site, type) {
+    if (!site || site.kind === 'oilfield') return 0;
     // Supply depots repair every kind of unit, at half price.
-    if (facility.kind === 'depot') return true;
-    if (unit.type.domain === air) return facility.kind === 'airfield';
-    if (unit.type.domain === sea) return facility.kind === 'port';
-    return true;
+    if (site.kind === 'depot') return facilityRecovery;
+    if (type.domain === air && site.kind !== 'airfield') return 0;
+    if (type.domain === sea && site.kind !== 'port') return 0;
+    return site.kind === 'hospital' ? hospitalRecovery : facilityRecovery;
+  }
+
+  #canRecover(unit, side, site) {
+    return site?.owner === side && this.facilityRecovery(site, unit.type) > 0;
   }
 
   beginEnemyTurn() {

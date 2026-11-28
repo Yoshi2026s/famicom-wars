@@ -12,10 +12,10 @@
     <link rel="stylesheet" href="./style.css?v=fx1">
     <link rel="stylesheet" href="./combat.css?v=cinema-score">
     <link rel="stylesheet" href="./combat-fx.css?v=cut-in">
-    <link rel="stylesheet" href="./battlefield.css?v=map-dialogue">
+    <link rel="stylesheet" href="./battlefield.css?v=tile-details">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=reach3"></script>
-    <script defer src="./rules.js?v=armor1"></script>
+    <script defer src="./rules.js?v=tile-details"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
     <script defer src="./combat-audio.js?v=cut-in"></script>
     <script defer src="./music.js?v=cut-in"></script>
@@ -25,7 +25,7 @@
     <script defer src="./combat.js?v=cut-in"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
     <script defer src="./map-dialogue.js?v=1"></script>
-    <script defer src="./game.js?v=map-dialogue"></script>
+    <script defer src="./game.js?v=tile-details"></script>
   </head>
   <body>
     <header class="masthead">
@@ -90,12 +90,23 @@
             <button type="button" class="detail-open" id="field-detail" aria-controls="unit-detail">詳細</button>
             <p class="field-funds">資金 <b id="field-funds"></b></p>
           </div>
+          <section class="map-tile-info" id="map-tile-info" aria-labelledby="tile-details-title" hidden>
+            <div class="tile-details" id="tile-details" role="group" aria-labelledby="tile-details-title" aria-describedby="tile-details-position" tabindex="0" hidden>
+              <div class="tile-details-heading">
+                <h3 id="tile-details-title" aria-live="polite"></h3>
+                <span id="tile-details-position"></span>
+              </div>
+              <dl id="tile-details-stats"></dl>
+            </div>
+            <button class="unit-detail-close" id="tile-details-close" type="button" aria-label="マス情報を閉じる">閉じる</button>
+          </section>
           <section class="unit-detail" id="unit-detail" aria-labelledby="unit-detail-title" hidden>
             <header>
               <h2 id="unit-detail-title" tabindex="-1">ユニット詳細</h2>
               <span class="unit-detail-hp" id="unit-detail-hp"></span>
               <button type="button" class="unit-detail-close" id="unit-detail-close">閉じる</button>
             </header>
+            <div id="unit-tile-info"></div>
             <p class="unit-detail-legend"><span class="detail-move-key"></span>移動できる <b id="detail-move-count"></b>マス <span class="detail-attack-key"></span>攻撃が届く <b id="detail-attack-count"></b>マス</p>
             <dl class="unit-detail-stats" id="unit-detail-stats"></dl>
             <div class="unit-detail-matchups" id="unit-detail-matchups"></div>
@@ -108,6 +119,7 @@
               <button class="replay" id="move-cancel" type="button">キャンセル</button>
               <button class="end" id="move-commit" type="button">移動を確定</button>
             </div>
+            <div id="move-tile-info"></div>
           </section>
           <div id="map-intel">
             <div class="friendly-roster" id="friendly-roster" role="group" aria-label="味方部隊の選択"></div>
@@ -158,6 +170,7 @@
               </div>
               <div class="factory-picker" id="factory-picker" role="group" aria-label="生産する施設" hidden></div>
               <p id="production-status" role="status" aria-atomic="true"></p>
+              <div id="production-tile-info"></div>
               <div class="production-choices"></div>
             </section>
             <div class="orders-actions" id="orders-actions">
@@ -211,6 +224,7 @@
       <h2 id="action-title"></h2>
       <p id="action-summary"></p>
       <p id="action-detail"></p>
+      <div id="action-tile-info"></div>
       <form method="dialog" class="order-dialog-buttons">
         <button class="replay" autofocus>キャンセル</button>
         <button class="end" id="action-confirm" type="button"></button>

@@ -130,6 +130,15 @@ const targetNames = {land: '地上', sea: '艦船', air: '航空'};
 const newMatchDialog = document.getElementById('new-match-dialog');
 const levelNames = {easy: 'やさしい', normal: 'ふつう', hard: 'つよい'};
 const fieldUnit = document.getElementById('field-unit');
+const mapTileInfo = document.getElementById('map-tile-info');
+const tileDetails = document.getElementById('tile-details');
+const tileDetailsTitle = document.getElementById('tile-details-title');
+const tileDetailsPosition = document.getElementById('tile-details-position');
+const tileDetailsStats = document.getElementById('tile-details-stats');
+const actionTileInfo = document.getElementById('action-tile-info');
+const productionTileInfo = document.getElementById('production-tile-info');
+const moveTileInfo = document.getElementById('move-tile-info');
+const unitTileInfo = document.getElementById('unit-tile-info');
 const fieldFunds = document.getElementById('field-funds');
 const fieldRoster = document.getElementById('field-roster-dialog');
 const fieldOverview = document.getElementById('field-overview-dialog');
@@ -154,6 +163,7 @@ const fieldSections = [
 });
 let mobileField = false;
 let inspectedCell = null;
+let displayedTile = null;
 let movingFriendly = null;
 let movingEnemy = null;
 let markedFriendlyTiles = [];
@@ -201,6 +211,74 @@ function placeName(x, y) {
   const facility = game.facilityAt(x, y);
   if (facility) return `${ownerNames[facility.owner]}の${facilityNames[facility.kind]}`;
   return game.terrainAt(x, y).name;
+}
+
+function detailRows(list, rows) {
+  list.replaceChildren(...rows.flatMap(([label, value]) => {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const detail = document.createElement('dd');
+    detail.textContent = value;
+    return [term, detail];
+  }));
+}
+
+function renderTileDetails() {
+  const cell = inspectedCell;
+  let container = mapTileInfo;
+  if (actionDialog.open) container = actionTileInfo;
+  else if (productionDialog.open && productionOrigin?.cell) container = productionTileInfo;
+  else if (!moveConfirm.hidden) container = moveTileInfo;
+  else if (cell && detailUnit?.x === cell.x && detailUnit.y === cell.y) container = unitTileInfo;
+  mapTileInfo.hidden = !cell || container !== mapTileInfo;
+  tileDetails.hidden = !cell;
+  if (!cell) {
+    displayedTile = null;
+    return;
+  }
+  if (tileDetails.parentElement !== container) container.prepend(tileDetails);
+
+  const {x, y, facility} = cell;
+  const terrain = game.terrainAt(x, y);
+  const roles = [['歩兵系', 'infantry'], ['車両', 'scout'], ['航空', 'helicopter'], ['艦船', 'patrol']];
+  const unitTypes = game.unitTypes;
+  const moveCosts = (game.scenario ? roles : roles.slice(0, 1)).map(([label, id]) => {
+    const cost = game.movementCost(unitTypes.find(type => type.id === id), x, y);
+    return `${game.scenario ? label + ' ' : ''}${Number.isFinite(cost) ? cost : '通行不可'}`;
+  });
+  const cover = game.coverAt(x, y);
+  const rows = [];
+  if (facility) rows.push(['地形', terrain.name]);
+  rows.push(['地上防御', `+${cover}${cover > terrain.defense ? '（要塞）' : ''}`], ['移動力消費', moveCosts.join(' ／ ')]);
+  if (facility) {
+    const income = game.facilityIncome(facility);
+    const domain = game.domainAtSite(facility);
+    const recovery = [['地上', 'infantry'], ['航空', 'helicopter'], ['艦船', 'patrol']].flatMap(([label, id]) => {
+      const type = unitTypes.find(unit => unit.id === id);
+      const hp = type ? game.facilityRecovery(facility, type) : 0;
+      return hp ? [`${label} +${hp} HP`] : [];
+    });
+    const progress = game.captureProgress(facility);
+    if (income) rows.push(['ターン収入', `${currency.format(income)}（基準額）`]);
+    if (domain) {
+      const status = {ready: '生産可能', occupied: '部隊あり', used: '生産済み', insufficient: '資金不足', limit: '出撃上限'};
+      const state = facility.owner === 'friendly' ? status[game.productionStatus(facility)] : '所有時';
+      rows.push(['生産', domainNames[domain] + (state ? `（${state}）` : '')]);
+    }
+    if (recovery.length) rows.push(['毎ターン回復', `${recovery.join(' ／ ')}（${facility.kind === 'depot' ? '費用半額' : '要資金'}）`]);
+    if (progress) rows.push(['占領状況', `${ownerNames[progress.side]}が占領中 · 残り${progress.points}/${game.maxHP}`]);
+    if (facility.kind === 'headquarters') rows.push(['占領', '敵の本拠地を占領すると勝利']);
+    if (!income && !domain && !recovery.length) rows.push(['施設効果', '収入・生産・回復なし']);
+  }
+  const friendly = game.friendlyAt(x, y);
+  const unit = friendly ?? game.enemyAt(x, y);
+  if (unit) rows.push(['配置部隊', `${friendly ? '味方' : '敵'}${unit.name} · HP ${unit.hp}/${game.maxHP}`]);
+  const title = placeName(x, y);
+  if (tileDetailsTitle.textContent !== title) tileDetailsTitle.textContent = title;
+  tileDetailsPosition.textContent = `${x + 1}列・${y + 1}行`;
+  detailRows(tileDetailsStats, rows);
+  if (displayedTile !== cell) tileDetails.scrollTop = 0;
+  displayedTile = cell;
 }
 
 // Describes the next capture step of an infantry unit on a site (10 points; each step removes the unit's HP).
@@ -643,8 +721,9 @@ function render() {
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean);
     button.setAttribute('aria-label', info.join('、'));
-    cell.info = info.filter(item => item !== '選択中');
     button.classList.toggle('inspected', cell === inspectedCell && !waiting);
+    if (cell === inspectedCell && !waiting) button.setAttribute('aria-details', 'tile-details');
+    else if (button.hasAttribute('aria-details')) button.removeAttribute('aria-details');
     button.classList.toggle('detail-move', Boolean(detailReach?.move.has(`${x},${y}`)));
     button.classList.toggle('detail-attack', Boolean(detailReach?.attack.has(`${x},${y}`)));
     const unit = enemy ?? friendly;
@@ -702,6 +781,7 @@ function render() {
   renderBattleStatus();
   renderUnitDetail(detailReach);
   renderMoveConfirm(waiting);
+  renderTileDetails();
   for (const opener of detailOpeners) setHidden(opener, noUnit || Boolean(result) || waiting);
   if (movingFriendly) {
     state.textContent = '移動中';
@@ -765,10 +845,10 @@ function render() {
     state.textContent = '行動可能';
     message.textContent = `ターン ${game.turn}。動かす部隊を選んでください。`;
   }
-  const inspection = inspectedCell && !waiting && !game.result ? `マス情報：${inspectedCell.info.join(' · ')}` : '';
+  const inspection = inspectedCell && !waiting && !game.result ? `マス情報：${placeName(inspectedCell.x, inspectedCell.y)}` : '';
   if (inspection) message.textContent = inspection;
   if (mobileField) {
-    let summary = inspection || (noUnit ? '「ユニット生産」で最初の部隊を選べます' : `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`);
+    let summary = noUnit ? '「ユニット生産」で最初の部隊を選べます' : `${game.activeUnit.name}（${position}） · HP ${game.playerHP} · ${state.textContent}`;
     if (waiting) summary = actingEnemy ? `敵${actingEnemy.name}が行動中` : state.textContent;
     if (game.result) summary = state.textContent;
     if (fieldUnit.textContent !== summary) fieldUnit.textContent = summary;
@@ -799,6 +879,7 @@ function renderBattleStatus() {
 }
 
 function showMap() {
+  inspectedCell = null;
   fieldSpeech.clear();
   deploymentSpeech = undefined;
   endCelebration();
@@ -978,21 +1059,21 @@ board.addEventListener('click', (event) => {
   const cell = boardCell(event.target);
   if (!cell || inputBlocked(true)) return;
   const {x, y, factory} = cell;
+  inspectedCell = cell;
   if (game.stagedMove) {
     const enemy = game.enemyAt(x, y);
-    if (enemy && game.canUnitAttack(game.activeUnit, enemy)) previewAction(cell, event);
+    if (!(enemy && game.canUnitAttack(game.activeUnit, enemy) && previewAction(cell, event))) render();
     return;
   }
-  inspectedCell = null;
   if (factory && game.productionStatus(factory) === 'ready' && openProduction(event, cell)) return;
   if (game.selected && game.friendlyAt(x, y) === game.activeUnit && previewCaptureHere(cell, event)) return;
   if (previewAction(cell, event)) return;
   if (!game.friendlyAt(x, y)) {
-    inspectedCell = cell;
     // Tapping an enemy shows its details and where it can move and strike next.
     detailUnit = game.enemyAt(x, y) ?? null;
     combatAudio.cue('inspect');
     render();
+    if (!mapTileInfo.hidden) revealTile(cell.button);
     if (detailUnit) sayOnMap('spotEnemy', {position: detailUnit, speaker: '偵察班'});
     return;
   }
@@ -1002,6 +1083,7 @@ board.addEventListener('click', (event) => {
   if (detailUnit) detailUnit = game.activeUnit;
   saveProgress();
   render();
+  if (!mapTileInfo.hidden) revealTile(cell.button);
   acknowledgeUnit(game.friendlyAt(x, y));
 });
 board.addEventListener('keydown', (event) => {
@@ -1186,6 +1268,7 @@ function previewCaptureHere(cell, opener) {
   cell.button.classList.add('action-pending');
   combatAudio.cue('open');
   actionDialog.showModal();
+  renderTileDetails();
   return true;
 }
 
@@ -1217,6 +1300,7 @@ function previewAction(cell, opener) {
   cell.button.classList.add('action-pending');
   combatAudio.cue('open');
   actionDialog.showModal();
+  renderTileDetails();
   return true;
 }
 
@@ -1273,7 +1357,7 @@ function stageFriendlyMove(cell) {
   combatAudio.playMove(unit.type);
   sayOnMap('move', {unit, position: cell});
   detailUnit = null;
-  inspectedCell = null;
+  inspectedCell = cell;
   animateFriendlyMove(unit, from, routeSteps(route), () => {
     render();
     moveCommit.focus({preventScroll: true});
@@ -1356,13 +1440,26 @@ function cancelStagedMove() {
   sayOnMap('moveCancel', {unit: game.activeUnit});
 }
 moveCancel.addEventListener('click', cancelStagedMove);
+function closeTileDetails() {
+  if (!inspectedCell) return;
+  const {button} = inspectedCell;
+  inspectedCell = null;
+  render();
+  setBoardTabStop(button);
+  button.focus({preventScroll: true});
+}
+document.getElementById('tile-details-close').addEventListener('click', closeTileDetails);
 document.addEventListener('keydown', (event) => {
   // Escape inside an open dialog (menu, guide, field panels) only closes that dialog.
-  if (event.key === 'Escape' && game.stagedMove && !event.defaultPrevented && !document.querySelector('dialog[open]')) cancelStagedMove();
+  if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
+  if (game.stagedMove) cancelStagedMove();
+  else closeTileDetails();
 });
 
 actionDialog.addEventListener('close', () => {
-  if (actionDialog.open || !pendingAction) return;
+  if (actionDialog.open) return;
+  renderTileDetails();
+  if (!pendingAction) return;
   const {button} = pendingAction.cell;
   pendingAction = undefined;
   highlightFriendlyRoute([]);
@@ -1647,6 +1744,7 @@ function openProduction(event, cell) {
   renderProduction();
   combatAudio.cue('open');
   productionDialog.showModal();
+  renderTileDetails();
   productionDialog.scrollTop = 0;
   return true;
 }
@@ -1664,6 +1762,7 @@ productionDialog.addEventListener('close', () => {
   productionOrigin = undefined;
   positionProductionControls();
   renderProduction();
+  renderTileDetails();
   if (cell && !actionDialog.open && !portraitMode.blocked) cell.button.focus({preventScroll: true});
 });
 
@@ -1826,13 +1925,7 @@ function renderUnitDetail(reach) {
   if (type.firepower) rows.push(['攻撃力', String(type.firepower)]);
   if (type.trait) rows.push(['特性', type.trait]);
   const stats = document.getElementById('unit-detail-stats');
-  stats.replaceChildren(...rows.flatMap(([label, value]) => {
-    const term = document.createElement('dt');
-    term.textContent = label;
-    const detail = document.createElement('dd');
-    detail.textContent = value;
-    return [term, detail];
-  }));
+  detailRows(stats, rows);
   // Matchups against every enemy kind: damage dealt at the unit's HP, damage taken from a full-strength foe.
   const foes = game.unitTypes;
   const dealt = foes.map(other => ({name: other.name, value: game.damageEstimate(type, other, {hp: unit.hp})}));
@@ -1876,6 +1969,7 @@ document.getElementById('unit-detail-close').addEventListener('click', () => {
 });
 unitDetail.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  event.preventDefault();
   detailUnit = null;
   render();
   restoreBoardFocus();
@@ -1974,6 +2068,8 @@ function paintTitleArt() {
 }
 function showTitle() {
   fieldSpeech.clear();
+  inspectedCell = null;
+  renderTileDetails();
   paintTitleArt();
   for (const dialog of [gameMenu, menuConfirm, guide, newMatchDialog]) if (dialog.open) dialog.close();
   const resumable = savedMatchExists() && crossingSave.status !== 'unreadable' && !game.result;
