@@ -3,11 +3,11 @@ const music = (() => {
   const buttons = [...document.querySelectorAll('[data-bgm]')];
   const setting = 'famicom-wars-bgm';
   const tracks = {
-    map: './assets/bgm-map.mp3?v=grand', battle: './assets/bgm-battle.mp3?v=grand',
-    'enemy-map': './assets/bgm-enemy-map.mp3?v=grand',
-    'enemy-battle': './assets/bgm-enemy-battle.mp3?v=grand',
-    title: './assets/bgm-title.mp3?v=grand',
-    victory: './assets/bgm-victory.mp3?v=grand', defeat: './assets/bgm-defeat.mp3?v=grand',
+    map: './assets/bgm-map.mp3?v=soft', battle: './assets/bgm-battle.mp3?v=soft',
+    'enemy-map': './assets/bgm-enemy-map.mp3?v=soft',
+    'enemy-battle': './assets/bgm-enemy-battle.mp3?v=soft',
+    title: './assets/bgm-title.mp3?v=soft',
+    victory: './assets/bgm-victory.mp3?v=soft', defeat: './assets/bgm-defeat.mp3?v=soft',
   };
   const sources = {...tracks};
   const downloads = new Map();

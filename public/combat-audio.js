@@ -287,16 +287,22 @@ const combatAudio = (() => {
         }
       }
       // Phone speakers cannot reproduce the lowest rumble, so remove it and keep the mid-range punch.
+      // Two gentle low-pass stages keep taps and gunfire from sounding shrill on phone speakers.
       let previousIn = 0;
       let previousOut = 0;
+      let smooth = 0;
+      let smoother = 0;
       const pole = Math.exp(-2 * Math.PI * 85 / rate);
+      const soft = 1 - Math.exp(-2 * Math.PI * 4200 / rate);
       let peak = 0;
       for (let i = 0; i < samples.length; i++) {
         const input = samples[i];
         previousOut = pole * (previousOut + input - previousIn);
         previousIn = input;
-        samples[i] = previousOut;
-        peak = Math.max(peak, Math.abs(previousOut));
+        smooth += (previousOut - smooth) * soft;
+        smoother += (smooth - smoother) * soft;
+        samples[i] = smoother;
+        peak = Math.max(peak, Math.abs(smoother));
       }
       const gain = peak ? levels[group] / peak : 0;
       const fade = Math.round(.01 * rate);
@@ -349,7 +355,7 @@ const combatAudio = (() => {
         const cycle = phase - Math.floor(phase);
         let value;
         if (wave === 'triangle') value = 1 - 4 * Math.abs(cycle - .5);
-        else if (wave === 'pulse') value = Math.tanh(3.2 * Math.sin(2 * Math.PI * cycle)) * .8;
+        else if (wave === 'pulse') value = Math.tanh(1.8 * Math.sin(2 * Math.PI * cycle)) * .85;
         else if (wave === 'saw') value = (2 * cycle - 1) * .7;
         else value = Math.sin(2 * Math.PI * cycle);
         if (layer.drive) value = Math.tanh(value * layer.drive) / Math.tanh(layer.drive);

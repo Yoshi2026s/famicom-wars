@@ -134,8 +134,8 @@ const instruments = {
   trumpet: {attack:.03, release:.16, wave:(p,t) => {
     const bright = Math.min(1, t / .09);
     const q = p*(1 + (t > .25 ? .005*Math.sin(tau*5.6*t) : 0));
-    return Math.tanh(1.4*(.62*Math.sin(q) + .5*Math.sin(2*q) + .4*bright*Math.sin(3*q) + .28*bright*Math.sin(4*q)
-      + .18*bright*Math.sin(5*q) + .1*bright*Math.sin(6*q))) * .72;
+    return Math.tanh(1.2*(.68*Math.sin(q) + .46*Math.sin(2*q) + .3*bright*Math.sin(3*q) + .17*bright*Math.sin(4*q)
+      + .09*bright*Math.sin(5*q) + .04*bright*Math.sin(6*q))) * .74;
   }},
   brass: {attack:.06, release:.25, wave:(p,t) => {
     let sum = 0;
@@ -199,7 +199,7 @@ function synthesizer(bpm, beats, loop) {
         tom: .78*skin + .14*bright*Math.exp(-16*t),
         brush: .59*bright + .09*Math.sin(tau*7310*t),
         // Crash cymbal: bright noise with shimmering partials and a long tail.
-        cymbal: (.7*bright + .08*Math.sin(tau*5180*t) + .06*Math.sin(tau*7930*t)) * Math.exp(-1.2*t),
+        cymbal: (.45*bright + .04*Math.sin(tau*5180*t) + .03*Math.sin(tau*7930*t)) * Math.exp(-1.5*t),
         roll: .6*bright + .25*low,
         // Concert bass drum: deep thump that still carries on small speakers.
         bass: (Math.sin(tau * (62*t + 2.2*(1 - Math.exp(-t*18)))) + .3*Math.sin(tau*124*t)*Math.exp(-6*t)) * Math.exp(-3.4*t)
@@ -425,7 +425,39 @@ function arrangeFinale({bpm, beats, melody, harmony, accents, lead, reply}) {
   return channels;
 }
 
+// Gentle mastering EQ (RBJ biquads): phone speakers exaggerate 2-5 kHz, so tame that range and the
+// top end, and add a little low-mid warmth. Loops are filtered twice round so the seam stays clean.
+function biquad(type, frequency, gain, q) {
+  const a = 10 ** (gain / 40);
+  const w = tau * frequency / sampleRate;
+  const cos = Math.cos(w);
+  const alpha = Math.sin(w) / (2 * q);
+  const root = 2 * Math.sqrt(a) * alpha;
+  const [b0, b1, b2, a0, a1, a2] = type === 'peak'
+    ? [1 + alpha * a, -2 * cos, 1 - alpha * a, 1 + alpha / a, -2 * cos, 1 - alpha / a]
+    : [a * ((a + 1) + (a - 1) * cos + root), -2 * a * ((a - 1) + (a + 1) * cos), a * ((a + 1) + (a - 1) * cos - root),
+      (a + 1) - (a - 1) * cos + root, 2 * ((a - 1) - (a + 1) * cos), (a + 1) - (a - 1) * cos - root];
+  return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+}
+const mastering = [biquad('peak', 300, 2, .7), biquad('peak', 2800, -7, .7), biquad('shelf', 5500, -8, .7)];
+function soften(channel, loop) {
+  let signal = loop ? Float32Array.from({length: channel.length * 2}, (_, i) => channel[i % channel.length]) : channel;
+  for (const [b0, b1, b2, a1, a2] of mastering) {
+    const out = new Float32Array(signal.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < signal.length; i++) {
+      const y = b0 * signal[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1; x1 = signal[i]; y2 = y1; y1 = y;
+      out[i] = y;
+    }
+    signal = out;
+  }
+  return loop ? signal.slice(channel.length) : signal;
+}
+
 function encode([left, right], loop, bitrate = 112, ceiling = .91) {
+  left = soften(left, loop);
+  right = soften(right, loop);
   const room = [[.031,.11],[.061,.088],[.104,.062],[.157,.038],[.214,.024]]
     .map(([delay, gain]) => [Math.round(delay * sampleRate), gain]);
   let power = 0;
@@ -463,7 +495,7 @@ function encode([left, right], loop, bitrate = 112, ceiling = .91) {
 
 for (const score of scores) {
   const mix = score.epic ? hall(arrangeEpic(score), true) : arrange(score);
-  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(mix, true, score.bitrate ?? 96, score.epic ? 1.35 : .91));
+  writeFileSync(new URL('../public/assets/' + score.name + '.mp3', import.meta.url), encode(mix, true, score.bitrate ?? 96, score.epic ? 1.1 : .91));
 }
 
 const victory = {
