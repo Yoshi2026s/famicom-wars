@@ -5,6 +5,13 @@ const combatScreen = (() => {
   const advance = document.getElementById('combat-advance');
   const status = document.getElementById('combat-status');
   const stage = document.getElementById('combat-stage');
+  const speech = dialog.querySelector('.combat-speech');
+  const speaker = document.getElementById('combat-speaker');
+  const quote = document.getElementById('combat-quote');
+  const cutIn = dialog.querySelector('.combat-cut-in');
+  const cutInUnit = cutIn.querySelector('img');
+  const cutInTitle = document.getElementById('combat-cut-in-title');
+  const cutInDetail = document.getElementById('combat-cut-in-detail');
   const finale = document.getElementById('combat-outcome');
   const finaleTitle = document.getElementById('combat-outcome-title');
   const camera = dialog.querySelector('.combat-camera');
@@ -68,6 +75,29 @@ const combatScreen = (() => {
   const hpTicks = {player: 0, enemy: 0};
   let scene = null;
 
+  const commands = {
+    land: '狙いを合わせろ！',
+    sea: '各艦、攻撃用意！',
+    air: '目標をとらえた！',
+  };
+  const weaponCommands = {
+    torpedo: '魚雷、発射用意！',
+    bomb: '投下位置についた！',
+    missile: '目標をロックした！',
+  };
+
+  function clearCutIn() {
+    cutIn.hidden = true;
+    delete dialog.dataset.rare;
+  }
+
+  function showSpeech(side, message) {
+    speech.dataset.side = side;
+    speaker.textContent = teamNames[side];
+    quote.textContent = message;
+    speech.hidden = false;
+  }
+
   // Each battle requests a single panorama. Keep the terrain visible if the image is slow or unavailable.
   backdrop.addEventListener('load', () => {
     backdrop.classList.add('is-ready');
@@ -79,11 +109,17 @@ const combatScreen = (() => {
   });
 
   function showPanorama() {
-    const coastal = Object.values(formations).some(formation => formation.dataset.domain === 'sea');
-    const skies = Object.values(formations).every(formation => formation.dataset.domain === 'air');
+    const units = Object.values(formations);
+    const coastal = units.some(formation => formation.dataset.domain === 'sea');
+    const skies = units.every(formation => formation.dataset.domain === 'air');
+    const ground = units.filter(({dataset}) => dataset.domain === 'land').map(({dataset}) => dataset.terrain);
+    const ruined = ground.includes('ruins');
+    const wooded = ground.includes('forest') || ground.includes('jungle');
     dialog.toggleAttribute('data-coastal', coastal);
     dialog.toggleAttribute('data-skies', skies);
-    const path = './assets/battle-' + (coastal ? 'bay' : skies ? 'clouds' : 'valley') + '.webp';
+    const panorama = coastal ? 'bay' : skies ? 'clouds' : ruined ? 'ruins' : wooded ? 'forest' : 'valley';
+    dialog.dataset.panorama = panorama;
+    const path = './assets/battle-' + panorama + '.webp';
     if (backdrop.getAttribute('src') === path && (backdrop.naturalWidth || !backdrop.complete)) return;
     backdrop.classList.remove('is-ready');
     backdrop.parentElement.classList.remove('has-panorama');
@@ -175,6 +211,7 @@ const combatScreen = (() => {
     dialog.dataset.armament = formations[attacker].dataset.kind;
     dialog.dataset.defender = formations[defender].dataset.kind;
     dialog.dataset.attackProfile = formations[attacker].dataset.profile;
+    dialog.dataset.attackDomain = formations[attacker].dataset.domain;
     dialog.dataset.defenseProfile = formations[defender].dataset.profile;
     dialog.dataset.defenseDomain = formations[defender].dataset.domain;
     dialog.dataset.round = rounds[dialog.dataset.armament] ?? profileRounds[dialog.dataset.attackProfile] ?? 'shell';
@@ -185,6 +222,7 @@ const combatScreen = (() => {
 
   function beginStrike(attacker) {
     removeRetreatingFighters();
+    clearCutIn();
     stageAttack(attacker);
     dialog.dataset.phase = 'aim';
     const first = scene.nextStrike === 0;
@@ -195,9 +233,12 @@ const combatScreen = (() => {
     const hp = attacker === 'player' ? previous?.playerHP ?? scene.startHP.player : previous?.enemyHP ?? scene.startHP.enemy;
     const power = `（戦力 ${Math.round(hp / scene.map.maxHP * 100)}%）`;
     status.textContent = (first ? `${team}が構えた。` : `${team}が反撃の構え。`) + power;
+    const command = weaponCommands[dialog.dataset.round] ?? commands[dialog.dataset.attackDomain];
+    showSpeech(attacker, first ? command : 'まだ終わっていない！');
+    if (!first) combatAudio.play('accent-counter', attacker === 'player' ? -.4 : .4, {gain: .65});
     // A counterattack braces a little longer than the opening shot.
     const aim = attackTactics(dialog.dataset.armament).aim + (first ? 0 : 200);
-    scene.timer = portraitMode.schedule(startVolley, motion.matches ? 90 : aim);
+    scene.timer = portraitMode.schedule(startVolley, motion.matches ? 460 : Math.max(350, aim));
   }
 
   function startVolley() {
@@ -243,6 +284,9 @@ const combatScreen = (() => {
         // The camera carries the impact point so it can zoom on it; the blast layers inherit it.
         camera.style.setProperty('--hit-x', toX * 100 + '%');
         camera.style.setProperty('--hit-y', toY * 100 + '%');
+        camera.style.setProperty('--wake-x', fromX * 100 + '%');
+        camera.style.setProperty('--wake-y', fromY * 100 + '%');
+        camera.style.setProperty('--wake-delay', `${delay}ms`);
         lights.setProperty('--flare-x', fromX * 100 + '%');
         lights.setProperty('--flare-y', fromY * 100 + '%');
         lights.setProperty('--flare-delay', `${delay}ms`);
@@ -264,6 +308,29 @@ const combatScreen = (() => {
     if (!hit.mitigation) return '';
     const source = hit.armored ? (hit.covered ? `${hit.terrain}と装甲` : '装甲') : hit.terrain;
     return `${source}で${hit.mitigation}軽減`;
+  }
+
+  function showRareImpact(hit, remaining) {
+    const counterKill = scene.nextStrike > 1 && remaining === 0;
+    const rare = counterKill ? 'counter' : hit.critical && remaining === 0 ? 'breakthrough' : hit.critical ? 'critical' : '';
+    if (!rare) return false;
+    const label = {
+      counter: hit.critical ? '反撃でクリティカル撃破' : '反撃で撃破',
+      breakthrough: 'クリティカル撃破',
+      critical: 'クリティカル',
+    };
+    cutInTitle.textContent = label[rare];
+    cutInDetail.textContent = `${teamNames[hit.attacker]} · ${hit.damage}ダメージ`;
+    const art = window.UnitArt;
+    if (art) cutInUnit.src = art.still(dialog.dataset.armament, hit.attacker === 'player' ? 'friendly' : 'enemy');
+    cutInUnit.hidden = !art;
+    dialog.dataset.rare = rare;
+    cutIn.hidden = false;
+    if (rare !== 'critical') {
+      music.duck(900);
+      combatAudio.play('accent-breakthrough', 0, {at: .09, gain: .68});
+    }
+    return true;
   }
 
   function showImpact() {
@@ -294,6 +361,7 @@ const combatScreen = (() => {
     status.textContent = defense ? `${impact}（${defense}）` : impact;
     dialog.dataset.lethal = String(remaining === 0);
     dialog.dataset.phase = 'impact';
+    speech.hidden = true;
     const hitX = Number.parseFloat(camera.style.getPropertyValue('--hit-x')) / 100;
     const pan = Number.isFinite(hitX) ? panAt(hitX) : hit.attacker === 'player' ? .55 : -.55;
     const body = `${remaining ? 'impact' : 'defeat'}-${dialog.dataset.defender}:${dialog.dataset.defenseDomain}`;
@@ -305,13 +373,15 @@ const combatScreen = (() => {
       if (hit.critical) combatAudio.play('accent-critical', pan * .5);
       if (!remaining) combatAudio.play('accent-kill', pan * .3, {at: .16});
     }
+    const rare = showRareImpact(hit, remaining);
+    if (!rare && deflected && hit.armored) showSpeech(hit.attacker === 'player' ? 'enemy' : 'player', '装甲で弾いた！');
     const next = scene.strikes[scene.nextStrike];
     // Criticals hold a short hit-stop; a long line of losses gets time to fall.
     const lossSpan = Math.max(0, Math.min(dialog.querySelectorAll('.retreating').length - 1, 4) * 80);
     scene.timer = portraitMode.schedule(() => {
       if (next) beginStrike(next.attacker);
       else showResult(true);
-    }, motion.matches ? 460 : (remaining ? 860 : 1060) + (hit.critical ? 160 : 0) + lossSpan);
+    }, motion.matches ? (rare ? 900 : deflected ? 700 : 460) : (remaining ? 860 : 1060) + (rare ? 200 : 0) + lossSpan);
   }
 
   function showResult(autoReturn) {
@@ -319,6 +389,8 @@ const combatScreen = (() => {
     combatAudio.stop();
     // Skipping mid-impact must not leave falling units, critical styling or rounds on the result.
     removeRetreatingFighters();
+    clearCutIn();
+    speech.hidden = true;
     dialog.removeAttribute('data-critical');
     for (const ray of rays) ray.hidden = true;
     for (const puff of puffs) puff.hidden = true;
@@ -376,7 +448,7 @@ const combatScreen = (() => {
     if (event.detail > 0) {
       // Touch clicks can carry a timestamp from before the result appeared.
       const now = performance.now();
-      if (scene.skipClickTime !== null && (event.detail > 1 || now - scene.skipClickTime < 300)) return;
+      if (scene.skipClickTime !== null && now - scene.skipClickTime < 320) return;
       if (dialog.dataset.phase !== 'result') scene.skipClickTime = now;
     }
     advanceScene();
@@ -404,6 +476,8 @@ const combatScreen = (() => {
     open({map, attacker, friendly, enemy, enemyPosition, resolve, onReturn}) {
       if (scene) return;
       scene = {map, onReturn, strikes: null, nextStrike: 0, timer: null, skipClickTime: null};
+      speech.hidden = true;
+      clearCutIn();
       for (const [side, prefix, unit, position] of [['player', '味方', friendly, friendly], ['enemy', '敵', enemy, enemyPosition]]) {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
@@ -467,7 +541,8 @@ const combatScreen = (() => {
       delete dialog.dataset.hitTier;
       finale.hidden = true;
       combatAudio.prepare(Object.values(formations).flatMap(({dataset: {kind, domain}}) =>
-        [`shot-${kind}`, `impact-${kind}:${domain}`, `defeat-${kind}:${domain}`]).concat(['accent-critical', 'accent-blocked', 'accent-kill']));
+        [`shot-${kind}`, `impact-${kind}:${domain}`, `defeat-${kind}:${domain}`])
+        .concat(['accent-critical', 'accent-blocked', 'accent-kill', 'accent-counter', 'accent-breakthrough']));
       stageAttack(attacker);
       delete dialog.dataset.strike;
       dialog.dataset.phase = 'entry';

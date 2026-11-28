@@ -63,6 +63,8 @@ function partials(phase, frequency, weights) {
   return sum;
 }
 const saw = Array.from({length: 24}, (_, i) => 1 / (i + 1));
+const guitarPartials = [1, .8, .54, .31, .21, .14, .08, .055, .032];
+const bowPartials = [1, .68, .49, .31, .23, .14, .09, .05];
 const instruments = {
   // Brass lead: bright attack that settles, like a section of trumpets.
   brass: {attack: .025, release: .14, wave: (p, t, f) => {
@@ -78,6 +80,15 @@ const instruments = {
   pizz: {attack: .006, release: .09, wave: (p, t, f) => partials(p, f, [1, .5, .28, .14, .07]) * Math.exp(-7 * t) * .9},
   // Overdriven power-chord voice (rendered per note; the chord is root, fifth and octave).
   drive: {attack: .004, release: .06, wave: (p, t, f) => Math.tanh(2.2 * partials(p, f, saw.slice(0, 12))) * .55},
+  // The muted strings lose their upper harmonics just after the pick attack.
+  chug: {attack: .003, release: .026, wave: (p, t, f) => {
+    const pick = Math.exp(-30 * t);
+    const string = partials(p, f, guitarPartials);
+    return Math.tanh((2.7 + pick) * string) * (.39 + .16 * pick);
+  }},
+  // A quick bowed stroke carries the rhythm without adding another bright lead.
+  spiccato: {attack: .009, release: .04, wave: (p, t, f) =>
+    partials(p, f, bowPartials) * Math.exp(-12 * t) * .65},
   // Electric bass: round fundamental with enough upper partials to carry on small speakers.
   bass: {attack: .008, release: .07, wave: (p, t, f) => Math.tanh(1.5 * partials(p, f, [1, .55, .32, .18, .1])) * .85},
   // Timpani: tuned membrane partials, quick decay.
@@ -148,16 +159,22 @@ function synthesizer(bpm, beats, loop) {
 // phrase the beat differently. Durations below are in quarter-note beats.
 const battleParts = {
   charge: {
-    kicks: [0, 1.5, 2, 3.25],
-    guitar: [[0,.55], [.75,.16], [1.5,.36], [2,.62], [2.75,.17], [3.25,.35]],
-    bass: [[0,0], [.75,0], [1.5,7], [2,0], [2.75,12], [3.25,7]],
-    answer: [[2.25,.30,0], [2.75,.30,1], [3.25,.55,2]],
+    kicks: [0, .75, 1.5, 2, 2.75, 3.5],
+    snare: [1, 3],
+    guitar: [[0,.54], [.75,.17], [1,.21], [1.5,.18], [1.75,.12], [2,.55], [2.75,.16], [3,.19], [3.5,.18], [3.75,.13]],
+    bass: [[0,0], [.75,0], [1.5,7], [1.75,7], [2,0], [2.75,12], [3.5,7], [3.75,12]],
+    strings: [[.5,0], [1.25,1], [1.75,2], [2.5,1], [3.25,2], [3.75,3]],
+    answer: [[2.25,.25,0], [2.75,.25,1], [3.25,.44,2]],
+    toms: [2.5, 3, 3.5, 3.75],
   },
   siege: {
-    kicks: [0, .75, 2, 2.75],
-    guitar: [[0,.70], [1,.17], [1.25,.17], [1.5,.28], [2,.70], [3,.17], [3.25,.17], [3.5,.28]],
-    bass: [[0,0], [.75,0], [1.5,0], [2,7], [2.75,0], [3.5,7]],
-    answer: [[1.75,.26,2], [2.25,.34,1], [3,.66,0]],
+    kicks: [0, .5, .75, 1.75, 2.5, 2.75, 3.5],
+    snare: [1.25, 3],
+    guitar: [[0,.43], [.5,.14], [.75,.15], [1.25,.24], [1.75,.18], [2,.42], [2.5,.14], [2.75,.17], [3.25,.23], [3.5,.15]],
+    bass: [[0,0], [.5,0], [.75,0], [1.75,7], [2,0], [2.5,0], [2.75,12], [3.5,7]],
+    strings: [[.25,2], [.75,1], [1.5,0], [2.25,2], [2.75,1], [3.5,0]],
+    answer: [[1.75,.24,2], [2.25,.31,1], [3,.55,0]],
+    toms: [2, 2.75, 3.25, 3.75],
   },
 };
 
@@ -189,15 +206,25 @@ function arrange(piece) {
       drum(start + 2, 'kick', .38);
       for (const step of [1, 3]) drum(start + step, 'snare', .22, -.1);
       for (let step = 0; step < 4; step++) drum(start + step + .5, 'hat', .06, .35);
+    } else if (battle) {
+      for (const step of battle.kicks) drum(start + step, 'kick', step % 2 === 0 ? .74 : .53);
+      for (const step of battle.snare) drum(start + step, 'snare', .67, -.1);
+      for (let step = 0; step < 8; step++) drum(start + step / 2, 'hat', step % 2 ? .072 : .044, .35);
+      if (index % 2 === 1) {
+        drum(start + 3.5, 'open', .075, .38);
+        if (energy === 2 && !battle.kicks.includes(3.75)) drum(start + 3.75, 'kick', .51);
+      }
+      if (index % 4 === 3) {
+        battle.toms.forEach((step, i) => drum(start + step, 'tom', .36 + i * .055, -.42 + i * .28));
+      }
     } else {
-      const kicks = battle?.kicks ?? (groove === 'march' ? [0, 2, 2.5] : groove === 'drive' ? [0, .75, 1.5, 2, 2.75, 3.5] : [0, 1.5, 2, 2.75]);
+      const kicks = groove === 'march' ? [0, 2, 2.5] : groove === 'drive' ? [0, .75, 1.5, 2, 2.75, 3.5] : [0, 1.5, 2, 2.75];
       for (const step of kicks) drum(start + step, 'kick', .62);
       for (const step of [1, 3]) drum(start + step, 'snare', .5, -.1);
       for (let step = 0; step < 8; step++) drum(start + step / 2, step % 2 ? 'hat' : 'hat', step % 2 ? .07 : .045, .35);
       if (energy === 2) drum(start + 3.5, 'open', .05, .35);
       // Double-kick burst into the next bar when the full band is playing.
       if (energy === 2 && groove === 'drive') for (const step of [3.25, 3.75]) drum(start + step, 'kick', .48);
-      if (battle && energy === 2 && index % 2) drum(start + 3.75, 'kick', .44);
       if (groove === 'march') for (const step of [3.25, 3.75]) drum(start + step, 'snare', .2, -.1);
     }
     if (sectionStart && energy > 0) drum(start, 'crash', energy === 2 ? .19 : .14, .4);
@@ -207,7 +234,7 @@ function arrange(piece) {
       for (let i = 0; i < 8; i++) drum(start + 2 + i / 4, 'snare', .14 + i * .045, -.1);
       note(start + 3, 1, 41 + ((root + 7) % 12), .16, 'timpani', -.2);
       note(start + 3.5, .5, 41 + ((root + 7) % 12), .2, 'timpani', -.2);
-    } else if (sectionEnd && energy > 0) {
+    } else if (sectionEnd && energy > 0 && !battle) {
       [[2, 0], [2.5, .3], [3, .6], [3.5, .9]].forEach(([step, rise], i) => drum(start + step, 'tom', .4, -.4 + rise));
     }
 
@@ -218,7 +245,9 @@ function arrange(piece) {
     } else if (battle) {
       for (const [i, [at, interval]] of battle.bass.entries()) {
         const end = battle.bass[i + 1]?.[0] ?? 4;
-        note(start + at, (end - at) * .78, bassRoot + interval, at % 2 === 0 ? .21 : .16, 'bass');
+        const length = (end - at) * .82;
+        note(start + at, length, bassRoot + interval, at % 2 === 0 ? .24 : .19, 'bass');
+        if (at % 2 === 0) note(start + at + .009, length * .84, bassRoot + 12, .062, 'bass');
       }
     } else {
       const steps = groove === 'drive' ? 16 : 8;
@@ -233,13 +262,14 @@ function arrange(piece) {
 
     // Power chords: palm-muted eighths, with a ringing chord at each section start.
     if (battle && energy > 0) {
-      // Separate the pick attacks of the two cabinets without detuning the notes.
-      const low = 40 + ((root - 4 + 12) % 12);
+      const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
       for (const [at, length] of battle.guitar) {
-        const accent = length >= .5;
-        note(start + at, length, low, accent ? .095 : .064, 'drive', -.52);
-        note(start + at + .018, length * .94, low + 7, accent ? .078 : .048, 'drive', .52);
-        if (accent && energy === 2) note(start + at, length, low + 12, .044, 'drive', -.3);
+        const accent = at % 2 === 0;
+        const voice = accent ? 'drive' : 'chug';
+        note(start + at, length, low, accent ? .14 : .106, voice, -.56);
+        // Stagger both cabinets, with root and fifth audible even through a mono speaker.
+        note(start + at + .017, length * .92, low + 7, accent ? .11 : .068, voice, .54);
+        if (accent) note(start + at + .029, length * .84, low + 12, energy === 2 ? .075 : .058, voice, -.28);
       }
     } else if (energy > 0) {
       const low = 40 + ((root - 4 + 12) % 12); // E2..Eb3
@@ -264,12 +294,16 @@ function arrange(piece) {
     // Strings: sustained pad, plus a quick arpeggio figure when the band is driving.
     pad.forEach((pitch, i) => note(start, 3.85, pitch + (i > 1 ? 12 : 0), energy === 0 ? .05 : .035, 'strings', (i - 1.5) * .5));
     if (battle && energy > 0) {
-      // In each two-bar phrase, the strings take a short answering line, then leave
-      // space for the next brass entry. Use the same consonant voicing as the pad.
-      if (index % 2 === 0 && pad.length) {
+      // Give the percussion a bar to answer each bowed figure.
+      if (pad.length) {
+        if (index % 2 === 0 || energy === 2) {
+          battle.strings.forEach(([offset, rank], i) =>
+            note(start + offset, .19, pad[rank % pad.length] + (dark ? 0 : 12),
+              i % 2 ? .08 : .108, 'spiccato', i % 2 ? .39 : -.39));
+        }
         for (const [offset, length, rank] of battle.answer) {
-          note(start + offset, length, pad[rank % pad.length] + 12,
-            energy === 2 ? .095 : .078, 'pizz', .36);
+          if (index % 2 === 1) note(start + offset, length, pad[rank % pad.length] + (dark ? 0 : 12),
+            energy === 2 ? .09 : .076, dark ? 'horn' : 'pizz', .36);
         }
       }
     } else if (energy > 0) {
@@ -282,6 +316,12 @@ function arrange(piece) {
 
     // Timpani on downbeats of big sections.
     if (energy === 2 || sectionStart) note(start, 1, 41 + ((root + 7) % 12), .22, 'timpani', -.2);
+    if (battle && (sectionStart || (dark && index % 2 === 0))) {
+      // The first seconds of each battle already carry the full band.
+      note(start, .55, bassRoot + 12, .11, 'brass', -.31);
+      note(start + .02, .52, bassRoot + 19, .085, 'brass', .31);
+      if (dark) note(start + 2, .38, bassRoot + 12, .10, 'timpani', -.2);
+    }
 
     // The tune.
     for (const [offset, beats, pitch] of melody) {

@@ -34,7 +34,7 @@ const combatAudio = (() => {
     battleship: 134, submarine: 164,
   };
   // Peak level of each cue after normalising; map and menu sounds stay below the battle.
-  const levels = {shot: .78, impact: .74, defeat: .86, move: .34, ui: .32, jingle: .5};
+  const levels = {shot: .78, impact: .74, defeat: .86, accent: .64, move: .34, ui: .32, jingle: .5};
 
   function noteHz(midi) {
     return 440 * 2 ** ((midi - 69) / 12);
@@ -71,24 +71,27 @@ const combatAudio = (() => {
     }
     function boom(at, size = 1, amp = 1) {
       crack(at, .75 * amp, 3200);
-      noise({at, dur: .35 + .45 * size, amp: .95 * amp, f: [1500, 160], q: .6, attack: .002, decay: 4.6 / size});
+      noise({at, dur: .35 + .45 * size, amp: .95 * amp, f: [1650, 270], q: .65, attack: .002, decay: 4.6 / size});
       tone({at, dur: .3 + .35 * size, amp: .6 * amp, f: [150, 52], decay: 5.5 / size, drive: 2.6});
+      // The first part of the blast still has body when bass is lost to a phone speaker.
+      tone({at: at + .009, dur: .15, amp: .33 * amp, f: [510, 230], wave: 'triangle', decay: 18});
       for (let i = 0; i < 2 + size * 3; i++) {
         noise({at: at + .09 + rnd() * .4 * size, dur: .045, amp: .22 * amp, f: [2200 + rnd() * 1800], q: 1.4, decay: 40});
       }
     }
     function gun(at, amp = 1, pitch = 1) {
       crack(at, .85 * amp, 2900 * pitch);
-      noise({at, dur: .12, amp: .45 * amp, f: [1100 * pitch, 420 * pitch], q: .8, decay: 26});
-      tone({at, dur: .06, amp: .32 * amp, f: [320 * pitch, 140 * pitch], decay: 45, drive: 1.6});
+      noise({at, dur: .095, amp: .52 * amp, f: [1480 * pitch, 680 * pitch], q: .8, decay: 34});
+      tone({at, dur: .06, amp: .32 * amp, f: [510 * pitch, 220 * pitch], decay: 46, drive: 1.6});
+      noise({at: at + .026, dur: .023, amp: .22 * amp, f: [2050 * pitch, 1500 * pitch], q: 1.3, decay: 62});
     }
     function cannon(at, size = 1) {
       crack(at, .95, 2400);
-      noise({at, dur: .22 + .2 * size, amp: .8, f: [900, 220], q: .7, decay: 9 / size});
+      noise({at, dur: .22 + .2 * size, amp: .8, f: [1150, 320], q: .7, decay: 9 / size});
       tone({at, dur: .3 + .15 * size, amp: .7, f: [165 / size ** .3, 58], decay: 7 / size, drive: 3});
-      tone({at: at + .005, dur: .12, amp: .18, f: [640, 380], decay: 30, wave: 'triangle'});
+      tone({at: at + .005, dur: .12, amp: .32, f: [680, 340], decay: 26, wave: 'triangle'});
       // A short second knock carries the recoil through the lower midrange on a small speaker.
-      tone({at: at + .046 * size, dur: .10, amp: .24, f: [290 / size, 147 / size], wave: 'triangle', decay: 24});
+      tone({at: at + .042 * size, dur: .12, amp: .35, f: [450 / size ** .5, 210 / size ** .5], wave: 'triangle', decay: 26});
     }
     function whoosh(at, dur, from, to, amp = .5) {
       noise({at, dur, amp, f: [from, to], q: 2.2, attack: dur * .25, decay: 2.2 / dur});
@@ -107,8 +110,8 @@ const combatAudio = (() => {
       noise({at, dur: .18, amp: .35 * amp, f: [3800, 1600], q: 1.2, decay: 22});
     }
     function thud(at, amp = 1) {
-      noise({at, dur: .22, amp: .75 * amp, f: [950, 260], q: .7, decay: 17});
-      tone({at, dur: .16, amp: .45 * amp, f: [125, 72], decay: 20, drive: 2});
+      noise({at, dur: .22, amp: .75 * amp, f: [1280, 400], q: .7, decay: 17});
+      tone({at, dur: .16, amp: .45 * amp, f: [270, 115], decay: 20, drive: 2});
       noise({at: at + .03, dur: .32, amp: .22 * amp, f: [2400, 1200], q: .6, attack: .02, decay: 9});
     }
     function splash(at, size = 1, amp = 1) {
@@ -180,9 +183,10 @@ const combatAudio = (() => {
           break;
         case 'missile':
           beep(0, 1760);
-          beep(.075, 1760);
-          crack(.16, .45, 2400);
-          whoosh(.16, .55, 900, 3400, .5);
+          beep(.064, 2220);
+          crack(.12, .52, 2400);
+          whoosh(.12, .53, 700, 3100, .62);
+          tone({at: .13, dur: .22, amp: .21, f: [420, 940], decay: 9, drive: 1.7});
           break;
         case 'droneMissile':
           tone({dur: .23, amp: .22, f: [770, 1050], tremolo: 33, decay: 6});
@@ -208,8 +212,10 @@ const combatAudio = (() => {
           whoosh(.14, .6, 700, 3000, .55);
           break;
         case 'bomb':
-          tone({at: 0, dur: .12, amp: .2, f: [520, 380], decay: 18, wave: 'triangle'});
-          whistle(.06, .62, 2900, 520, .15);
+          metal(0, .25, .7);
+          tone({at: .025, dur: .14, amp: .3, f: [650, 330], decay: 16, wave: 'triangle'});
+          whistle(.065, .57, 2480, 460, .26);
+          whoosh(.07, .48, 2300, 720, .29);
           break;
         case 'navalGun':
           cannon(0, 1.7);
@@ -217,31 +223,43 @@ const combatAudio = (() => {
           noise({at: .05, dur: 1, amp: .2, f: [420, 140], q: .6, attack: .06, decay: 2.6});
           break;
         case 'torpedo':
-          noise({at: 0, dur: .16, amp: .5, f: [3200, 2200], q: .8, decay: 18});
-          tone({at: .08, dur: .6, amp: .16, f: [380, 300], decay: 3, vibrato: .03});
+          noise({at: 0, dur: .19, amp: .5, f: [1820, 620], q: .8, decay: 17});
+          tone({at: .055, dur: .6, amp: .23, f: [580, 308], decay: 3.6, vibrato: .03, tremolo: 15});
           for (let i = 0; i < 8; i++) tone({at: .12 + rnd() * .45, dur: .04, amp: .06, f: [600 + rnd() * 600, 1300], decay: 30});
           break;
       }
       return finish('shot', .12);
     }
 
-    // Accents laid over a hit: a sharp critical, armor bouncing a round off, and the rumble of a kill.
+    // Short signatures can overlap the unit's attack or impact without masking the whole cue.
     if (stage === 'accent') {
       if (unit === 'critical') {
-        crack(0, 1, 4600);
-        tone({dur: .55, amp: .55, f: [132, 50], decay: 5, drive: 3.6});
-        notes([[93, .22], [98, .4]], {at: .03, step: .06, amp: .16, wave: 'pulse', decay: 8});
-        noise({at: .04, dur: .6, amp: .3, f: [6200, 2400], q: .6, attack: .01, decay: 5});
+        crack(0, .9, 3550);
+        tone({dur: .26, amp: .44, f: [440, 150], decay: 13, drive: 2.5});
+        notes([[80, .11], [87, .14], [92, .19]], {at: .024, step: .038, amp: .34, decay: 11});
+        noise({at: .085, dur: .22, amp: .31, f: [3250, 1600], q: 1.1, decay: 13});
+      } else if (unit === 'counter') {
+        metal(0, .4, .78);
+        tone({at: .024, dur: .16, amp: .42, f: [1080, 510], wave: 'triangle', decay: 14});
+        crack(.065, .49, 2240);
+      } else if (unit === 'breakthrough') {
+        whoosh(0, .24, 920, 2900, .44);
+        notes([[69, .15], [76, .16], [81, .36]], {step: .07, amp: .41, wave: 'triangle', decay: 8});
+        notes([[57, .32], null, [64, .36]], {step: .07, at: .02, amp: .26, decay: 7});
+        crack(.146, .55, 2750);
       } else if (unit === 'blocked') {
         metal(0, .9, 1.7);
-        tone({at: .05, dur: .4, amp: .2, f: [3400, 1300], decay: 7, vibrato: .025});
-        noise({at: .02, dur: .12, amp: .25, f: [5200, 3000], q: 1.6, decay: 30});
+        tone({at: .047, dur: .25, amp: .33, f: [2870, 1000], decay: 10, vibrato: .025});
+        noise({at: .028, dur: .11, amp: .28, f: [3720, 2100], q: 1.6, decay: 30});
       } else if (unit === 'kill') {
-        tone({dur: 1.2, amp: .6, f: [96, 42], decay: 2.4, drive: 2.8});
-        noise({at: .04, dur: 1.3, amp: .4, f: [760, 120], q: .5, attack: .05, decay: 2});
-        for (let i = 0; i < 6; i++) noise({at: .25 + rnd() * .7, dur: .05, amp: .16, f: [1800 + rnd() * 1600], q: 1.4, decay: 40});
+        tone({dur: .74, amp: .59, f: [205, 75], decay: 4.8, drive: 2.8});
+        tone({at: .045, dur: .4, amp: .31, f: [780, 186], wave: 'triangle', decay: 7});
+        noise({at: .04, dur: .82, amp: .42, f: [1080, 190], q: .6, attack: .04, decay: 3.2});
+        for (let i = 0; i < 6; i++) noise({at: .17 + rnd() * .48, dur: .05, amp: .16, f: [1650 + rnd() * 1400], q: 1.4, decay: 40});
+      } else {
+        return new Float32Array(0);
       }
-      return finish('impact', .16);
+      return finish('accent', .1);
     }
 
     if (stage === 'impact' || stage === 'defeat') {
@@ -260,7 +278,7 @@ const combatAudio = (() => {
         noise({at: .033, dur: .12, amp: .27, f: [pitch * 8, pitch * 4], q: .75, decay: 20});
       }
       // Heavy targets get a bass thump; drive adds overtones a phone speaker can still play.
-      if (material !== 'foot') tone({dur: .38, amp: .5 * heavy, f: [124, 58], decay: 7, drive: 3.2});
+      if (material !== 'foot') tone({dur: .33, amp: .5 * heavy, f: [196, 77], decay: 8, drive: 3.2});
       if (!fatal) {
         if (material === 'foot') thud(0, 1);
         if (material === 'armor') { thud(0, .6); metal(0, .9, .48 + pitch / 610); }
@@ -271,7 +289,12 @@ const combatAudio = (() => {
       if (material === 'foot') { boom(0, .8, .85); thud(.02, .5); }
       if (material === 'armor') { boom(0, 1.3 * heavy); metal(.06, .6, .38 + pitch / 665); boom(.24, .7, .45); }
       if (material === 'water') { boom(0, 1.2 * heavy); splash(.18, 1.6, 1); }
-      if (material === 'air') { whistle(0, .55, 1500, 260, .14); boom(.45, 1); boom(.62, .6, .35); }
+      if (material === 'air') {
+        metal(0, .48, 1.28);
+        whistle(.035, .50, 1550, 260, .21);
+        boom(.38, 1);
+        boom(.57, .6, .35);
+      }
       return finish('defeat', .2);
     }
 

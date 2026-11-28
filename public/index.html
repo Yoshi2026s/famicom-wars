@@ -11,18 +11,18 @@
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="stylesheet" href="./style.css?v=fx1">
     <link rel="stylesheet" href="./combat.css?v=cinema-score">
-    <link rel="stylesheet" href="./combat-fx.css?v=fx1">
+    <link rel="stylesheet" href="./combat-fx.css?v=cut-in">
     <link rel="stylesheet" href="./battlefield.css?v=content2">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=reach3"></script>
     <script defer src="./rules.js?v=armor1"></script>
     <script defer src="./crossing-save.js?v=coastal"></script>
-    <script defer src="./combat-audio.js?v=cinema-score"></script>
-    <script defer src="./music.js?v=cinema-score"></script>
+    <script defer src="./combat-audio.js?v=cut-in"></script>
+    <script defer src="./music.js?v=cut-in"></script>
     <script defer src="./orientation.js?v=fx1"></script>
-    <script defer src="./unit-art.js?v=cinema-score"></script>
+    <script defer src="./unit-art.js?v=cut-in"></script>
     <script defer src="./scene-art.js?v=content2"></script>
-    <script defer src="./combat.js?v=cinema-score"></script>
+    <script defer src="./combat.js?v=cut-in"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
     <script defer src="./game.js?v=playtest-menu"></script>
   </head>
@@ -310,6 +310,7 @@
             <div class="combat-embers"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="formation ally"></div><div class="formation foe"></div>
             <div class="combat-volley"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+            <i class="combat-launch-wake"></i>
             <div class="combat-hit">
               <i class="combat-impact"></i><i class="combat-smoke"></i><i class="combat-sparks"></i><i class="combat-wreck"></i>
               <i class="combat-blast"></i><i class="combat-ring"></i>
@@ -320,6 +321,15 @@
             </div>
           </div>
           <span class="combat-stage" id="combat-stage" aria-hidden="true"></span>
+          <aside class="combat-speech" aria-hidden="true" hidden>
+            <b id="combat-speaker"></b>
+            <span id="combat-quote"></span>
+          </aside>
+          <div class="combat-cut-in" aria-hidden="true" hidden>
+            <img class="combat-cut-in-unit" alt="" decoding="async" hidden>
+            <b id="combat-cut-in-title"></b>
+            <span id="combat-cut-in-detail"></span>
+          </div>
           <i class="combat-swap" aria-hidden="true"></i>
           <i class="combat-flash" aria-hidden="true"></i><i class="combat-letterbox" aria-hidden="true"></i>
           <div class="combat-versus" aria-hidden="true"><b class="versus-ally"></b><span>VS</span><b class="versus-foe"></b></div>
