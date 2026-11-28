@@ -9,10 +9,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/home-icon-180.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./assets/home-icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="stylesheet" href="./style.css?v=fx1">
+    <link rel="stylesheet" href="./style.css?v=production-fit">
     <link rel="stylesheet" href="./combat.css?v=cinema-score">
     <link rel="stylesheet" href="./combat-fx.css?v=cut-in">
-    <link rel="stylesheet" href="./battlefield.css?v=unit-dock">
+    <link rel="stylesheet" href="./battlefield.css?v=production-fit">
     <script defer src="./coastal-scenario.js?v=coastal"></script>
     <script defer src="./map-generator.js?v=reach3"></script>
     <script defer src="./rules.js?v=tile-details"></script>
@@ -25,7 +25,7 @@
     <script defer src="./combat.js?v=cut-in"></script>
     <script defer src="./map-art.js?v=debug2b"></script>
     <script defer src="./map-dialogue.js?v=1"></script>
-    <script defer src="./game.js?v=end-turn-details"></script>
+    <script defer src="./game.js?v=production-fit"></script>
   </head>
   <body>
     <header class="masthead">
@@ -175,6 +175,9 @@
                 <span>資金 <b id="production-funds"></b></span>
               </div>
               <div class="factory-picker" id="factory-picker" role="group" aria-label="生産する施設" hidden></div>
+              <label class="production-site" id="production-site" hidden>
+                生産施設 <select id="production-site-select"></select>
+              </label>
               <p id="production-status" role="status" aria-atomic="true"></p>
               <div id="production-tile-info"></div>
               <div class="production-choices"></div>
@@ -223,7 +226,8 @@
     </dialog>
     <dialog class="production-dialog" id="production-dialog" aria-labelledby="production-title">
       <form method="dialog" class="order-dialog-buttons">
-        <button class="replay" id="production-move" type="button" hidden>このマスへ移動</button>
+        <button class="replay" id="production-traits" type="button" aria-pressed="false" hidden>特徴</button>
+        <button class="replay" id="production-move" type="button" hidden>ここへ移動</button>
         <button class="replay" autofocus>閉じる</button>
       </form>
     </dialog>
