@@ -68,6 +68,7 @@ const actionDialog = document.getElementById('action-dialog');
 const actionTitle = document.getElementById('action-title');
 const actionSummary = document.getElementById('action-summary');
 const actionDetail = document.getElementById('action-detail');
+const actionUnitInfo = document.getElementById('action-unit-info');
 const actionConfirm = document.getElementById('action-confirm');
 const productionControls = document.getElementById('production-controls');
 const productionLaunch = document.getElementById('production-launch');
@@ -108,6 +109,8 @@ const fieldStatus = document.getElementById('field-status');
 let detailUnit = null;
 let shownDetail = null;
 const unitDetail = document.getElementById('unit-detail');
+const unitDetailBody = unitDetail.querySelector('.unit-detail-body');
+const detailSidebar = document.querySelector('.sidebar');
 const moveConfirm = document.getElementById('move-confirm');
 const titleScreen = document.getElementById('title-screen');
 const titleResume = document.getElementById('title-resume');
@@ -229,7 +232,7 @@ function renderTileDetails() {
   if (actionDialog.open) container = actionTileInfo;
   else if (productionDialog.open && productionOrigin?.cell) container = productionTileInfo;
   else if (!moveConfirm.hidden) container = moveTileInfo;
-  else if (cell && detailUnit?.x === cell.x && detailUnit.y === cell.y) container = unitTileInfo;
+  else if (!unitDetail.hidden && cell && detailUnit?.x === cell.x && detailUnit.y === cell.y) container = unitTileInfo;
   mapTileInfo.hidden = !cell || container !== mapTileInfo;
   tileDetails.hidden = !cell;
   if (!cell) {
@@ -412,6 +415,7 @@ function extendRoster(container, entries, units, interactive) {
 function selectFriendlyUnit(unit) {
   if (inputBlocked() || !unit.hp) return;
   inspectedCell = null;
+  detailUnit = unit;
   combatAudio.cue('select');
   if (!mobileField || game.activeUnit !== unit || !game.selected) game.choose(unit.x, unit.y);
   saveProgress();
@@ -421,8 +425,8 @@ function selectFriendlyUnit(unit) {
     fieldRoster.close();
     tile.focus({preventScroll: true});
   }
-  revealTile(tile, mobileField);
   render();
+  revealTile(tile, mobileField);
   acknowledgeUnit(unit);
 }
 
@@ -634,9 +638,9 @@ function render() {
     if (unit === actingEnemy) return 'acting';
     return actedEnemies.has(unit.name) ? 'spent' : '';
   };
-  if (detailUnit && (!detailUnit.hp || waiting || movingFriendly || game.result
+  if (detailUnit && (!detailUnit.hp || waiting || game.result
     || ![...game.friendlyUnits, ...game.enemyUnits].includes(detailUnit))) detailUnit = null;
-  const detailReach = detailUnit ? game.unitReach(detailUnit) : null;
+  const detailReach = detailUnit && !movingFriendly && !game.stagedMove ? game.unitReach(detailUnit) : null;
   const facilityCapture = game.friendlyCapture;
   const announcedCapture = facilityCapture?.turn === game.turn && facilityCapture.unit === game.activeUnit.name && !game.attacked;
   extendRoster(roster, rosterEntries, game.friendlyUnits, true);
@@ -684,6 +688,7 @@ function render() {
     const actionInfo = unitActions[action];
     const target = !ordersLocked && enemy && game.canUnitAttack(game.activeUnit, enemy);
     const reachable = movementTargets.has(`${x},${y}`);
+    const nextMove = Boolean(detailReach?.move.has(`${x},${y}`));
     const captureHere = active && game.selected && !ordersLocked && game.canCaptureHere;
     const captureTarget = captureHere || (reachable && capturesSites(game.playerUnit)
       && (base === 'enemy' || Boolean(facility && facility.owner !== 'friendly')));
@@ -718,13 +723,16 @@ function render() {
       reachable ? `消費移動力${movementTargets.get(`${x},${y}`).cost}` : '',
       progress ? `${progress.side === 'friendly' ? '味方' : '敵'}が占領中 残り${progress.points}/${game.maxHP}` : '',
       productionReady ? '生産可能' : '', target ? '攻撃可能' : '', captureTarget ? '占領可能' : reachable ? '移動可能' : '',
+      nextMove ? `表示中の${detailUnit.name}が次回移動できるマス` : '',
       occupied || enemy ? `HP ${(friendly ?? enemy).hp}` : '', actionInfo?.label,
       !waiting && active && game.selected ? '選択中' : ''].filter(Boolean);
     button.setAttribute('aria-label', info.join('、'));
     button.classList.toggle('inspected', cell === inspectedCell && !waiting);
-    if (cell === inspectedCell && !waiting) button.setAttribute('aria-details', 'tile-details');
-    else if (button.hasAttribute('aria-details')) button.removeAttribute('aria-details');
-    button.classList.toggle('detail-move', Boolean(detailReach?.move.has(`${x},${y}`)));
+    const showingUnit = Boolean(detailReach && detailUnit.x === x && detailUnit.y === y);
+    if (showingUnit || (cell === inspectedCell && !waiting)) {
+      button.setAttribute('aria-details', showingUnit ? 'unit-detail' : 'tile-details');
+    } else if (button.hasAttribute('aria-details')) button.removeAttribute('aria-details');
+    button.classList.toggle('detail-move', nextMove);
     button.classList.toggle('detail-attack', Boolean(detailReach?.attack.has(`${x},${y}`)));
     const unit = enemy ?? friendly;
     const motion = unit && unitMotion(unit.type.id);
@@ -975,10 +983,23 @@ function setMobileFieldLayout() {
   return true;
 }
 
+function overviewUnit() {
+  return actionDialog.open || !unitDetail.hidden ? detailUnit : null;
+}
+
 function drawOverview() {
   overviewGrid.style.setProperty('--columns', game.width);
   overviewGrid.style.setProperty('--rows', game.height);
-  const spots = cells.map(({button, base, facility}) => {
+  const inspected = overviewUnit();
+  const reach = inspected && game.unitReach(inspected).move;
+  const legend = document.getElementById('overview-unit-range');
+  legend.hidden = !inspected;
+  if (inspected) {
+    document.getElementById('overview-unit-range-label').textContent =
+      `${inspected.name}の次回移動範囲 · ${reach.size}マス`;
+  }
+  fieldOverview.querySelector('[data-jump="unit"]').textContent = inspected ? '表示中の部隊' : '操作中の部隊';
+  const spots = cells.map(({button, base, facility, x, y}) => {
     const spot = document.createElement('span');
     spot.className = 'overview-cell';
     spot.setAttribute('aria-hidden', 'true');
@@ -987,6 +1008,8 @@ function drawOverview() {
     if (facility) spot.dataset.facility = facility.owner;
     if (button.classList.contains('occupied')) spot.dataset.side = 'friendly';
     if (button.classList.contains('enemy')) spot.dataset.side = 'enemy';
+    if (reach?.has(`${x},${y}`)) spot.dataset.nextMove = '';
+    if (inspected?.x === x && inspected.y === y) spot.dataset.rangeOrigin = '';
     return spot;
   });
   overviewGrid.replaceChildren(...spots, overviewWindow);
@@ -1010,7 +1033,7 @@ function jumpToFieldLocation({x, y}) {
   if (!fieldOverview.open || portraitMode.blocked) return;
   fieldOverview.close();
   const tile = cells[y * game.width + x].button;
-  tile.focus({preventScroll: true});
+  if (!actionDialog.open) tile.focus({preventScroll: true});
   revealTile(tile, true);
 }
 
@@ -1037,7 +1060,7 @@ const tileTemplate = (() => {
   image.alt = '';
   image.draggable = false;
   button.append(image);
-  for (const name of ['map-idle', 'map-hp', 'unit-action', 'tile-production', 'capture-meter']) {
+  for (const name of ['map-idle', 'map-hp', 'unit-action', 'tile-production', 'capture-meter', 'next-move-mark']) {
     const part = document.createElement('span');
     part.className = name;
     part.setAttribute('aria-hidden', 'true');
@@ -1079,12 +1102,11 @@ board.addEventListener('click', (event) => {
   }
   combatAudio.cue('select');
   game.choose(x, y);
-  // An open detail panel follows the selected friendly unit.
-  if (detailUnit) detailUnit = game.activeUnit;
+  detailUnit = game.friendlyAt(x, y);
   saveProgress();
   render();
   if (!mapTileInfo.hidden) revealTile(cell.button);
-  acknowledgeUnit(game.friendlyAt(x, y));
+  acknowledgeUnit(detailUnit);
 });
 board.addEventListener('keydown', (event) => {
   const cell = boardCell(event.target);
@@ -1263,6 +1285,8 @@ function previewCaptureHere(cell, opener) {
   actionSummary.textContent = `${unit.name}（HP ${unit.hp}）  ${placeName(cell.x, cell.y)}`;
   actionDetail.textContent = captureForecast(cell.facility, unit);
   actionConfirm.textContent = '占領する';
+  detailUnit = unit;
+  renderActionUnit(unit);
   pendingAction = {cell, unit, enemy: null, opener, captureHere: true};
   highlightFriendlyRoute([]);
   cell.button.classList.add('action-pending');
@@ -1282,6 +1306,8 @@ function previewAction(cell, opener) {
   let verb;
   if (strikes.length) {
     const [hit, counter] = strikes;
+    detailUnit = enemy;
+    renderActionUnit(enemy);
     verb = '攻撃';
     actionSummary.textContent = `${unit.name} → 敵${enemy.name}`;
     // Real hits swing a little, so show the HP the target could end on (high damage leaves the lower HP).
@@ -1356,7 +1382,6 @@ function stageFriendlyMove(cell) {
   if (!route || !game.stageMove(cell.x, cell.y)) return false;
   combatAudio.playMove(unit.type);
   sayOnMap('move', {unit, position: cell});
-  detailUnit = null;
   inspectedCell = cell;
   animateFriendlyMove(unit, from, routeSteps(route), () => {
     render();
@@ -1453,6 +1478,7 @@ document.addEventListener('keydown', (event) => {
   // Escape inside an open dialog (menu, guide, field panels) only closes that dialog.
   if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
   if (game.stagedMove) cancelStagedMove();
+  else if (!unitDetail.hidden) closeUnitDetail();
   else closeTileDetails();
 });
 
@@ -1464,6 +1490,7 @@ actionDialog.addEventListener('close', () => {
   pendingAction = undefined;
   highlightFriendlyRoute([]);
   button.classList.remove('action-pending');
+  render();
   button.focus({preventScroll: true});
 });
 
@@ -1692,14 +1719,17 @@ function restoreBoardFocus(restoreFocus = true) {
 endTurn.addEventListener('keydown', (event) => {
   if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
 });
-function showOverview() {
+function showOverview(event) {
   if (portraitMode.blocked || waitingForEnemy() || movingFriendly || combatScreen.active || fieldOverview.open) return;
   drawOverview();
+  event?.currentTarget.focus({preventScroll: true});
   fieldOverview.showModal();
   updateOverviewWindow();
 }
 
 document.getElementById('desktop-overview').addEventListener('click', showOverview);
+document.getElementById('unit-detail-range').addEventListener('click', showOverview);
+document.getElementById('action-unit-range').addEventListener('click', showOverview);
 for (const [index, button] of fieldButtons.entries()) {
   const dialog = fieldDialogs[index];
   button.addEventListener('click', () => {
@@ -1715,7 +1745,7 @@ fieldNextUnit.addEventListener('click', () => {
 });
 overviewGrid.addEventListener('click', event => {
   if (!event.detail) {
-    jumpToFieldLocation(game.activeUnit);
+    jumpToFieldLocation(overviewUnit() ?? game.activeUnit);
     return;
   }
   const rect = overviewGrid.getBoundingClientRect();
@@ -1726,7 +1756,8 @@ overviewGrid.addEventListener('click', event => {
 for (const button of fieldOverview.querySelectorAll('[data-jump]')) {
   button.addEventListener('click', () => {
     const destination = button.dataset.jump;
-    jumpToFieldLocation(destination === 'unit' ? game.activeUnit : game.headquarters[destination]);
+    const unit = overviewUnit() ?? game.activeUnit;
+    jumpToFieldLocation(destination === 'unit' ? unit : game.headquarters[destination]);
   });
 }
 mapSurround.addEventListener('scroll', updateOverviewWindow, {passive: true});
@@ -1883,30 +1914,50 @@ function matchupChips(entries) {
   return list;
 }
 
+function unitAttacks(unit) {
+  return game.unitTypes.map(other => ({name: other.name, value: game.damageEstimate(unit.type, other, {hp: unit.hp})}));
+}
+
+function topMatchups(entries) {
+  return entries.filter(entry => entry.value !== null).sort((a, b) => b.value - a.value).slice(0, 4);
+}
+
+function renderActionUnit(unit) {
+  const {type} = unit;
+  const targets = topMatchups(unitAttacks(unit)).slice(0, 2).map(({name}) => name).join('・');
+  actionUnitInfo.textContent = `HP ${unit.hp}/${game.maxHP} · 移動力 ${type.movement} · 射程 ${rangeLabel(type)}`
+    + ` ／ 得意な相手 ${targets || 'なし'}`;
+}
+
 function renderUnitDetail(reach) {
-  unitDetail.hidden = !detailUnit;
-  if (!detailUnit) {
+  const dock = mobileField ? mapTileInfo.parentElement : detailSidebar;
+  const relocated = unitDetail.parentElement !== dock;
+  if (relocated) {
+    if (mobileField) mapTileInfo.after(unitDetail);
+    else detailSidebar.prepend(unitDetail);
+  }
+  unitDetail.hidden = !reach;
+  if (!reach) {
     shownDetail = null;
     return;
   }
-  if (shownDetail !== detailUnit) {
+  if (shownDetail !== detailUnit || relocated) {
     shownDetail = detailUnit;
-    // Keep the unit visible above the panel that covers the bottom of the screen.
+    unitDetailBody.scrollTop = 0;
+    const unit = detailUnit;
     requestAnimationFrame(() => {
-      if (!detailUnit || unitDetail.hidden) return;
-      const tile = tileAt(detailUnit).getBoundingClientRect();
-      const panelTop = unitDetail.getBoundingClientRect().top;
-      const view = mapSurround.getBoundingClientRect();
-      const visibleBottom = Math.min(view.bottom, panelTop) - 8;
-      if (tile.bottom > visibleBottom) mapSurround.scrollTop += tile.bottom - visibleBottom + tile.height;
-      else if (tile.top < view.top) mapSurround.scrollTop -= view.top - tile.top + 8;
+      if (detailUnit === unit && !unitDetail.hidden) revealTile(tileAt(unit), mobileField);
     });
   }
   const unit = detailUnit;
   const enemy = game.enemyUnits.includes(unit);
   const {type} = unit;
-  document.getElementById('unit-detail-title').textContent = `${enemy ? '敵' : '味方'}${unit.name}`;
+  const title = document.getElementById('unit-detail-title');
+  const name = `${enemy ? '敵' : '味方'}${unit.name}`;
+  if (title.textContent !== name) title.textContent = name;
   document.getElementById('unit-detail-hp').textContent = `HP ${unit.hp}/${game.maxHP}`;
+  document.getElementById('unit-detail-speed').textContent = `移動力 ${type.movement}`;
+  document.getElementById('unit-detail-range-label').textContent = `射程 ${rangeLabel(type)}`;
   document.getElementById('detail-move-count').textContent = reach.move.size;
   document.getElementById('detail-attack-count').textContent = reach.attack.size;
   const terrain = game.terrainAt(unit.x, unit.y);
@@ -1928,9 +1979,9 @@ function renderUnitDetail(reach) {
   detailRows(stats, rows);
   // Matchups against every enemy kind: damage dealt at the unit's HP, damage taken from a full-strength foe.
   const foes = game.unitTypes;
-  const dealt = foes.map(other => ({name: other.name, value: game.damageEstimate(type, other, {hp: unit.hp})}));
+  const dealt = unitAttacks(unit);
+  const strongest = topMatchups(dealt);
   const taken = foes.map(other => ({name: other.name, value: game.damageEstimate(other, type, {cover})}));
-  const top = list => list.filter(entry => entry.value !== null).sort((a, b) => b.value - a.value).slice(0, 4);
   const section = (title, entries, note) => {
     const block = document.createElement('section');
     const heading = document.createElement('h3');
@@ -1946,9 +1997,11 @@ function renderUnitDetail(reach) {
   };
   const unreachable = dealt.filter(entry => entry.value === null).map(({name}) => ({name}));
   const safe = taken.filter(entry => entry.value === null).map(({name}) => ({name}));
+  const favorites = document.getElementById('unit-detail-favorites');
+  if (strongest.length) favorites.replaceChildren(matchupChips(strongest));
+  else favorites.textContent = 'なし';
   document.getElementById('unit-detail-matchups').replaceChildren(
-    section('得意な相手', top(dealt), '与ダメージの目安（今のHP）'),
-    section('苦手な相手', top(taken), '受けるダメージの目安（相手HP10・今の地形）'),
+    section('苦手な相手', topMatchups(taken), '受けるダメージの目安（相手HP10・今の地形）'),
     section('攻撃できない相手', unreachable),
     section('攻撃してこない相手', safe),
   );
@@ -1962,17 +2015,20 @@ for (const opener of detailOpeners) {
     if (detailUnit) document.getElementById('unit-detail-title').focus({preventScroll: true});
   });
 }
-document.getElementById('unit-detail-close').addEventListener('click', () => {
+function closeUnitDetail() {
+  const tile = detailUnit && tileAt(detailUnit);
   detailUnit = null;
   render();
-  restoreBoardFocus();
-});
+  if (!tile) return;
+  setBoardTabStop(tile);
+  tile.focus({preventScroll: true});
+  revealTile(tile);
+}
+document.getElementById('unit-detail-close').addEventListener('click', closeUnitDetail);
 unitDetail.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   event.preventDefault();
-  detailUnit = null;
-  render();
-  restoreBoardFocus();
+  closeUnitDetail();
 });
 
 // ---- New match with a chosen CPU strength ----
