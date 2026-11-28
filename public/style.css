@@ -319,3 +319,11 @@ html.portrait-blocked :is(#combat-screen, #combat-screen *, .tile.enemy-spawned 
   body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
   .masthead { padding-top: env(safe-area-inset-top); }
 }
+
+/* Very narrow viewports (e.g. 150% accessibility text zoom on Android): keep the header on screen. */
+@media (max-width: 300px) {
+  .mast-inner { width: calc(100% - 16px); }
+  .brand { font-size: 0; gap: 0; }
+  .help { padding: 0 6px; gap: 4px; }
+  .intro { grid-template-columns: 1fr; grid-template-areas: "title" "turn" "save" "sound"; }
+}

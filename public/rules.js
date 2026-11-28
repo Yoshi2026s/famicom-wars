@@ -80,7 +80,7 @@ const sea = 'sea';
 const coastalTypes = new Map([
   {...infantry, movement: 3, firepower: 3, targets: [land, sea], foot: true, captures: true, trait: '施設を占領できる。安価で山も越えられる'},
   {id: 'antitank', name: '対戦車兵', movement: 3, minRange: 1, maxRange: 1, cost: 2500, firepower: 3, targets: [land, sea], foot: true, captures: true,
-    bonus: {tank: 2, heavytank: 2, scout: 2, antiair: 2, support: 2, artillery: 2, rocket: 2}, trait: '施設を占領できる。車両に強いが足は遅い'},
+    bonus: {tank: 2, heavytank: 2, scout: 2, antiair: 2, support: 2, artillery: 2, rocket: 2, samlauncher: 2}, trait: '施設を占領できる。車両に強いが足は遅い'},
   {...scout, movement: 6, cost: 2000, firepower: 3, targets: [land], bonus: {support: 2, artillery: 2, rocket: 2}, trait: '移動力が高く、砲撃車両に強い。山は通れない'},
   {...support, movement: 4, cost: 3500, firepower: 4, targets: [land, sea], stationary: true, trait: '射程2〜3。移動したターンは攻撃できない'},
   {...tank, movement: 4, firepower: 5, targets: [land, sea], trait: '装甲車両に強い。山は通れない', bonus: {scout: 1, support: 1, antiair: 1}},
@@ -103,7 +103,7 @@ const coastalTypes = new Map([
   {id: 'patrol', name: '哨戒艇', domain: sea, movement: 6, minRange: 1, maxRange: 1, cost: 4000, firepower: 3, targets: [land, sea], bonus: {sea: 1}, antisub: true, trait: '低価格で足の速い小型艦。潜水艦も攻撃できる'},
   {id: 'destroyer', name: '駆逐艦', domain: sea, movement: 5, minRange: 1, maxRange: 2, cost: 6500, firepower: 4, targets: [land, sea, air], bonus: {air: 1, patrol: 1, submarine: 2}, antisub: true, trait: '射程1〜2。航空部隊も攻撃でき、潜水艦に強い'},
   {id: 'submarine', name: '潜水艦', domain: sea, movement: 5, minRange: 1, maxRange: 1, cost: 8000, firepower: 6, targets: [sea], submerged: true, antisub: true,
-    bonus: {battleship: 2}, trait: '艦船だけを魚雷で攻撃。哨戒艇・駆逐艦・潜水艦にしか攻撃されない'},
+    bonus: {battleship: 2}, trait: '艦船だけを魚雷で攻撃。哨戒艇・駆逐艦・巡洋艦・潜水艦にしか攻撃されない'},
   {id: 'cruiser', name: '巡洋艦', domain: sea, movement: 5, minRange: 1, maxRange: 3, cost: 9000, firepower: 5, targets: [land, sea, air],
     bonus: {air: 2}, antisub: true, trait: '射程1〜3。航空部隊に強く、潜水艦も攻撃できる'},
   {id: 'battleship', name: '戦艦', domain: sea, movement: 5, minRange: 2, maxRange: 5, cost: 10500, firepower: 7, targets: [land, sea], stationary: true, trait: '射程2〜5の艦砲。移動したターンは攻撃できない'},
@@ -972,7 +972,9 @@ class BattleMap {
     const from = {x: enemy.x, y: enemy.y};
     const {type} = enemy;
     const living = this.friendlyUnits.filter(unit => unit.hp > 0);
-    const routes = this.#routes(enemy, this.#occupiedExcept(enemy), Infinity, type.movement);
+    const others = this.#occupiedExcept(enemy);
+    const allies = others.filter(unit => this.enemyUnits.includes(unit));
+    const routes = this.#routes(enemy, others.filter(unit => !allies.includes(unit)), Infinity, type.movement, allies);
     const home = this.headquarters.friendly;
     const homeRoute = routes.get(`${home.x},${home.y}`);
     const holding = this.captureProgress(this.facilityAt(from.x, from.y));

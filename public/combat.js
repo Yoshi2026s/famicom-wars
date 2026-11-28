@@ -262,8 +262,9 @@ const combatScreen = (() => {
     portraitMode.cancel(completed.timer);
     combatAudio.stop();
     removeRetreatingFighters();
-    dialog.close();
+    // Restyle the map once: lift the map-hiding class in the same style pass as the modal's inert state.
     document.documentElement.classList.remove('combat-open');
+    dialog.close();
     if (!completed.map.result) music.setScene('map');
     completed.onReturn(restoreFocus);
   }
@@ -309,7 +310,7 @@ const combatScreen = (() => {
         const terrain = map.terrainAt(position.x, position.y);
         teamNames[side] = prefix + unit.name;
         document.getElementById('combat-' + side + '-name').textContent = teamNames[side];
-        const fortress = map.scenario && map.facilityAt(position.x, position.y)?.kind === 'fortress';
+        const fortress = map.scenario && (unit.type.domain ?? 'land') === 'land' && map.facilityAt(position.x, position.y)?.kind === 'fortress';
         document.getElementById('combat-' + side + '-terrain').textContent = fortress ? '要塞' : terrain.name;
         formations[side].dataset.terrain = terrain.id;
         paintScenery();
@@ -365,8 +366,9 @@ const combatScreen = (() => {
       stageAttack(attacker);
       dialog.dataset.phase = 'entry';
       status.textContent = '交戦開始';
-      dialog.showModal();
+      // showModal() restyles the whole page (everything else turns inert), so hide the map first to pay for that once.
       document.documentElement.classList.add('combat-open');
+      dialog.showModal();
       scene.strikes = resolve();
       music.setScene('battle');
       document.getElementById('combat-title').focus({preventScroll: true});

@@ -670,7 +670,9 @@ function render() {
     message.textContent = `${friendlyName}が移動中です。`;
   } else if (result) {
     state.textContent = lost ? '敗北' : '勝利';
-    if (game.capturedBy) {
+    if (game.surrendered) {
+      message.textContent = '敗北。降伏しました。';
+    } else if (game.capturedBy) {
       message.textContent = lost ? '敗北。敵部隊に味方の本拠地を占領されました。'
         : '勝利！ 味方部隊が敵の本拠地を占領しました。';
     } else {
@@ -1945,6 +1947,7 @@ menuSurrender.addEventListener('click', () => {
   confirmMenu('降伏しますか？', 'この対戦は敗北で終わります。降伏は取り消せません。', '降伏する', () => {
     if (!game.surrender()) return;
     saveProgress();
+    music.setScene(game.result);
     restoreBoardFocus();
     celebrateResult();
   });

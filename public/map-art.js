@@ -1183,11 +1183,22 @@
 
   // ---- Board integration -------------------------------------------------------------
   let observer, paintToken = 0;
+  // A 2D canvas this large is handed to the compositor again on every animation frame (about
+  // 20 ms a frame on a slow phone while the map idles); a bitmaprenderer canvas is not.
   function showTerrain(board, canvas, source) {
     canvas.width = source.width;
     canvas.height = source.height;
-    canvas.getContext('2d').drawImage(source, 0, 0);
-    source.close?.();
+    const bitmap = typeof ImageBitmap === 'function' && source instanceof ImageBitmap;
+    const renderer = bitmap ? canvas.getContext('bitmaprenderer') : null;
+    const ctx = renderer ? null : canvas.getContext('2d');
+    if (renderer) renderer.transferFromImageBitmap(source);
+    else if (ctx) {
+      ctx.drawImage(source, 0, 0);
+      source.close?.();
+    } else {
+      // This canvas already shows a transferred bitmap, so a main-thread repaint is transferred too.
+      createImageBitmap(source).then(image => canvas.getContext('bitmaprenderer').transferFromImageBitmap(image));
+    }
     canvas.classList.add('painted');
   }
 
