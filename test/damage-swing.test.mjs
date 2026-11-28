@@ -66,3 +66,69 @@ test('攻撃の予告とCPUの行動計画では乱数を使わない', () => {
   assert.equal(game.previewAttack(scout)[0].damage, 5);
   for (const enemy of game.enemyUnits) game.planEnemyAction(enemy);
 });
+
+const type = (game, id) => game.unitTypes.find(unit => unit.id === id);
+
+test('歩兵はHP10でも重戦車・戦艦などの重装甲にはダメージ0か1しか与えられない', () => {
+  const game = new BattleMap('coastal');
+  const infantry = type(game, 'infantry');
+  for (const id of ['heavytank', 'battleship', 'cruiser']) {
+    assert.ok(game.damageEstimate(infantry, type(game, id)) <= 1, id);
+  }
+  // Small arms cannot reach aircraft at all; a helicopter's guns barely scratch a fighter.
+  assert.equal(game.damageEstimate(infantry, type(game, 'fighter')), null);
+  assert.ok(game.damageEstimate(type(game, 'helicopter'), type(game, 'fighter')) <= 1);
+  // Anti-tank troops' specialty ignores the plating gap.
+  assert.ok(game.damageEstimate(type(game, 'antitank'), type(game, 'heavytank')) >= 4);
+});
+
+// Two adjacent coastal units on plains: the friendly one attacks the enemy one.
+function duel(attackerId, defenderId, random) {
+  const game = new BattleMap('coastal');
+  game.random = random;
+  const actor = game.friendlyUnits[0];
+  const target = game.enemyUnits[0];
+  for (const [unit, id, x] of [[actor, attackerId, 0], [target, defenderId, 1]]) {
+    let spot = null;
+    for (let y = 0; y < game.height && !spot; y++) {
+      for (let column = 0; column + 1 < game.width && !spot; column++) {
+        if (game.terrainAt(column, y).id === 'plains' && game.terrainAt(column + 1, y).id === 'plains'
+          && !game.facilityAt(column, y) && !game.facilityAt(column + 1, y)) spot = {x: column, y};
+      }
+    }
+    Object.assign(unit, {type: type(game, id), hp: 10, readyTurn: 1, x: spot.x + x, y: spot.y});
+  }
+  for (const other of [...game.friendlyUnits, ...game.enemyUnits]) if (other !== actor && other !== target) other.hp = 0;
+  game.activeUnit = actor;
+  return {game, target};
+}
+
+test('重装甲への攻撃は何度試してもダメージ0か1で、0も出る', () => {
+  const roll = dice(3);
+  const seen = new Set();
+  for (let trial = 0; trial < 100; trial++) {
+    const {game, target} = duel('infantry', 'heavytank', roll);
+    seen.add(game.choose(target.x, target.y)[0].damage);
+  }
+  assert.deepEqual([...seen].sort(), [0, 1]);
+});
+
+test('特効相手にはクリティカルが出ることがあり、得意でない相手には出ない', () => {
+  const roll = dice(5);
+  let criticals = 0;
+  for (let trial = 0; trial < 200; trial++) {
+    const {game, target} = duel('antitank', 'tank', roll);
+    const [preview] = game.previewAttack(target);
+    const [hit] = game.choose(target.x, target.y);
+    assert.ok(hit.damage <= preview.range[1]);
+    if (hit.critical) {
+      criticals++;
+      assert.ok(hit.damage > preview.range[0]);
+    }
+  }
+  assert.ok(criticals > 20 && criticals < 90, `${criticals}`);
+  for (let trial = 0; trial < 50; trial++) {
+    const {game, target} = duel('infantry', 'infantry', roll);
+    assert.equal(game.choose(target.x, target.y)[0].critical, undefined);
+  }
+});

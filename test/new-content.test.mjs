@@ -128,7 +128,8 @@ test('地形防御はダメージを最大で半分までしか減らさない',
   // Ruins and mountains (defense 2) used to cut a firepower-3 hit to 1.
   assert.equal(game.damageEstimate(infantry, infantry, {cover: 2}), 2);
   assert.equal(game.damageEstimate(type(game, 'tank'), infantry, {cover: 2}), 3);
-  assert.equal(game.damageEstimate(type(game, 'tank'), type(game, 'heavytank'), {cover: 0}), 4);
+  // A heavy tank's plating is one class above a tank gun, so the hit is also cut to 70%.
+  assert.equal(game.damageEstimate(type(game, 'tank'), type(game, 'heavytank'), {cover: 0}), 3);
 });
 
 test('CPUは占領の続きより、届く本拠地の占領を優先する', () => {

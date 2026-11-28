@@ -61,16 +61,49 @@ const coveredHit = (full, cover, armor = 0) => {
   const base = Math.max(1, full - armor);
   return Math.max(1, base - Math.min(cover, Math.floor(base / 2)));
 };
+// Armor classes, 0 (soft) to 3 (heavy): how hard a unit is to hurt and how well its weapons punch through.
+// Each class a target is harder than the weapon cuts the hit down; a matchup bonus of +2 or more
+// (the unit's specialty, such as anti-tank troops against vehicles) ignores the gap.
+const plating = Object.freeze({
+  infantry: 0, antitank: 0, mortar: 0,
+  scout: 1, support: 1, artillery: 1, rocket: 1, samlauncher: 1, antiair: 1, drone: 1, helicopter: 1, patrol: 1,
+  tank: 2, striker: 2, destroyer: 2, submarine: 2,
+  heavytank: 3, fighter: 3, bomber: 3, cruiser: 3, battleship: 3,
+});
+const caliber = Object.freeze({
+  infantry: 0, scout: 0, patrol: 0,
+  mortar: 1, support: 1, antiair: 1, drone: 1, destroyer: 1,
+  tank: 2, artillery: 2, helicopter: 2, striker: 2, cruiser: 2,
+  antitank: 3, heavytank: 3, rocket: 3, samlauncher: 3, fighter: 3, bomber: 3, submarine: 3, battleship: 3,
+});
+const platingFactor = [1, .7, .4, .2];
+const matchupBonus = (attackerType, defenderType) =>
+  attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0;
+// Expected damage of a coastal hit before the random swing; `shielded` says plating cut it down.
+const expectedHit = (attackerType, defenderType, cover, ratio) => {
+  const bonus = matchupBonus(attackerType, defenderType);
+  const full = Math.max(1, attackerType.firepower + bonus);
+  const gap = bonus >= 2 ? 0 : Math.max(0, (plating[defenderType.id] ?? 0) - (caliber[attackerType.id] ?? 0));
+  // Rounded to drop float noise (5 × 0.7 must stay 3.5, not 3.4999…).
+  const expected = Math.round(coveredHit(full, cover, defenderType.armor) * platingFactor[gap] * ratio * 1e6) / 1e6;
+  return {full, shielded: gap > 0, expected};
+};
 // Every real hit swings up to this share above or below its expected damage (never below 1).
 // When the gap in strength is wide (expected damage under 1, from low HP, a poor matchup, cover or
 // armor), the hit lands for 1 only with that probability and otherwise deals nothing.
 const damageSwing = .2;
+// Against a specialty target (any positive matchup bonus), a hit that lands can turn critical.
+const criticalChance = .25;
+const criticalHit = damage => Math.max(damage + 1, Math.round(damage * 1.5));
 const rollDamage = (expected, random) => {
   if (expected < 1) return (random ? random() >= 1 - expected : expected >= .5) ? 1 : 0;
   return Math.max(1, Math.round(expected * (random ? 1 - damageSwing + 2 * damageSwing * random() : 1)));
 };
-const damageRange = expected => expected < 1 ? [0, 1]
-  : [Math.max(1, Math.round(expected * (1 - damageSwing))), Math.round(expected * (1 + damageSwing))];
+const damageRange = (expected, critical) => {
+  const [low, high] = expected < 1 ? [0, 1]
+    : [Math.max(1, Math.round(expected * (1 - damageSwing))), Math.round(expected * (1 + damageSwing))];
+  return [low, critical ? criticalHit(high) : high];
+};
 const canCapture = type => type.id === infantry.id || Boolean(type.captures);
 // CPU strength. Easy plays looser (its move scores get a small fixed jitter and it ignores
 // most danger) and earns less; hard weighs danger more and earns more. Normal is unchanged.
@@ -950,26 +983,33 @@ class BattleMap {
     const cover = defender.type.domain && defender.type.domain !== land ? 0 : this.coverAt(defender.x, defender.y);
     let strength;
     let expected;
+    let shielded = false;
+    let special = false;
     if (this.scenario) {
-      // Damage scales with the attacker's remaining strength (HP) after matchup and cover are applied,
+      // Damage scales with the attacker's remaining strength (HP) after matchup, cover and armor are applied,
       // so a squad at half strength deals about half the damage.
       const ratio = attackingUnit.hp / this.maxHP;
-      const full = Math.max(1, type.firepower + (type.bonus?.[defender.type.id] ?? type.bonus?.[defender.type.domain] ?? 0));
+      let full;
+      ({full, shielded, expected} = expectedHit(type, defender.type, cover, ratio));
+      special = matchupBonus(type, defender.type) > 0;
       strength = Math.max(1, Math.round(full * ratio));
-      expected = coveredHit(full, cover, defender.type.armor) * ratio;
     } else {
       strength = baseStrength + (type.attackBonus ?? 0);
       // Cover at least as strong as the attack leaves only a slim chance of getting through.
       expected = Math.max(.5, strength - cover);
     }
-    const planned = Math.max(1, rollDamage(expected, null));
-    const damage = Math.min(rollDamage(expected, random), defender.hp);
-    const [low, high] = damageRange(expected);
+    const planned = rollDamage(expected, null);
+    let rolled = rollDamage(expected, random);
+    const critical = Boolean(random && special && rolled > 0 && random() < criticalChance);
+    if (critical) rolled = criticalHit(rolled);
+    const damage = Math.min(rolled, defender.hp);
+    const [low, high] = damageRange(expected, special);
     defender.hp -= damage;
     const fortified = this.scenario && cover > terrain.defense && this.facilityAt(defender.x, defender.y)?.kind === 'fortress';
     return {attacker, damage, terrain: fortified ? facilityNames.fortress : terrain.name, mitigation: Math.max(0, strength - planned),
-      ...(this.scenario && defender.type.armor ? {armored: true, covered: cover > 0} : {}),
-      ...(random ? {} : {range: [Math.min(low, defender.hp + damage), Math.min(high, defender.hp + damage)]}),
+      ...(this.scenario && (defender.type.armor || shielded) ? {armored: true, covered: cover > 0} : {}),
+      ...(critical ? {critical} : {}),
+      ...(random ? {} : {range: [Math.min(low, defender.hp + damage), Math.min(high, defender.hp + damage)], ...(special ? {canCritical: true} : {})}),
       playerHP: friendly.hp, enemyHP: enemy.hp};
   }
 
@@ -1121,9 +1161,7 @@ BattleMap.prototype.damageEstimate = function (attackerType, defenderType, {hp =
   if (defenderType.submerged && !attackerType.antisub) return null;
   const shield = defenderType.domain && defenderType.domain !== land ? 0 : cover;
   if (this.scenario) {
-    const ratio = hp / this.maxHP;
-    const full = Math.max(1, attackerType.firepower + (attackerType.bonus?.[defenderType.id] ?? attackerType.bonus?.[defenderType.domain] ?? 0));
-    return rollDamage(coveredHit(full, shield, defenderType.armor) * ratio, null);
+    return rollDamage(expectedHit(attackerType, defenderType, shield, hp / this.maxHP).expected, null);
   }
   const strength = (hp >= 8 ? 3 : hp >= 4 ? 2 : 1) + (attackerType.attackBonus ?? 0);
   return rollDamage(Math.max(.5, strength - shield), null);
