@@ -46,6 +46,34 @@ test('戦闘画面の全兵種に専用の発射・被弾・撃破音があり�
   assert.notDeepEqual(audio.synthesize('shot-tank', 22050, 0), audio.synthesize('shot-tank', 22050, 1));
 });
 
+test('小型スピーカーを想定した帯域で、陸海空の着弾とレア演出の立ち上がりが埋もれない', () => {
+  const audio = load();
+  const rate = 22050;
+  const attackFrames = Math.round(rate * .22);
+  const lower = 1 - Math.exp(-2 * Math.PI * 360 / rate);
+  const upper = 1 - Math.exp(-2 * Math.PI * 2500 / rate);
+  const cues = [
+    ['shot-tank', .055], ['shot-submarine', .075], ['shot-fighter', .075],
+    ['impact-infantry:land', .05], ['impact-tank:land', .05],
+    ['impact-battleship:sea', .065], ['impact-fighter:air', .065],
+    ['accent-critical', .11], ['accent-blocked', .085], ['accent-breakthrough', .09],
+  ];
+  for (const [cue, minimum] of cues) {
+    const samples = audio.synthesize(cue, rate);
+    let low = 0;
+    let high = 0;
+    let energy = 0;
+    for (const sample of samples.subarray(0, attackFrames)) {
+      low += (sample - low) * lower;
+      high += (sample - high) * upper;
+      energy += (high - low) ** 2;
+    }
+    const rms = Math.sqrt(energy / attackFrames);
+    assert.ok(rms >= minimum, `${cue} の中域が小さい (${rms})`);
+    assert.equal(Math.abs(samples.at(-1)), 0);
+  }
+});
+
 test('音声を先読みする各タイマーで1つだけ合成し、繰り返し依頼と高サンプルレートでも負荷を抑える', () => {
   const callbacks = [];
   const rates = [];
