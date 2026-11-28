@@ -280,11 +280,29 @@ function under(pitch, tones) {
   return pitch - 5;
 }
 
+// Plain major/minor triads for the orchestral pads. The jazzier sevenths and ninths of the small band
+// sound harsh when strings, choir and brass hold them under the tune.
+const triads = {
+  D: [2, 6, 9], A: [9, 1, 4], Bm: [11, 2, 6], G: [7, 11, 2], Em: [4, 7, 11], Fsm: [6, 9, 1], C: [0, 4, 7],
+  Dm: [2, 5, 9], Bb: [10, 2, 5], Gm: [7, 10, 2], Gm6: [7, 10, 2], A7: [9, 1, 4], A7s: [9, 1, 4], A7b9: [9, 1, 4],
+  F: [5, 9, 0], Eb: [3, 7, 10], Dsus: [2, 7, 9],
+};
+/** Close-position triad from E3 upward, dropping any tone a semitone from a held melody note. */
+function padTones(chord, held = []) {
+  const voices = [];
+  for (let pitch = 52; voices.length < 4; pitch++) {
+    if (triads[chord].includes(pitch % 12)) voices.push(pitch);
+  }
+  return voices.filter(pitch => !held.some(note => [1, 11].includes(Math.abs(note - pitch) % 12)));
+}
+
 // A / B / A' in full orchestra: strings, choir, horns and trumpets, harp, timpani and cymbals.
 function arrangeEpic({bpm, harmony, melody, enemy}) {
   const {channels, note, percussion} = synthesizer(bpm, harmony.length * 4, true);
   for (const [bar, chord] of harmony.entries()) {
-    const [root, ...tones] = chords[chord];
+    const root = chords[chord][0];
+    const held = melody[bar % melody.length].filter(([, duration]) => duration >= .5).map(([, , pitch]) => pitch);
+    const tones = padTones(chord, held);
     const start = bar * 4;
     const section = Math.floor(bar / 8);
     const phrase = bar % 8;
@@ -328,14 +346,14 @@ function arrangeEpic({bpm, harmony, melody, enemy}) {
         note(at, duration, pitch, .13, enemy ? 'brass' : 'trumpet', -.12);
         note(at + .012, duration, under(pitch, tones), .075, 'brass', .3);
         note(at + .02, duration, pitch - 12, .07, 'horn', -.35);
-        note(at, duration, pitch + 12, .03, 'ensemble', .5);
+        if (pitch + 12 <= 93) note(at, duration, pitch + 12, .03, 'ensemble', .5);
       } else if (lyric) {
         note(at, duration, pitch, .14, 'horn', -.1);
         note(at + .015, duration, pitch - 12, .08, 'cello', .3);
-        note(at, duration, pitch + 12, .026, 'ensemble', -.5);
+        if (pitch + 12 <= 93) note(at, duration, pitch + 12, .026, 'ensemble', -.5);
       } else {
         note(at, duration, pitch, .13, 'horn', -.12);
-        note(at + .01, duration, pitch + 12, .042, 'ensemble', .45);
+        if (pitch + 12 <= 93) note(at + .01, duration, pitch + 12, .042, 'ensemble', .45);
         note(at + .02, duration * .9, pitch - 12, .05, 'brass', .25);
       }
     }
